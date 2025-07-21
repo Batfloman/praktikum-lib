@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.odr import ODR, Model, RealData
 
-from .FitResult import generate_fit_result, FitResult
+from .fitResult import generate_fit_result, FitResult
 
 def generic_fit(model, x_data, y_data, xerr=None, yerr=None, initial_guess=None, param_names = None) -> FitResult:
     if np.all(yerr == 0):
