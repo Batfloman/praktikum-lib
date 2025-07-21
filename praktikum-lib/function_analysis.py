@@ -19,9 +19,6 @@ def find_max(fit_func, x_range):
     max_val = -result.fun  # Note: Since we minimized -fit_func, we need to negate the result to get the maximum value
     return max_x, max_val
 
-import numpy as np
-from scipy.optimize import root_scalar
-
 def find_x_for_y(fit_func, target_y, x_range, num_points=1000, tol=1e-5):
     """
     Find the x values for which the function evaluates to a specific y value.
