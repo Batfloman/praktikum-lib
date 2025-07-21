@@ -1,22 +1,10 @@
 import pandas as pd
 import numpy as np
-import os
 import openpyxl
 from openpyxl.styles import Border, Side
 
-def _validate_existing(filename):
-    filename = _validate_filename(filename);
+from validation import validate_filename, ensure_extension
 
-    if not os.path.exists(filename):
-        raise FileNotFoundError("Excel file not found.")
- 
-    return filename;
-
-def _validate_filename(filename):
-    if not filename.endswith('.xlsx'):
-        filename += '.xlsx'
-    return filename;
-    
 def read(file_path, remove_header=False):
     """
     Read an Excel file and convert the table contents into a NumPy array.
@@ -29,7 +17,7 @@ def read(file_path, remove_header=False):
     - np_array (numpy.ndarray): NumPy array containing the table contents.
     """
     try:
-        excel_path = _validate_existing(file_path)
+        excel_path = validate_filename(file_path, ".xlsx");
 
         # Load the Excel file using openpyxl
         wb = openpyxl.load_workbook(excel_path, data_only=True)
@@ -79,7 +67,8 @@ def save(data, filename='output.xlsx'):
             raise ValueError("Input data must be a pandas DataFrame, a numpy ndarray, or a dictionary.")
         
         # Save the DataFrame to an Excel file
-        data.to_excel(_validate_filename(filename), index=False, header=True)  # Include headers for dictionaries
+        excel_path = ensure_extension(filename, ".xlsx");
+        data.to_excel(excel_path, index=False, header=True)  # Include headers for dictionaries
     except Exception as e:
         print(f"Error occurred: {e}")
         return None
@@ -95,7 +84,7 @@ def add_column_border(filename, first_column=1, last_column=None):
                            If None, it will default to the last column in the sheet.
     """
     try:
-        filename = _validate_existing(filename)
+        filename = validate_filename(filename, ".xlsx")
 
         wb = openpyxl.load_workbook(filename)
         ws = wb.active
@@ -128,7 +117,7 @@ def change_column_width(filename, column_width=15, first_column=1, last_column=N
     """
     try:
         # Load the Excel file
-        filename = _validate_existing(filename)
+        filename = validate_filename(filename, ".xlsx")
         wb = openpyxl.load_workbook(filename)
         ws = wb.active
 

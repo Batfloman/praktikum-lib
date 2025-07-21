@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
-from .validation import ensure_extension, validate_filename
 
-from util.structs import DataCluster
+from .validation import ensure_extension, validate_filename
+from structs import DataCluster
 
 def load_csv(filename: str, section: str = None) -> pd.DataFrame:
     filename = validate_filename(filename, ".csv")
