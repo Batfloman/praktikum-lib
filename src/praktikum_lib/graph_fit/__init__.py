@@ -3,7 +3,7 @@ from .orthogonal_distance import generic_fit as orthogonal_distance_regression_f
 
 from .fitResult import FitResult
 from .fitModel import FitModel
-from .models import Linear, InverseSquare, Exponential, LimitedGrowth
+from .models import Linear, InverseSquare, Exponential, LimitedGrowth, ResonanceCurve
 
 __all__ = [
     "least_squares_fit",
@@ -14,5 +14,6 @@ __all__ = [
     "InverseSquare",
     "Exponential",
     "LimitedGrowth",
+    "ResonanceCurve",
 ]
 
