@@ -1,18 +1,20 @@
 import numpy as np;
-import pint
-import math
+# import pint
 
-from structs.measurementBase import MeasurementBase, ConvertibleToFloat
-import myutil;
+from .. import util
+from .measurementBase import MeasurementBase, ConvertibleToFloat
+# from structs.measurementBase import MeasurementBase, ConvertibleToFloat
 
-ureg = pint.UnitRegistry();
-ureg.formatter.default_format = "~P"
+# ureg = pint.UnitRegistry();
+# ureg.formatter.default_format = "~P"
 
 class Measurement(MeasurementBase):
-    def __init__(self, value: ConvertibleToFloat, uncertainty: ConvertibleToFloat, unit=ureg.Unit(""), min_error=0):
-        super().__init__(value, uncertainty)
+    def __init__(self, value: ConvertibleToFloat, uncertainty: ConvertibleToFloat,
+                 # unit=ureg.Unit(""),
+                 min_error=0):
+        super().__init__(value, uncertainty, min_error=min_error)
 
-        self.unit = ureg.Unit(unit)
+        # self.unit = ureg.Unit(unit)
 
         # displayoptions
         self.display_unit = False;
@@ -26,12 +28,12 @@ class Measurement(MeasurementBase):
     # ==================================================
 
     def round_digit(self, digits = 0):
-        self.value = myutil.round(self.value, digits)
-        self.error = myutil.ceil(self.error, digits)
+        self.value = util.round(self.value, digits)
+        self.error = util.ceil(self.error, digits)
         return self;
 
     def round(self, additional_digits = 0):
-        exponent = myutil.get_exponent_significant(self.error)
+        exponent = util.get_exponent_significant(self.error)
         return self.round_digit(-exponent + additional_digits)
     
     def __round__(self, decimals = 0):
@@ -53,15 +55,15 @@ class Measurement(MeasurementBase):
 
     @property
     def _value_digit_position(self):
-        return myutil.get_exponent_significant(self.value)
+        return util.get_exponent_significant(self.value)
 
     @property
     def _error_digit_position(self):
-        return myutil.get_exponent_significant(self.error)
+        return util.get_exponent_significant(self.error)
 
     @property
     def _error_last_digit_position(self):
-        return myutil.get_exponent_significant(self.error) - self.additional_digits
+        return util.get_exponent_significant(self.error) - self.additional_digits
 
     @property
     def _digit_length(self):
@@ -88,7 +90,7 @@ class Measurement(MeasurementBase):
             str_err = ""
         else:
             adjusted_error = self.error / (10 ** err_end_exp)
-            adjusted_error = int(myutil.ceil(adjusted_error))
+            adjusted_error = int(util.ceil(adjusted_error))
             str_err = f"({adjusted_error:d})"
 
         str_exp = "" if val_start_exp == 0 else f"e{int(val_start_exp)}"
