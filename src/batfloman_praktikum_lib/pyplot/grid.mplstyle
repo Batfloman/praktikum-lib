@@ -1,0 +1,6 @@
+# Grid settings
+axes.grid: True                  # Enable grid
+grid.alpha: 0.5                 # Transparency of the grid lines
+grid.color: gray                 # Color of the grid lines
+grid.linestyle: --               # Line style of the grid lines
+grid.linewidth: 0.5              # Line width of the grid lines

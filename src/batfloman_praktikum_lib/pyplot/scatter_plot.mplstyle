@@ -1,0 +1,29 @@
+# scatter_style.mplstyle
+
+# General settings
+axes.titlesize: 16
+axes.labelsize: 14
+xtick.labelsize: 12
+ytick.labelsize: 12
+legend.fontsize: 12
+font.size: 12
+lines.linestyle: None
+lines.linewidth: 0.5
+lines.markersize: 6   
+
+# Figure settings
+figure.figsize: 8, 6
+figure.dpi: 300
+
+# Grid settings
+axes.grid: True
+grid.alpha: 0.5
+grid.linestyle: --
+
+# Scatter plot settings
+scatter.marker: o
+scatter.edgecolor: black
+scatter.sizes: 50
+
+# Error bars settings
+errorbar.capsize: 4
