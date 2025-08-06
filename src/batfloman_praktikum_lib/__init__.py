@@ -1,6 +1,6 @@
-from . import structs,  graph_fit
+from . import structs
 from . import util
-from . import graph
+from . import graph, graph_fit
 from . import function_analysis
 from . import tables
 
@@ -12,5 +12,11 @@ __all__ = [
     # files 
     "graph",
     "util",
-    "function_analysis"
+    "function_analysis",
 ]
+
+def lazy_imports():
+    global significant_rounding
+    import batfloman_praktikum_lib.significant_rounding as significant_rounding
+
+lazy_imports()
