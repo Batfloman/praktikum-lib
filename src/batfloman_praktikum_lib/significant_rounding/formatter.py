@@ -1,10 +1,7 @@
 from enum import Enum
+from typing import Literal, Union
 
 from .core import get_sig_digit_position, round_sig
-
-class UncertaintyNotation(Enum):
-    PlusMinus = "PlusMinus"     # für ±-Notation, z.B. 1.23 ± 0.01
-    Parentheses = "Parentheses" # für Klammer-Notation, z.B. 1.23(1)
 
 def _display_plusminus(value: float, uncertainty: float) -> str:
     val, err = round_sig(value, uncertainty)
@@ -17,7 +14,14 @@ def _display_parenthesis(value: float, uncertainty: float) -> str:
     err_str = f"{int(err * 10**decimals)}"
     return f"{val:.{decimals}f}({err_str})"
 
-def format_measurement(value: float, uncertainty: float, mode: UncertaintyNotation = UncertaintyNotation.PlusMinus) -> str:
+class UncertaintyNotation(Enum):
+    PlusMinus = "pm"     # für ±-Notation, z.B. 1.23 ± 0.01
+    Parentheses = "brk" # für Klammer-Notation, z.B. 1.23(1)
+
+def format_measurement(value: float, uncertainty: float, mode: Union[UncertaintyNotation, Literal["pm", "brk"]] = UncertaintyNotation.PlusMinus) -> str:
+    if isinstance(mode, str):
+        mode = UncertaintyNotation(mode)
+
     match mode:
         case UncertaintyNotation.PlusMinus:
             return _display_plusminus(value, uncertainty)
