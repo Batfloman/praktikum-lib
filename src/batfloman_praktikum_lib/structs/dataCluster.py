@@ -6,7 +6,7 @@ from typing import List, Union
 
 from .dataset import Dataset
 from .measurement import Measurement
-from util import tables
+from .. import tables
 
 def _get_column_with_error_indicies(indicies: List[str]) -> dict:
     property_has_error = {}

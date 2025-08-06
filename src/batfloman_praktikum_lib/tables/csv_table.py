@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 
 from .validation import ensure_extension, validate_filename
-from structs import DataCluster
 
 def load_csv(filename: str, section: str = None) -> pd.DataFrame:
     filename = validate_filename(filename, ".csv")
@@ -29,7 +28,8 @@ def load_csv(filename: str, section: str = None) -> pd.DataFrame:
 
     return pd.DataFrame(data, columns=headers if headers else None)
 
-def load_csv_datacluster(filename: str, section: str = None) -> DataCluster:
+def load_csv_datacluster(filename: str, section: str = None):
+    from ..structs import DataCluster
     return DataCluster(load_csv(filename, section))
 
 def load_csv_consts(filename, section: str = None) -> dict:

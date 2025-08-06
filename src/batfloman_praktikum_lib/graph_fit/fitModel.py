@@ -1,6 +1,6 @@
 from typing import List
 
-from structs import DataCluster
+from ..structs import DataCluster
 from .least_squares import generic_fit as ls_fit
 from .orthogonal_distance import generic_fit as odr_fit
 from .fitResult import FitResult

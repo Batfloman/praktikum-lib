@@ -6,8 +6,8 @@ from collections import namedtuple
 from typing import List, Union
 import pandas as pd
 
-from structs import DataCluster, Measurement, Point;
-from graph_fit import FitResult;
+from .structs import DataCluster, Measurement;
+from .graph_fit import FitResult;
 
 # Define a named tuple for the return value
 PlotResult = namedtuple('PlotResult', ['line', 'plot', "fill"])
@@ -150,11 +150,11 @@ def lineplot(m, b, start, end, p=None, color=None, label=None):
     y = m * x + b;
     return plot(x, y, p=p, color=color, label=label)
 
-def lineplot_around_sp(m: float, sp: Point, start, end, p=None, color=None, label=None):
-    x = np.linspace(start, end, 10000);
-    b = calc_b_lineplot(m, sp);
-    y = m * x + b;
-    return plot(x, y, p=p, color=color, label=label)
+# def lineplot_around_sp(m: float, sp: Point, start, end, p=None, color=None, label=None):
+#     x = np.linspace(start, end, 10000);
+#     b = calc_b_lineplot(m, sp);
+#     y = m * x + b;
+#     return plot(x, y, p=p, color=color, label=label)
 
 def calc_b_lineplot(m, sp):
     return sp.y - m*sp.x

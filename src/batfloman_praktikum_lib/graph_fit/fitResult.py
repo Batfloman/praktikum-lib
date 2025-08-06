@@ -1,7 +1,7 @@
 from collections import namedtuple
 import numpy as np
 
-from structs import Measurement, Dataset
+from ..structs import Measurement, Dataset
 
 # FitResult = namedtuple('FitResult', ['func', 'params', 'covariance', 'value_func', 'min_func', 'max_func'])
 FitResult = namedtuple('FitResult', ['func', 'params', 'quality', 'func_no_err', 'min_1sigma', 'max_1sigma'])

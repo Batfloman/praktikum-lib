@@ -3,7 +3,7 @@ import numpy as np
 import openpyxl
 from openpyxl.styles import Border, Side
 
-from validation import validate_filename, ensure_extension
+from .validation import validate_filename, ensure_extension
 
 def read(file_path, remove_header=False):
     """
