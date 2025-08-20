@@ -4,15 +4,20 @@ from . import graph, graph_fit
 from . import function_analysis
 from . import tables
 
+from .structs import DataCluster, Dataset, Measurement
+
 __all__ = [
     # modules
-    'structs',
     "graph_fit",
     "tables",
     # files 
     "graph",
     "util",
     "function_analysis",
+
+    "DataCluster",
+    "Dataset",
+    "Measurement"
 ]
 
 def lazy_imports():
