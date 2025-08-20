@@ -60,6 +60,13 @@ def _df_to_Dataset_arr(df: pd.DataFrame):
     return arr;
 
 class DataCluster:
+    @staticmethod
+    def load_csv(filename: str, section: str | None = None) -> 'DataCluster':
+        from ..tables.csv_table import load_csv
+        return DataCluster(load_csv(filename, section))
+
+    # ==================================================
+
     def __init__(self, datasets: Union[List[Measurement], pd.DataFrame] = None):
         if isinstance(datasets, pd.DataFrame):
             datasets = _df_to_Dataset_arr(datasets)

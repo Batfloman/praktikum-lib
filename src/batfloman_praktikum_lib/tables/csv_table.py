@@ -3,7 +3,7 @@ import pandas as pd
 
 from .validation import ensure_extension, validate_filename
 
-def load_csv(filename: str, section: str = None) -> pd.DataFrame:
+def load_csv(filename: str, section: str | None = None) -> pd.DataFrame:
     filename = validate_filename(filename, ".csv")
 
     data = []
@@ -28,11 +28,11 @@ def load_csv(filename: str, section: str = None) -> pd.DataFrame:
 
     return pd.DataFrame(data, columns=headers if headers else None)
 
-def load_csv_datacluster(filename: str, section: str = None):
+def load_csv_datacluster(filename: str, section: str | None = None):
     from ..structs import DataCluster
     return DataCluster(load_csv(filename, section))
 
-def load_csv_consts(filename, section: str = None) -> dict:
+def load_csv_consts(filename, section: str | None = None) -> dict:
     """
         quickly loads sections with a
             '# name, value, error'
