@@ -21,7 +21,7 @@ def _parse_uncertainty_str(value: float, uncertainty: str) -> float:
 
 def _get_value_and_error(other) -> Tuple[float, float]:
     if isinstance(other, MeasurementBase):
-        return (other.value, other.uncertainty)
+        return (other.value, other.error)
     elif isinstance(other, ConvertibleToFloat):
         return (float(other), 0.0)
     raise TypeError(f"Unsupported type: {type(other)}")
@@ -44,7 +44,7 @@ class MeasurementBase:
         if isinstance(uncertainty, str):
             uncertainty = _parse_uncertainty_str(value, uncertainty);
         uncertainty = max(float(uncertainty), min_error)
-        self.uncertainty = uncertainty
+        self.error = uncertainty
 
     # ==================================================
     #     Comparison operations
@@ -81,7 +81,7 @@ class MeasurementBase:
         other_val, other_err = _get_value_and_error(other)
 
         new_value = self.value + other_val
-        new_uncertainty = np.hypot(self.uncertainty, other_err)
+        new_uncertainty = np.hypot(self.error, other_err)
 
         return MeasurementBase(new_value, new_uncertainty)
 
@@ -92,7 +92,7 @@ class MeasurementBase:
         other_val, other_err = _get_value_and_error(other)
 
         new_value = self.value - other_val
-        new_uncertainty = np.hypot(self.uncertainty, other_err)
+        new_uncertainty = np.hypot(self.error, other_err)
 
         return MeasurementBase(new_value, new_uncertainty)
 
@@ -107,7 +107,7 @@ class MeasurementBase:
 
         new_value = self.value * other_val
         t1 = (self.value * other_err)**2
-        t2 = (self.uncertainty * other_val)**2
+        t2 = (self.error * other_val)**2
         new_uncertainty = np.sqrt(t1 + t2)
             
         return MeasurementBase(new_value, new_uncertainty)
@@ -119,7 +119,7 @@ class MeasurementBase:
         other_val, other_err = _get_value_and_error(other)
 
         new_value = self.value / other_val
-        t1 = (self.uncertainty / other_val)**2
+        t1 = (self.error / other_val)**2
         t2 = (self.value * other_err / (other_val**2))**2
         new_uncertainty = np.sqrt(t1 + t2)
 
@@ -130,7 +130,7 @@ class MeasurementBase:
 
         new_value = other_val / self.value
         t1 = (other_err / self.value)**2
-        t2 = (other_val * self.uncertainty / (self.value)**2)**2
+        t2 = (other_val * self.error / (self.value)**2)**2
         new_uncertainty = np.sqrt(t1 + t2)
 
         return MeasurementBase(new_value, new_uncertainty)
@@ -139,21 +139,21 @@ class MeasurementBase:
     # operators & advanced func
 
     def __neg__(self):
-        return MeasurementBase(-self.value, self.uncertainty)
+        return MeasurementBase(-self.value, self.error)
 
     def __abs__(self):
-        return MeasurementBase(abs(self.value), self.uncertainty)
+        return MeasurementBase(abs(self.value), self.error)
 
     def __mod__(self, other):
         val = self.value % other
-        err = self.uncertainty
+        err = self.error
         return MeasurementBase(val, err)
 
     def __pow__(self, other):
         other_val, other_err = _get_value_and_error(other)
 
         value = self.value ** other_val
-        t1 = other_val * self.value ** (other_val - 1) * self.uncertainty
+        t1 = other_val * self.value ** (other_val - 1) * self.error
         t2 = value * np.log(self.value) * other_err
         error = np.sqrt(t1**2 + t2**2)
 
@@ -164,7 +164,7 @@ class MeasurementBase:
 
         value = other_val ** self.value
         t1 = self.value * other_val**(self.value - 1) * other_err
-        t2 = value * np.log(other_val) * self.uncertainty
+        t2 = value * np.log(other_val) * self.error
         error = np.sqrt(t1**2 + t2**2)
 
         return MeasurementBase(value, error)
@@ -181,7 +181,7 @@ class MeasurementBase:
         
         # Extract the input values and errors
         values = [_get_value(i) for i in inputs]
-        errors = [i.uncertainty if isinstance(i, MeasurementBase) else 0 for i in inputs]
+        errors = [i.error if isinstance(i, MeasurementBase) else 0 for i in inputs]
 
         # Handle specific ufuncs
         match ufunc:
@@ -247,10 +247,10 @@ class MeasurementBase:
     # ==================================================
 
     def __str__(self):
-        return f"{self.value} \pm {self.uncertainty}";
+        return f"{self.value} \pm {self.error}";
 
     def __repr__(self):
-        return f"Measurement(value={self.value}, error={self.uncertainty})"
+        return f"Measurement(value={self.value}, error={self.error})"
     
     def __format__(self, format_spec):
         return format(self.__str__(), format_spec);
