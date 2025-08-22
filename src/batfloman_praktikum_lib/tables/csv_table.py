@@ -1,30 +1,52 @@
-import numpy as np
 import pandas as pd
+import csv
+import re
 
 from .validation import ensure_extension, validate_filename
 
+_SECTION_PATTERN = re.compile(r"^\[(?P<name>[^\]]+)\]$")
+_HEADER_PATTERN = re.compile(r"^#\s*(?P<header>.+)$")
+_COMMENT_PATTERN = re.compile(r"\s*//.*$")
+
 def load_csv(filename: str, section: str | None = None) -> pd.DataFrame:
+    """
+    Load a custom CSV file with optional [sections] and '#' headers.
+    Values are automatically converted to float if possible.
+    """
     filename = validate_filename(filename, ".csv")
 
     data = []
     headers = None
-    in_section = section is None  # Read everything if no section is specified
+    in_section = section is None  # True if no section specified
 
-    with open(filename, 'r') as file:
-        for line in file:
-            line = line.strip()
+    with open(filename, newline="") as file:
+        reader = csv.reader(file)
+        for row in reader:
+            if not row:
+                continue  # skip empty lines
 
-            if line.startswith("[") and line.endswith("]") and section is not None:
-                in_section = (line[1:-1] == section)
+            line = ",".join(row).strip()
+            line = _remove_comments(line);
+            if not line:
+                continue; # skip comment only lines
+
+            # Section handling
+            matchSection = _SECTION_PATTERN.match(line)
+            if matchSection and section is not None:
+                in_section = (matchSection.group("name") == section)
+                continue;
+            if not in_section:
+                continue;
+
+            # Header row
+            matchHeader = _HEADER_PATTERN.match(line)
+            if matchHeader and "," in matchHeader.group("header"):
+                headers = [x.strip() for x in matchHeader.group("header").split(",")]
                 continue
 
-            if in_section and line:
-                if line.startswith("#"):  
-                    temp = line[1:].split(",") # remove '#' and split
-                    headers = [x.strip() for x in temp]
-                else:
-                    temp = line.split(",")
-                    data.append([x.strip() for x in temp])
+            # Data row → apply type conversion
+            row_clean = [x.strip() for x in line.split(",")]
+            data.append([_maybe_number(x) for x in row_clean])
 
     return pd.DataFrame(data, columns=headers if headers else None)
 
@@ -46,7 +68,7 @@ def load_csv_consts(filename, section: str | None = None) -> dict:
     expected_indicies = _expect_consts(df)
     if not "name" in expected_indicies:
         expected_indicies["name"] = None
-        print("Warning! No 'name' index found! Useing indicies")
+        print("Warning! No 'name' index found! Using indicies")
         # raise IndexError(f"No 'name' index found! Columns '{df.columns}'")
     if not "value" in expected_indicies:
         raise IndexError(f"No 'value' index found! Columns '{df.columns}'")
@@ -62,6 +84,21 @@ def load_csv_consts(filename, section: str | None = None) -> dict:
         err = row[expected_indicies["error"]]
         consts[name] = Measurement(val, err);
     return consts;
+
+# ==================================================
+#    helper
+# ==================================================
+
+def _maybe_number(x: str):
+    """Try to convert to float, otherwise return original string."""
+    try:
+        return float(x)
+    except ValueError:
+        return x
+
+def _remove_comments(line: str) -> str:
+    """Remove comments from a line."""
+    return _COMMENT_PATTERN.sub("", line).strip()
 
 def _expect_consts(df: pd.DataFrame):
     # checks whether a df has 'good enough' indicies for consts method
@@ -84,3 +121,4 @@ def _expect_consts(df: pd.DataFrame):
                 found_columns[key] = columns[stripped_variant]
                 break  # Stop at the first match
     return found_columns;
+
