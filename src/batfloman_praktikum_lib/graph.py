@@ -7,6 +7,7 @@ from typing import List, Union
 import pandas as pd
 
 from .structs import DataCluster, Measurement;
+from .structs.measurementBase import MeasurementBase;
 from .graph_fit import FitResult;
 
 # Define a named tuple for the return value
@@ -26,7 +27,7 @@ def _extract_value_error(lst: List[Union[float, int, Measurement]]):
         if isinstance(item, (float, int, np.int64)):
             values.append(item)
             errors.append(0)
-        elif isinstance(item, Measurement):
+        elif isinstance(item, (Measurement, MeasurementBase)):
             values.append(item.value)
             errors.append(item.error)
         else:
