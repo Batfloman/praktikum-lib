@@ -4,6 +4,9 @@ import re
 
 from typing import List, Union
 
+from batfloman_praktikum_lib.tables.latex_table import formatter as latex_formatter
+from batfloman_praktikum_lib.tables.metadata import MetadataManager
+
 from .dataset import Dataset
 from .measurement import Measurement
 from .. import tables
@@ -72,7 +75,7 @@ class DataCluster:
             datasets = _df_to_Dataset_arr(datasets)
 
         self.data = datasets or [];
-        self.column_metadata = {};
+        self.metadata_manager = MetadataManager()
 
     # ==================================================
 
@@ -208,99 +211,111 @@ class DataCluster:
     
     # ==================================================
 
-    def set_column_metadata(self, index, name=None, display_exponent=None, force_exponent=None, unit=None):
-        if index not in self.get_column_names():
-            print(f"Warning: No Dataset has index {index}");
+    # def set_column_metadata(self, index, name=None, display_exponent=None, force_exponent=None, unit=None):
+    #     if index not in self.get_column_names():
+    #         print(f"Warning: No Dataset has index {index}");
+    #
+    #     if index not in self.column_metadata:
+    #         self.column_metadata[index] = {};
+    #
+    #     if name is not None:
+    #         self.column_metadata[index]['name'] = name;
+    #     if display_exponent is not None and isinstance(display_exponent, int):
+    #         self.column_metadata[index]['display_exponent'] = display_exponent
+    #     if force_exponent is not None and isinstance(force_exponent, int):
+    #         self.column_metadata[index]['force_exponent'] = force_exponent
+    #     if unit is not None and isinstance(unit, str):
+    #         self.column_metadata[index]['unit'] = unit
 
-        if index not in self.column_metadata:
-            self.column_metadata[index] = {};
-        
-        if name is not None:
-            self.column_metadata[index]['name'] = name;
-        if display_exponent is not None and isinstance(display_exponent, int):
-            self.column_metadata[index]['display_exponent'] = display_exponent
-        if force_exponent is not None and isinstance(force_exponent, int):
-            self.column_metadata[index]['force_exponent'] = force_exponent
-        if unit is not None and isinstance(unit, str):
-            self.column_metadata[index]['unit'] = unit
-
-    def _get_column_metadata(self, index, field):
-        if not index in self.column_metadata:
-            return;
-        
-        metadata = self.column_metadata[index]
-        if not isinstance(metadata, dict):
-            print(f"Metadata should be stored as an 'dict' not {type(metadata)}")
-            return;
-        
-        return metadata.get(field)
+    # def _get_column_metadata(self, index, field):
+    #     if not index in self.column_metadata:
+    #         return;
+    #
+    #     metadata = self.column_metadata[index]
+    #     if not isinstance(metadata, dict):
+    #         print(f"Metadata should be stored as an 'dict' not {type(metadata)}")
+    #         return;
+    #
+    #     return metadata.get(field)
     
-    def _format_column_header(self, index):
-        name = self._get_column_metadata(index, 'name') or index;
-        unit = self._get_column_metadata(index, 'unit');
-        exponent = self._get_column_metadata(index, 'display_exponent');
+    # def _format_column_header(self, index):
+    #     name = self._get_column_metadata(index, 'name') or index;
+    #     unit = self._get_column_metadata(index, 'unit');
+    #     exponent = self._get_column_metadata(index, 'display_exponent');
+    #
+    #     if exponent is None or exponent == 0:
+    #         exponent_text = "";
+    #     else:
+    #         # exponent_text = fr"$\times 10^{{{exponent}}}$ "
+    #         exponent_text = fr"$10^{{{exponent}}}$ "
+    #
+    #     if unit is None or unit == "":
+    #         if exponent_text == "":
+    #             unit_text = ""
+    #         else :
+    #             unit_text = f"[{exponent_text}]";
+    #     else:
+    #         unit_text = f"[{exponent_text}{unit}]";
+    #
+    #     return f"{name} {unit_text}";
 
-        if exponent is None or exponent == 0:
-            exponent_text = "";
-        else:
-            # exponent_text = fr"$\times 10^{{{exponent}}}$ "
-            exponent_text = fr"$10^{{{exponent}}}$ "
 
-        if unit is None or unit == "":
-            if exponent_text == "":
-                unit_text = ""
-            else :
-                unit_text = f"[{exponent_text}]";
-        else:
-            unit_text = f"[{exponent_text}{unit}]";
+    # def _format_column_data(self, index) -> np.ndarray:
+    #     column_data = self.column(index)
+    #     display_exponent = self._get_column_metadata(index, 'display_exponent')
+    #     force_exponent = self._get_column_metadata(index, 'force_exponent')
+    #
+    #     if force_exponent is not None and not isinstance(force_exponent, bool):
+    #         print(f"Warning: 'force_exponent' should be a bool and not {type(force_exponent)}"); 
+    #
+    #     if isinstance(display_exponent, int):
+    #         def format_value(val):
+    #             if str(val).strip() == "-":
+    #                 return "-";
+    #
+    #             num_val = float(val) if isinstance(val, str) else val
+    #             shifed_val = num_val / 10**display_exponent
+    #
+    #             if isinstance(shifed_val, Measurement):
+    #                 return shifed_val if not force_exponent else shifed_val.to_str_bracket(0)
+    #
+    #             return np.round(shifed_val, 10) # float uncertainty removed!
+    #         return [format_value(val) for val in column_data];
+    #
+    #         # format_shift_exponent = lambda x: x / 10**display_exponent;
+    #         # formatted = [(format_shift_exponent(float(val) if isinstance(val, str) else val) if str(val).strip() != "-" else "-") for val in column_data]
+    #         # return formatted
+    #     elif display_exponent is not None:
+    #         print(f"Display exponten was not of type 'int'. Was: {type(display_exponent)}")
+    #
+    #     return column_data
 
-        return f"{name} {unit_text}";
-
-    def _format_column_data(self, index) -> np.ndarray:
-        column_data = self.column(index)
-        display_exponent = self._get_column_metadata(index, 'display_exponent')
-        force_exponent = self._get_column_metadata(index, 'force_exponent')
-
-        if force_exponent is not None and not isinstance(force_exponent, bool):
-            print(f"Warning: 'force_exponent' should be a bool and not {type(force_exponent)}"); 
-
-        if isinstance(display_exponent, int):
-            def format_value(val):
-                if str(val).strip() == "-":
-                    return "-";
-
-                num_val = float(val) if isinstance(val, str) else val
-                shifed_val = num_val / 10**display_exponent
-
-                if isinstance(shifed_val, Measurement):
-                    return shifed_val if not force_exponent else shifed_val.to_str_bracket(0)
-                
-                return np.round(shifed_val, 10) # float uncertainty removed!
-            return [format_value(val) for val in column_data];
-
-            # format_shift_exponent = lambda x: x / 10**display_exponent;
-            # formatted = [(format_shift_exponent(float(val) if isinstance(val, str) else val) if str(val).strip() != "-" else "-") for val in column_data]
-            # return formatted
-        elif display_exponent is not None:
-            print(f"Display exponten was not of type 'int'. Was: {type(display_exponent)}")
-
-        return column_data
-
-    def create_display_array(self, use_indicies=None, exclude_indicies=None):
+    def _latex_format_data(self, use_indicies=None, exclude_indicies=None):
+        """
+            This method formats the header & columns
+        """
+        # filter indicies
         indicies = self.get_column_names() if use_indicies is None else use_indicies;
         if exclude_indicies is not None:
             indicies = [i for i in indicies if i not in exclude_indicies];
-        
-        header = [self._format_column_header(i) for i in indicies]
 
+        # format
+        header = []
         columns = []
+
         for i in indicies:
+            metadata = self.metadata_manager.get_metadata(i)
+            header.append(latex_formatter.format_header(metadata, i));
             columns.append(self._format_column_data(i))
-        
-        data = np.column_stack(columns)
+        data = np.column_stack(columns) # stack side by side -> 2d array
 
-        return np.vstack([header, data])
+        return np.vstack([header, data]) # plop header on top
 
+    def _format_column_data(self, index):
+        column_data = self.column(index)
+        metadata = self.metadata_manager.get_metadata(index);
+
+        return latex_formatter.format_column_data(column_data, metadata)
 
     # ==================================================
 
@@ -311,7 +326,7 @@ class DataCluster:
         pass
 
     def save_latex(self, filename: str, use_indices=None, exclude_indicies=None) -> None:
-        data = self.create_display_array(use_indicies=use_indices, exclude_indicies=exclude_indicies)
+        data = self._latex_format_data(use_indicies=use_indices, exclude_indicies=exclude_indicies)
         # data = self.to_numpy(use_indicies=use_indices, exclude_indicies=exclude_indicies, with_header=True)
         tables.export_as_latex(data, filename, has_header=True)
     
