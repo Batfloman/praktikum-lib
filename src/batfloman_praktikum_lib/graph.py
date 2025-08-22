@@ -5,6 +5,7 @@ import numpy as np;
 from collections import namedtuple
 from typing import List, Union
 import pandas as pd
+import os
 
 from .structs import DataCluster, Measurement;
 from .structs.measurementBase import MeasurementBase;
@@ -34,6 +35,15 @@ def _extract_value_error(lst: List[Union[float, int, Measurement]]):
             raise ValueError(f"List contains an unsupported type: {item} is type {type(item)}")
     
     return values, errors
+
+def save_plot(plot: tuple[Figure, Axes | np.ndarray], path: str, successMsg: bool = True):
+    fig, _ = plot
+    dir_path = os.path.dirname(path)
+    if dir_path:
+        os.makedirs(dir_path, exist_ok=True)
+    fig.savefig(path, dpi=300)
+    if successMsg:
+        print(f"file {os.path.basename(path)} has been saved to {os.path.abspath(dir_path or '.')}")
 
 def create_plot(**kwargs) -> tuple[Figure, Axes | np.ndarray]:
     return plt.subplots(**kwargs);
