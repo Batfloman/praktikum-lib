@@ -10,7 +10,7 @@ CellValue = Union[float, str, Measurement]
 
 def format_symbol(name: str) -> str:
     # crude heuristic: if it contains `_` or `^` or is a single letter → math mode
-    pattern = r"^[A-Za-z](?:([_^](?:\{[^{}]+\}|[A-Za-z0-9]+)))*$"
+    pattern = r"^[A-Za-z](?:([_^](?:\{[^{}]+\}|[A-Za-z0-9]+)))*"
     if re.match(pattern, name):
         return f"${name}$"
     return name
