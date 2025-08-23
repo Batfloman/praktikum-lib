@@ -46,6 +46,10 @@ class MeasurementBase:
         uncertainty = max(float(uncertainty), min_error)
         self.error = uncertainty
 
+    @classmethod
+    def from_value_error(cls, value, error):
+        return cls(value, error)
+
     # ==================================================
     #     Comparison operations
     # ==================================================
@@ -83,7 +87,7 @@ class MeasurementBase:
         new_value = self.value + other_val
         new_uncertainty = np.hypot(self.error, other_err)
 
-        return MeasurementBase(new_value, new_uncertainty)
+        return self.__class__.from_value_error(new_value, new_uncertainty)
 
     def __radd__(self, other):
         return self.__add__(other)
@@ -94,7 +98,7 @@ class MeasurementBase:
         new_value = self.value - other_val
         new_uncertainty = np.hypot(self.error, other_err)
 
-        return MeasurementBase(new_value, new_uncertainty)
+        return self.__class__.from_value_error(new_value, new_uncertainty)
 
     def __rsub__(self, other):
         return (-self).__add__(other)
@@ -110,7 +114,7 @@ class MeasurementBase:
         t2 = (self.error * other_val)**2
         new_uncertainty = np.sqrt(t1 + t2)
             
-        return MeasurementBase(new_value, new_uncertainty)
+        return self.__class__.from_value_error(new_value, new_uncertainty)
 
     def __rmul__(self, other):
         return self.__mul__(other)
@@ -123,7 +127,7 @@ class MeasurementBase:
         t2 = (self.value * other_err / (other_val**2))**2
         new_uncertainty = np.sqrt(t1 + t2)
 
-        return MeasurementBase(new_value, new_uncertainty)
+        return self.__class__.from_value_error(new_value, new_uncertainty)
 
     def __rtruediv__(self, other):
         other_val, other_err = _get_value_and_error(other)
@@ -133,21 +137,21 @@ class MeasurementBase:
         t2 = (other_val * self.error / (self.value)**2)**2
         new_uncertainty = np.sqrt(t1 + t2)
 
-        return MeasurementBase(new_value, new_uncertainty)
+        return self.__class__.from_value_error(new_value, new_uncertainty)
 
     # ==================================================
     # operators & advanced func
 
     def __neg__(self):
-        return MeasurementBase(-self.value, self.error)
+        return self.__class__.from_value_error(-self.value, self.error)
 
     def __abs__(self):
-        return MeasurementBase(abs(self.value), self.error)
+        return self.__class__.from_value_error(abs(self.value), self.error)
 
     def __mod__(self, other):
         val = self.value % other
         err = self.error
-        return MeasurementBase(val, err)
+        return self.__class__.from_value_error(val, err)
 
     def __pow__(self, other):
         other_val, other_err = _get_value_and_error(other)
@@ -157,7 +161,7 @@ class MeasurementBase:
         t2 = value * np.log(self.value) * other_err
         error = np.sqrt(t1**2 + t2**2)
 
-        return MeasurementBase(value, error)
+        return self.__class__.from_value_error(value, error)
     
     def __rpow__(self, other):
         other_val, other_err = _get_value_and_error(other)
@@ -167,13 +171,13 @@ class MeasurementBase:
         t2 = value * np.log(other_val) * self.error
         error = np.sqrt(t1**2 + t2**2)
 
-        return MeasurementBase(value, error)
+        return self.__class__.from_value_error(value, error)
 
     # ==================================================
     # numpy compatibility
 
     def rint(self):
-        return MeasurementBase(np.rint(self.value), np.ceil(self.error))
+        return self.__class__.from_value_error(np.rint(self.value), np.ceil(self.error))
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         """
@@ -245,7 +249,7 @@ class MeasurementBase:
                 err = np.deg2rad(errors[0]);
             case _:
                 raise NotImplementedError(f"not handled function: {ufunc}")
-        return MeasurementBase(val, err)
+        return self.__class__.from_value_error(val, err)
 
     # ==================================================
 
