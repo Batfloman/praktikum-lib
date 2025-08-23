@@ -172,6 +172,9 @@ class MeasurementBase:
     # ==================================================
     # numpy compatibility
 
+    def rint(self):
+        return MeasurementBase(np.rint(self.value), np.ceil(self.error))
+
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         """
         Handle NumPy universal functions.
