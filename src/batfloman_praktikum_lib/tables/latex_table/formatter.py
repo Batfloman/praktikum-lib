@@ -8,6 +8,13 @@ import re
 # typing alias
 CellValue = Union[float, str, Measurement]
 
+def format_symbol(name: str) -> str:
+    # crude heuristic: if it contains `_` or `^` or is a single letter → math mode
+    pattern = r"^[A-Za-z](?:([_^](?:\{[^{}]+\}|[A-Za-z0-9]+)))*$"
+    if re.match(pattern, name):
+        return f"${name}$"
+    return name
+
 def format_unit(unit: str) -> str:
     """
     Format units for LaTeX without using full math mode.
@@ -20,6 +27,8 @@ def format_unit(unit: str) -> str:
 def format_header(metadata: ColumnMetadata, index: str) -> str:
     """Returns the formatted header string."""
     name = metadata.name or index
+    name = format_symbol(name)
+
     unit = metadata.unit
     exponent = metadata.display_exponent
 
