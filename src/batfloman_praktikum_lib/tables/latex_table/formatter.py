@@ -26,8 +26,7 @@ def format_unit(unit: str) -> str:
 
 def format_header(metadata: ColumnMetadata, index: str) -> str:
     """Returns the formatted header string."""
-    name = metadata.name or index
-    name = format_symbol(name)
+    name = metadata.name or format_symbol(index)
 
     unit = metadata.unit
     exponent = metadata.display_exponent
