@@ -1,9 +1,14 @@
 from typing import List
 
+from batfloman_praktikum_lib.structs.measurement import Measurement
+
 from ..structs import DataCluster
 from .least_squares import generic_fit as ls_fit
 from .orthogonal_distance import generic_fit as odr_fit
 from .fitResult import FitResult
+
+import numpy as np
+import warnings
 
 class FitModel:
     @staticmethod
@@ -31,7 +36,21 @@ class FitModel:
     def ls_fit(cls, x, y, yerr = None) -> FitResult:
         param_names = cls.get_param_names()
         initial_guess = cls.get_initial_guess(x, y)
-        return ls_fit(cls.model, x, y, yerr, initial_guess, param_names)
+
+        res = ls_fit(cls.model, x, y, yerr, initial_guess, param_names)
+
+        # temporär Warnformat ändern
+        old_format = warnings.formatwarning
+        warnings.formatwarning = lambda msg, *args, **kwargs: f"Warning: {msg}\n"
+        if yerr is None or np.all(yerr == 0):
+            warnings.warn("No y-errors provided. Fit will ignore uncertainties, parameter errors may be meaningless, and will be set to nan.")
+            for p in res.params:
+                if isinstance(p, Measurement):
+                    p.error = float('nan')
+        # wieder altes Format zurücksetzen
+        warnings.formatwarning = old_format
+
+        return res
     
     @classmethod
     def odr_fit(cls, x, y, xerr = None, yerr = None) -> FitResult:

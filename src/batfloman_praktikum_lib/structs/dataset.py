@@ -24,3 +24,6 @@ class Dataset:
         for key, value in self.measurements.items():
             strings.append(f"{key}: {value}")
         return f'{", ".join(strings)}'
+
+    def __iter__(self):
+        return iter(self.measurements.values())
