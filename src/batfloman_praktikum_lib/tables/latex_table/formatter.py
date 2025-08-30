@@ -15,7 +15,17 @@ def format_symbol(name: str) -> str:
         return f"${name}$"
     return name
 
-def format_unit(unit: str) -> str:
+SI_PREFIXES = {
+     9: "G",  # giga
+     6: "M",  # mega
+     3: "k",  # kilo
+    -3: "m",  # milli
+    -6: "µ",  # micro
+    -9: "n",  # nano
+    -12: "p", # pico
+}
+
+def format_unit(unit: str, exponent = 0) -> str:
     """
     Format units for LaTeX without using full math mode.
     Example: 'm/s^2' -> 'm/s\textsuperscript{2}'
@@ -31,10 +41,25 @@ def format_header(metadata: ColumnMetadata, index: str) -> str:
     unit = metadata.unit
     exponent = metadata.display_exponent
 
-    if exponent is None or exponent == 0:
-        exponent_text = ""
-    else:
-        exponent_text = fr"$10^{{{exponent}}}$ " # spacing for [exponent unit] text
+    exponent_text = ""
+    if exponent not in (None, 0):
+        use_si = True if metadata.use_si_prefix is None else metadata.use_si_prefix 
+        if use_si and exponent in SI_PREFIXES:
+            print("format SI")
+            exponent_text = SI_PREFIXES[exponent]
+        else:
+            exponent_text = fr"$10^{{{exponent}}}$"
+
+    unit_text = "" if unit in (None, "") else f" in {exponent_text}{format_unit(unit)}";
+    if (unit_text == "" and exponent_text != ""):
+        unit_text = f" in {exponent_text}";
+
+    return rf"{name}{unit_text}"
+
+    # if exponent is None or exponent == 0:
+    #     exponent_text = ""
+    # else:
+    #     exponent_text = fr"$10^{{{exponent}}}$ " # spacing for [exponent unit] text
 
     if unit is None or unit == "":
         unit_text = f"[{exponent_text}]" if exponent_text else ""
