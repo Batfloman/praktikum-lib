@@ -1,4 +1,4 @@
-from scipy.optimize import root, minimize_scalar
+from scipy.optimize import root_scalar, minimize_scalar
 import numpy as np
 
 def find_max(fit_func, x_range):
