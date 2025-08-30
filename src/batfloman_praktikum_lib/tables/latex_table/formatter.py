@@ -20,7 +20,7 @@ SI_PREFIXES = {
      6: "M",  # mega
      3: "k",  # kilo
     -3: "m",  # milli
-    -6: r"$\mu$",  # micro
+    -6: r"\textmu ",  # micro (space important so that latex \textmuUnit does not result in an unknown command!)
     -9: "n",  # nano
     -12: "p", # pico
 }
