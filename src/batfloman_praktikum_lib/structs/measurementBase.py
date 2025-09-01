@@ -123,6 +123,9 @@ class MeasurementBase:
     # multiplication
 
     def __mul__(self, other):
+        if isinstance(other, np.ndarray):
+            return np.array([self * o for o in other])
+
         other_val, other_err = _get_value_and_error(other)
 
         new_value = self.value * other_val
