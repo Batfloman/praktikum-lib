@@ -77,7 +77,19 @@ def plot_func(fit_func, plot=None, change_viewport=True, with_error = True, **kw
     x_smooth = np.linspace(xmin, xmax, 10000)
     y_smooth = fit_func(x_smooth)
     if any(isinstance(x, Measurement) for x in y_smooth):
-        raise ValueError("`fit_func` should not return Measurements! Did you mean to pass a `FitResult`?")
+       def min_func(x):
+           vals = fit_func(x)
+           return np.array([m.value - m.error for m in vals])
+
+       def max_func(x):
+           vals = fit_func(x)
+           return np.array([m.value + m.error for m in vals])
+
+       # und die zentrale Kurve:
+       y_smooth = [y.value if isinstance(y, MeasurementBase) else y for y in y_smooth]
+       # fit_func = lambda x: np.array([m.value for m in fit_func(x)])
+       # raise ValueError("`fit_func` should not return Measurements! Did you mean to pass a `FitResult`?")
+
     line = ax.plot(x_smooth, y_smooth, **kwargs)
 
     # if min, max parameter are provided color the 1-sigma area
