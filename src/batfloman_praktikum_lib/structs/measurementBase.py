@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Union, Tuple
+from typing import Union, Tuple, Sequence
 
 # ==================================================
 
@@ -38,13 +38,29 @@ def _get_value(other):
 # ==================================================
 
 class MeasurementBase:
-    def __init__(self, value: ConvertibleToFloat, uncertainty: ConvertibleToFloat | str, min_error=0):
+    def __init__(self, value: float, uncertainties: str | ConvertibleToFloat | Sequence[str | ConvertibleToFloat], min_error=0):
         self.value = float(value)
 
-        if isinstance(uncertainty, str):
-            uncertainty = _parse_uncertainty_str(value, uncertainty);
-        uncertainty = max(float(uncertainty), min_error)
-        self.error = uncertainty
+        if not isinstance(uncertainties, (list, tuple)):
+            uncertainties = [uncertainties]
+
+        errors = []
+        for u in uncertainties:
+            if isinstance(u, str):
+                u = _parse_uncertainty_str(value, u)
+            errors.append(float(u))
+
+# Fehler kombinieren
+        total_error = sum(e for e in errors)
+        self.error = max(total_error, min_error)
+
+    # def __init__(self, value: ConvertibleToFloat, uncertainty: ConvertibleToFloat | str, min_error=0):
+    #     self.value = float(value)
+    #
+    #     if isinstance(uncertainty, str):
+    #         uncertainty = _parse_uncertainty_str(value, uncertainty);
+    #     uncertainty = max(float(uncertainty), min_error)
+    #     self.error = uncertainty
 
     @classmethod
     def from_value_error(cls, value, error):
