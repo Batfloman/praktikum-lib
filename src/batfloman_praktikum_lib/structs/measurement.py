@@ -1,3 +1,4 @@
+from typing import Optional
 import numpy as np;
 # import pint
 
@@ -136,6 +137,31 @@ class Measurement(MeasurementBase):
         # value_text = f"{adjusted_value:>{4 + self.additional_digit}.{self.additional_digit}f}"
         # error_text = f"{adjusted_error:>{2 + self.additional_digit}.{self.additional_digit}f}"
         # return f"({value_text} ± {error_text}){exponent_text}{unit_text}"
+
+    def save_latex(self, path: str, unit: Optional[str] = None, use_si_prefix: bool = True, print_success_msg: bool = True) -> str:
+        from ..tables.latex_table.formatter import format_unit
+        from ..tables.validation import ensure_extension
+
+        string = f"{self}"
+        if "e" in string:
+            num_text = string.split("e")[0]
+            exp = int(string.split("e")[1])
+            unit_text = format_unit(unit, exponent=exp, use_si_prefix=use_si_prefix)
+        else:
+            num_text = string
+            unit_text = format_unit(unit, use_si_prefix=use_si_prefix)
+
+        latex_str = fr"\ensuremath{{{num_text}}}\,{unit_text}"
+
+        # In Datei schreiben
+        path = ensure_extension(path, ".tex")
+
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(latex_str)
+        if print_success_msg:
+            print(f"{self} has been saved to {path}")
+
+        return latex_str
 
     def __repr__(self):
         return f"Measurement(value={self.value}, error={self.error})"

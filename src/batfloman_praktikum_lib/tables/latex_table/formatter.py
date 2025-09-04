@@ -15,24 +15,46 @@ def format_symbol(name: str) -> str:
         return f"${name}$"
     return name
 
+# SI_PREFIXES = {
+#      9: "G",  # giga
+#      6: "M",  # mega
+#      3: "k",  # kilo
+#     -3: "m",  # milli
+#     -6: r"\textmu ",  # micro (space important so that latex \textmuUnit does not result in an unknown command!)
+#     -9: "n",  # nano
+#     -12: "p", # pico
+# }
 SI_PREFIXES = {
-     9: "G",  # giga
-     6: "M",  # mega
-     3: "k",  # kilo
-    -3: "m",  # milli
-    -6: r"\textmu ",  # micro (space important so that latex \textmuUnit does not result in an unknown command!)
-    -9: "n",  # nano
-    -12: "p", # pico
+     9: r"\giga",  # giga
+     6: r"\mega",  # mega
+     3: r"\kilo",  # kilo
+    -3: r"\milli",  # milli
+    -6: r"\micro ",  # micro (space important so that latex \textmuUnit does not result in an unknown command!)
+    -9: r"\nano",  # nano
+    -12: r"\pico", # pico
 }
 
-def format_unit(unit: str, exponent = 0) -> str:
+def format_exponent(exponent: int | None, use_si_prefix: bool = True) -> str:
+    if exponent in (None, 0):
+        return "";
+    
+    return SI_PREFIXES[exponent] if (use_si_prefix and exponent in SI_PREFIXES) else fr"\ensuremath{{ 10^{{{exponent}}} }}";
+
+def format_unit(unit: str | None, exponent: Optional[int] = None, use_si_prefix: bool = True) -> str:
     """
-    Format units for LaTeX without using full math mode.
-    Example: 'm/s^2' -> 'm/s\textsuperscript{2}'
+    Returns a string suitable for siunitx: \si{unit}.
     """
-    # Hochzahlen automatisch in \textsuperscript umwandeln
-    unit = re.sub(r"\^(\d+)", r"\\textsuperscript{\1}", unit) 
-    return unit
+    if unit is None or unit == "":
+        return ""
+
+    if not exponent:
+        return fr"\si{{{unit}}}"
+    
+    if use_si_prefix and exponent in SI_PREFIXES:
+        prefix = SI_PREFIXES[exponent]
+        return fr"\si {{{prefix} {unit}}}"
+    else:
+        return fr"\ensuremath{{ 10^{{{exponent}}} }}\,\si {{{unit}}}"
 
 def format_header(metadata: ColumnMetadata, index: str) -> str:
     """Returns the formatted header string."""
@@ -40,33 +62,13 @@ def format_header(metadata: ColumnMetadata, index: str) -> str:
 
     unit = metadata.unit
     exponent = metadata.display_exponent
+    use_si = True if (metadata.use_si_prefix is None) else metadata.use_si_prefix
 
-    exponent_text = ""
-    if exponent not in (None, 0):
-        use_si = True if metadata.use_si_prefix is None else metadata.use_si_prefix 
-        if use_si and exponent in SI_PREFIXES:
-            print("format SI")
-            exponent_text = SI_PREFIXES[exponent]
-        else:
-            exponent_text = fr"$10^{{{exponent}}}$"
-
-    unit_text = "" if unit in (None, "") else f" in {exponent_text}{format_unit(unit)}";
-    if (unit_text == "" and exponent_text != ""):
-        unit_text = f" in {exponent_text}";
+    unit_text = format_unit(unit, exponent=exponent, use_si_prefix=use_si)
+    if unit_text != "":
+        unit_text = f" in {unit_text}"
 
     return rf"{name}{unit_text}"
-
-    # if exponent is None or exponent == 0:
-    #     exponent_text = ""
-    # else:
-    #     exponent_text = fr"$10^{{{exponent}}}$ " # spacing for [exponent unit] text
-
-    if unit is None or unit == "":
-        unit_text = f"[{exponent_text}]" if exponent_text else ""
-    else:
-        unit_text = f"[{exponent_text}{format_unit(unit)}]" # uses space from above
-
-    return f"{name} {unit_text}".strip()
 
 def format_value(
     val: Union[float, str, Measurement],
