@@ -3,7 +3,7 @@ from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 import numpy as np;
 from collections import namedtuple
-from typing import List, Union
+from typing import Any, Callable, List, Optional, Tuple, Union
 import pandas as pd
 import os
 
@@ -13,28 +13,32 @@ from .graph_fit import FitResult;
 
 # Define a named tuple for the return value
 PlotResult = namedtuple('PlotResult', ['line', 'plot', "fill"])
+ScatterResult = namedtuple('ScatterResult', ['scatter', 'plot', "errorbar"])
 
 def _normalize_column_name(name):
     return name.replace(" ", "")
 
-def _extract_value_error(lst: List[Union[float, int, Measurement]]):
+def _extract_value_error(lst: List[MeasurementBase | float | int | str]):
     values = []
     errors = []
     
     for item in lst:
         if isinstance(item, np.str_):
-            item = float(item) if '.' in item else int(item)
+            try:
+                item = float(item) if '.' in item else int(item)
+            except:
+                raise ValueError(f"List contains an unsupported type: {item} is type {type(item)}")
 
         if isinstance(item, (float, int, np.int64)):
             values.append(item)
             errors.append(0)
-        elif isinstance(item, (Measurement, MeasurementBase)):
+        elif isinstance(item, (MeasurementBase)):
             values.append(item.value)
             errors.append(item.error)
         else:
             raise ValueError(f"List contains an unsupported type: {item} is type {type(item)}")
     
-    return values, errors
+    return np.array(values), np.array(errors)
 
 def save_plot(plot: tuple[Figure, Axes | np.ndarray], path: str, successMsg: bool = True):
     fig, _ = plot
@@ -45,59 +49,43 @@ def save_plot(plot: tuple[Figure, Axes | np.ndarray], path: str, successMsg: boo
     if successMsg:
         print(f"file {os.path.basename(path)} has been saved to {os.path.abspath(dir_path or '.')}")
 
-def create_plot(**kwargs) -> tuple[Figure, Axes | np.ndarray]:
+def create_plot(**kwargs) -> tuple[Figure, Any]:
     return plt.subplots(**kwargs);
 
-def plot_func(fit_func, plot=None, change_viewport=True, with_error = True, **kwargs):
-    """
-    Plot data with error bars and a fitted model.
+def plot(
+    x: List[MeasurementBase | float | int],
+    y: List[MeasurementBase | float | int],
+    plot: Optional[Tuple[Figure, Any]] = None,
+    change_viewport: bool =True,
+    with_error: bool = True,
+    **kwargs,
+) -> PlotResult:
+    fig, ax = plot if plot else plt.subplots()
 
-    Parameters:
-    fit_func (callable): The fitted model function with specific parameters.
-    plot (tuple): Tuple containing the figure and axis objects for plotting.
-    """
-    min_func = None
-    max_func = None
-    if isinstance(fit_func, FitResult):
-        min_func = fit_func.min_1sigma;
-        max_func = fit_func.max_1sigma;
-        fit_func = fit_func.func_no_err;
-    if not callable(fit_func):
-        raise ValueError("`fit_func` must be a callable function.")
-    if plot is not None and (not isinstance(plot, tuple) or len(plot) != 2):
-        raise ValueError("`plot` must be a tuple containing (fig, ax).")
-     
-    fig, ax = plot if plot is not None else plt.subplots();
-
-    # get the plot dimensions
+    # get the current plot dimensions
     xmin, xmax = ax.get_xlim();
     ymin, ymax = ax.get_ylim();
 
-    # Generate a smooth line for the model
-    x_smooth = np.linspace(xmin, xmax, 10000)
-    y_smooth = fit_func(x_smooth)
-    if any(isinstance(x, Measurement) for x in y_smooth):
-       def min_func(x):
-           vals = fit_func(x)
-           return np.array([m.value - m.error for m in vals])
+    # extract values
+    x_values, x_err = _extract_value_error(x)
+    y_values, y_err = _extract_value_error(y)
 
-       def max_func(x):
-           vals = fit_func(x)
-           return np.array([m.value + m.error for m in vals])
+    # plot line
+    zorder = kwargs.pop("zorder", 3)
+    line, = ax.plot(x_values, y_values, zorder=zorder, **kwargs);
 
-       # und die zentrale Kurve:
-       y_smooth = [y.value if isinstance(y, MeasurementBase) else y for y in y_smooth]
-       # fit_func = lambda x: np.array([m.value for m in fit_func(x)])
-       # raise ValueError("`fit_func` should not return Measurements! Did you mean to pass a `FitResult`?")
-
-    line = ax.plot(x_smooth, y_smooth, **kwargs)
-
-    # if min, max parameter are provided color the 1-sigma area
+    # plot error-area
     fill = None
-    if with_error and min_func is not None and max_func is not None:
-        y_min = min_func(x_smooth)
-        y_max = max_func(x_smooth)
-        fill = ax.fill_between(x_smooth, y_min, y_max, color=line[0].get_color(), alpha=0.3)
+    if with_error and np.any(y_err > 0):
+        y_min = y_values - y_err
+        y_max = y_values + y_err
+        fill = ax.fill_between(
+            x_values, y_min, y_max,
+            color=line.get_color(),
+            alpha=0.3,
+            label=fr"{line.get_label()} $\pm 1 \sigma$" if line.get_label() else None,
+            zorder=zorder-.1
+        )
 
     # keep the same viewport after plotting
     if not change_viewport:
@@ -106,36 +94,116 @@ def plot_func(fit_func, plot=None, change_viewport=True, with_error = True, **kw
 
     return PlotResult(line=line, plot=(fig, ax), fill=fill);
 
-"""
-    p: plt.subplot instance
-"""
-def scatter(x: List[Measurement], y: List[Measurement], with_error = True, plot=None, **kwargs):
-    if len(x) != len(y):
-        print(x)
-        print(y)
-        raise ValueError(f"Different sizes!\nlen(x): {len(x)}\nlen(y): {len(y)}")
+plot_xy = plot # access point for plot function; allowing the plot parameter in functions
 
-    if plot is None:
-        plot = plt.subplots()
-    _, ax = plot;
+def plot_func(
+    fit_func: Union[Callable, FitResult],
+    plot: Optional[Tuple[Figure, Any]] = None,
+    change_viewport: bool =True,
+    with_error: bool = True,
+    **kwargs
+) -> PlotResult:
+    """
+    Plot data with error bars and a fitted model.
+
+    Parameters:
+    fit_func (callable): The fitted model function with specific parameters.
+    plot (tuple): Tuple containing the figure and axis objects for plotting.
+    """
+    plot = plot if (plot is not None) else plt.subplots();
+    _, ax = plot
+
+    # get the current plot dimensions
+    xmin, xmax = ax.get_xlim();
+
+    # Generate a smooth line for the model
+    x_smooth = np.linspace(xmin, xmax, 10000)
+    func = fit_func.func if isinstance(fit_func, FitResult) else fit_func
+    y_smooth = [func(x) for x in x_smooth]
+
+    return plot_xy(x_smooth, y_smooth, plot=plot, change_viewport=change_viewport, with_error=with_error, **kwargs)
+
+    # min_func = None
+    # max_func = None
+    # if isinstance(fit_func, FitResult):
+    #     min_func = fit_func.min_1sigma;
+    #     max_func = fit_func.max_1sigma;
+    #     fit_func = fit_func.func_no_err;
+    #
+    # fig, ax = plot if (plot is not None) else plt.subplots();
+    #
+    # # get the current plot dimensions
+    # xmin, xmax = ax.get_xlim();
+    # ymin, ymax = ax.get_ylim();
+    #
+    # # Generate a smooth line for the model
+    # x_smooth = np.linspace(xmin, xmax, 10000)
+    # y_smooth = [fit_func(x) for x in x_smooth]
+    #
+    # # if results are measurements
+    # if any(isinstance(y, MeasurementBase) for y in y_smooth):
+    #     # Min- und Max-Funktion definieren
+    #     def min_func(x):
+    #         m = fit_func(x)
+    #         return m.value - m.error if isinstance(m, MeasurementBase) else m
+    #     def max_func(x):
+    #         m = fit_func(x)
+    #         return m.value + m.error if isinstance(m, MeasurementBase) else m
+    #     # y_smooth auf Werte reduzieren
+    #     y_smooth = np.array([y.value if isinstance(y, MeasurementBase) else y for y in y_smooth])
+    #
+    # zorder = kwargs.pop("zorder", 3)
+    # line, = ax.plot(x_smooth, y_smooth, zorder=zorder, **kwargs)
+    #
+    # # if min, max parameter are provided color the 1-sigma area
+    # fill = None
+    # if with_error and min_func is not None and max_func is not None:
+    #     y_min = [min_func(x) for x in x_smooth]
+    #     y_max = [max_func(x) for x in x_smooth]
+    #     fill = ax.fill_between(x_smooth, y_min, y_max, color=line.get_color(), alpha=0.3, label=r"$\pm 1 \sigma$", zorder=zorder-.1)
+    #
+    # # keep the same viewport after plotting
+    # if not change_viewport:
+    #     ax.set_xlim(xmin, xmax)
+    #     ax.set_ylim(ymin, ymax)
+    #
+    # return PlotResult(line=line, plot=(fig, ax), fill=fill);
+
+def scatter(
+    x: List[Measurement | float | int],
+    y: List[Measurement | float | int],
+    with_error = True,
+    plot: Optional[Tuple[Figure, Any]] = None,
+    **kwargs
+) -> ScatterResult:
+    if len(x) != len(y):
+        raise ValueError(f"x and y have different lengths: {len(x)} vs {len(y)}")
+
+    fig, ax = plot if plot else plt.subplots();
 
     x_values, x_err = _extract_value_error(x)
     y_values, y_err = _extract_value_error(y)
 
-    linestyle = kwargs.get("linestyle", "none");
-    kwargs.pop("linestyle", "none");
+    linestyle = kwargs.pop("linestyle", "none")
+    zorder = kwargs.pop("zorder", 3)
     
-    scatter = ax.scatter(x_values, y_values, **kwargs)
+    scatter = ax.scatter(x_values, y_values, zorder=zorder, **kwargs)
     face_colors = scatter.get_facecolor()
-    z_order = scatter.get_zorder()
 
     errorbar = None
-    if with_error:
-        errorbar = ax.errorbar(x_values, y_values, xerr=x_err, yerr=y_err, linestyle=linestyle, color=face_colors, zorder=z_order)
+    if with_error and (np.any(x_err > 0) or np.any(y_err > 0)):
+        errorbar = ax.errorbar(x_values, y_values, xerr=x_err, yerr=y_err, linestyle=linestyle, color=face_colors, zorder=zorder+.1)
 
-    return scatter, errorbar, plot
+    return ScatterResult(scatter=scatter, plot=(fig, ax), errorbar=errorbar)
 
-def scatter_data(data: DataCluster, x_index, y_index, with_error = True, plot=None, **kwargs):
+def scatter_data(
+    data: DataCluster,
+    x_index: str,
+    y_index: str,
+    with_error: bool = True,
+    plot: Optional[Tuple[Figure, Any]] = None,
+    **kwargs
+) -> ScatterResult:
     if not x_index in data.get_column_names():
         raise ValueError(f"Column \"{x_index}\" not found in data.")
     if not y_index in data.get_column_names():
@@ -145,7 +213,14 @@ def scatter_data(data: DataCluster, x_index, y_index, with_error = True, plot=No
     y = data.column(y_index);
     return scatter(x, y, with_error, plot=plot, **kwargs);
 
-def scatter_dataframe(data: pd.DataFrame, x_index, y_index, with_error=True, plot=None, **kwargs):
+def scatter_dataframe(
+    data: pd.DataFrame,
+    x_index: str, 
+    y_index: str,
+    with_error: bool = True,
+    plot: Optional[Tuple[Figure, Any]] = None,
+    **kwargs
+) -> ScatterResult:
     normalized_columns = {_normalize_column_name(col): col for col in data.columns}
 
     if _normalize_column_name(x_index) not in normalized_columns:
@@ -159,19 +234,11 @@ def scatter_dataframe(data: pd.DataFrame, x_index, y_index, with_error=True, plo
     # y = data[y_index]
     return scatter(x, y, with_error, plot=plot, **kwargs)
 
-def plot(x: List[float], y: List[float], p=None, color=None, label=None):
-    if p is None:
-        p = plt.subplotb();
-    _, ax = p;
 
-    ax.plot(x, y, label=label, color=color);
-
-    return p;
-
-def lineplot(m, b, start, end, p=None, color=None, label=None):
-    x = np.linspace(start, end, 10000);
-    y = m * x + b;
-    return plot(x, y, p=p, color=color, label=label)
+# def lineplot(m, b, start, end, p=None, color=None, label=None):
+#     x = np.linspace(start, end, 10000);
+#     y = m * x + b;
+#     return plot(x, y, p=p, color=color, label=label)
 
 # def lineplot_around_sp(m: float, sp: Point, start, end, p=None, color=None, label=None):
 #     x = np.linspace(start, end, 10000);
@@ -179,5 +246,5 @@ def lineplot(m, b, start, end, p=None, color=None, label=None):
 #     y = m * x + b;
 #     return plot(x, y, p=p, color=color, label=label)
 
-def calc_b_lineplot(m, sp):
-    return sp.y - m*sp.x
+# def calc_b_lineplot(m, sp):
+#     return sp.y - m*sp.x
