@@ -1,19 +1,30 @@
 import matplotlib.pyplot as plt;
-from matplotlib.figure import Figure
-from matplotlib.axes import Axes
 import numpy as np;
-from collections import namedtuple
-from typing import Any, Callable, List, Optional, Tuple, Union
 import pandas as pd
 import os
 
-from .structs import DataCluster, Measurement;
-from .structs.measurementBase import MeasurementBase;
-from .graph_fit import FitResult;
+# typing
+from typing import Any, Callable, List, Optional, Tuple, Union, NamedTuple
+from matplotlib.figure import Figure
+from matplotlib.axes import Axes
+from matplotlib.lines import Line2D
+from matplotlib.collections import PathCollection, PolyCollection
+
+from batfloman_praktikum_lib.structs.dataCluster import DataCluster
+from batfloman_praktikum_lib.structs.measurement import Measurement
+from batfloman_praktikum_lib.structs.measurementBase import MeasurementBase
+from batfloman_praktikum_lib.graph_fit import FitResult
 
 # Define a named tuple for the return value
-PlotResult = namedtuple('PlotResult', ['line', 'plot', "fill"])
-ScatterResult = namedtuple('ScatterResult', ['scatter', 'plot', "errorbar"])
+class PlotResult(NamedTuple):
+    line: Line2D
+    plot: tuple[Figure, Any]
+    fill: Optional[PolyCollection]
+
+class ScatterResult(NamedTuple):
+    scatter: PathCollection
+    plot: tuple[Figure, Any]
+    errorbar: Optional[PolyCollection]
 
 def _normalize_column_name(name):
     return name.replace(" ", "")
