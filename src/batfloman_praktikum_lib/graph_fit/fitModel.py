@@ -25,6 +25,11 @@ class FitModel:
 
     @classmethod
     def fit(cls, x, y, xerr = None, yerr = None) -> FitResult:
+        if all(hasattr(y, "value") and hasattr(y, "error") for y in y):
+            # Extract values and errors
+            yerr = np.array([y.error for y in y])
+            y = np.array([y.value for y in y])
+
         return cls.ls_fit(x, y, yerr=yerr);
         # has_xerr = xerr is not None and xerr.size > 0;
         # if has_xerr:
@@ -34,6 +39,11 @@ class FitModel:
     
     @classmethod
     def ls_fit(cls, x, y, yerr = None) -> FitResult:
+        if all(hasattr(y, "value") and hasattr(y, "error") for y in y):
+            # Extract values and errors
+            yerr = np.array([y.error for y in y])
+            y = np.array([y.value for y in y])
+
         param_names = cls.get_param_names()
         initial_guess = cls.get_initial_guess(x, y)
 
