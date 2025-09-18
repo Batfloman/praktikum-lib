@@ -58,3 +58,19 @@ def find_x_for_y(fit_func, target_y, x_range, num_points=1000, tol=1e-5):
             continue
     
     return x_values
+
+def find_intersections(f, g, x_min, x_max, n_points=1000):
+    """Find all intersections of f(x) and g(x) in [x_min, x_max]."""
+    def h(x):
+        return np.array(f(x)) - np.array(g(x))
+
+    xs = np.linspace(x_min, x_max, n_points)
+    hs = h(xs)
+
+    roots = []
+    for i in range(len(xs) - 1):
+        if hs[i] * hs[i+1] < 0:  # Vorzeichenwechsel
+            sol = root_scalar(lambda xx: h(xx), bracket=[xs[i], xs[i+1]])
+            if sol.converged:
+                roots.append(sol.root)
+    return roots
