@@ -27,7 +27,7 @@ def generic_fit(model, x_data, y_data, yerr=None, initial_guess=None, param_name
     chi_squared_red = _calc_chi_squared(model, x_data, y_data, yerr, popt)
     
     # return popt, perr
-    return generate_fit_result(model, popt, perr, param_names, quality=chi_squared_red);
+    return generate_fit_result(model, popt, perr, pcov, param_names=param_names, quality=chi_squared_red);
 
 def _calc_chi_squared(model, x_data, y_data, yerr, popt):
     residuals = (y_data - model(x_data, *popt)) / yerr

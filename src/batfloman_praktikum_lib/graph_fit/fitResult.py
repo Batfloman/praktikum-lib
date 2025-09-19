@@ -1,5 +1,5 @@
 from collections import namedtuple
-from typing import Callable, NamedTuple
+from typing import Callable, NamedTuple, List
 import numpy as np
 
 from batfloman_praktikum_lib.structs.measurement import Measurement
@@ -9,6 +9,7 @@ class FitResult(NamedTuple):
     func: Callable[[float], Measurement]
     params: Dataset
     quality: float
+    cov: List[float]
     func_no_err: Callable[[float], float]
     min_1sigma: Callable[[float], float]
     max_1sigma: Callable[[float], float]
@@ -16,7 +17,7 @@ class FitResult(NamedTuple):
 # FitResult = namedtuple('FitResult', ['func', 'params', 'quality', 'func_no_err', 'min_1sigma', 'max_1sigma'])
 # FitResult = namedtuple('FitResult', ['func', 'params', 'func_no_err', 'min_1sigma', 'max_1sigma', 'min_5sigma', 'max_5sigma'])
 
-def generate_fit_result(model, values, errors, param_names = None, quality=None) -> FitResult:
+def generate_fit_result(model, values, errors, cov, param_names = None, quality=None) -> FitResult:
     if param_names is None:
         param_names = [f"param_{i}" for i in range(len(values))]
     elif len(param_names) < len(values):
@@ -54,6 +55,7 @@ def generate_fit_result(model, values, errors, param_names = None, quality=None)
         func=fit_func,
         params=params,
         quality=quality,
+        cov=cov,
         func_no_err=func_no_err,
         min_1sigma=min_1sigma,
         max_1sigma=max_1sigma

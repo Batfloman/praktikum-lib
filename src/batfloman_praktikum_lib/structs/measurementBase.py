@@ -266,6 +266,9 @@ class MeasurementBase:
             case np.deg2rad:
                 val = np.deg2rad(values[0]);
                 err = np.deg2rad(errors[0]);
+            case np.abs:
+                val = np.abs(values[0])
+                err = errors[0]
             case _:
                 raise NotImplementedError(f"not handled function: {ufunc}")
         return self.__class__.from_value_error(val, err)
@@ -277,6 +280,10 @@ class MeasurementBase:
 
     def __repr__(self):
         return f"Measurement(value={self.value}, error={self.error})"
-    
+
     def __format__(self, format_spec):
-        return format(self.__str__(), format_spec);
+        try:
+            return f"{self.value:{format_spec}} ± {self.error:{format_spec}}"
+        except ValueError:
+            return str(self)
+
