@@ -62,7 +62,7 @@ def ceil_significant(value, additional_digits = 0):
     return ceil(value, -get_exponent_significant(value) + additional_digits)
 
 def error_weighted_mean(measurements):
-    from structs import Measurement
+    from batfloman_praktikum_lib.structs.measurement import Measurement
     
     values = np.array([m.value for m in measurements])
     errors = np.array([m.error for m in measurements])
