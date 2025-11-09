@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 import re
-
-from typing import List, Union
+import copy
+from typing import List, Union, Callable
 
 from batfloman_praktikum_lib.tables.latex_table import formatter as latex_formatter
 from batfloman_praktikum_lib.tables.metadata import MetadataManager
@@ -128,8 +128,9 @@ class DataCluster:
             
         self.data = sorted(self, key=sort_key)
     
-    def filter() -> 'DataCluster':
-        pass
+    def filter(self, condition: Callable[['Dataset'], bool]) -> 'DataCluster':
+        filtered = [copy.deepcopy(ds) for ds in self.data if condition(ds)]
+        return DataCluster(filtered)
 
     # ==================================================
 

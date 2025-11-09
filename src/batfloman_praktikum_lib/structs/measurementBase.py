@@ -269,6 +269,8 @@ class MeasurementBase:
             case np.abs:
                 val = np.abs(values[0])
                 err = errors[0]
+            case np.isnan:
+                return np.isnan(values[0])
             case _:
                 raise NotImplementedError(f"not handled function: {ufunc}")
         return self.__class__.from_value_error(val, err)
