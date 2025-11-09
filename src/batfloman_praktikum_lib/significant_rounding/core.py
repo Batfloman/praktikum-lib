@@ -21,3 +21,8 @@ def round_sig(value: float, uncertainty: float) -> Tuple[float, float]:
     val = util.round(value, -sig_digit_pos)
     err = util.ceil(uncertainty, -sig_digit_pos)
     return (val, err)
+
+def round_sig_fixed(value: float, uncertainty: float, decimals: int) -> Tuple[float, float]:
+    val = util.round(value, decimals)
+    err = util.ceil(uncertainty, decimals)
+    return (val, err)
