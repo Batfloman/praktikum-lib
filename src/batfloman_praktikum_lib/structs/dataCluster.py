@@ -6,9 +6,9 @@ from typing import List, Union, Callable
 
 from batfloman_praktikum_lib.tables.latex_table import formatter as latex_formatter
 from batfloman_praktikum_lib.tables.metadata import MetadataManager
+from batfloman_praktikum_lib.structs.measurement import Measurement
+from batfloman_praktikum_lib.structs.dataset import Dataset 
 
-from .dataset import Dataset
-from .measurement import Measurement
 from .. import tables
 
 def _get_column_with_error_indicies(indicies: List[str]) -> dict:
@@ -333,24 +333,40 @@ class DataCluster:
     
     # ==================================================
 
-
     def __str__(self):
         columns = self.get_column_names()
 
-        header_widths = [len(col) for col in columns]
-        data_widths = [max([len(str(val)) for val in self.column(column)]) for column in columns]
-        column_widths = [max(x, y) for x, y in zip(header_widths, data_widths)]
-
-        table = " | ".join(f"{column:{width}}" for column, width in zip(columns, column_widths)) + "\n"
-        table += "-+-".join("-" * width for width in column_widths) + "\n"
+        # Prepare rows as lists of strings exactly how they will be printed
+        rows = []
         for row in self:
             arr = [(row[i] if i in row else "-") for i in columns]
+
             def is_empty_or_none(value):
                 return value is None or (isinstance(value, str) and value.strip() == "")
-            arr = [("-" if is_empty_or_none(x) else x) for x in arr]
-            table += " | ".join(f"{value:<{width}}" for value, width in zip(arr, column_widths)) + "\n"
 
-        return table;
+            def to_str(value) -> str:
+                if isinstance(value, Measurement):
+                    return f"{value:e3}";
+                return str(value)
+
+
+            arr = [("-" if is_empty_or_none(x) else to_str(x)) for x in arr]
+            rows.append(arr)
+
+        # Compute column widths based on both headers and formatted rows
+        column_widths = [
+            max(len(columns[i]), *(len(r[i]) for r in rows))
+            for i in range(len(columns))
+        ]
+
+        # Build table string
+        table = " | ".join(f"{col:{w}}" for col, w in zip(columns, column_widths)) + "\n"
+        table += "-+-".join("-" * w for w in column_widths) + "\n"
+
+        for arr in rows:
+            table += " | ".join(f"{val:<{w}}" for val, w in zip(arr, column_widths)) + "\n"
+
+        return table
 
     def print(self):
         print(self.__str__())
