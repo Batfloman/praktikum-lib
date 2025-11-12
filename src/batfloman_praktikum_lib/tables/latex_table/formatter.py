@@ -48,13 +48,13 @@ def format_unit(unit: str | None, exponent: Optional[int] = None, use_si_prefix:
         return ""
 
     if not exponent:
-        return fr"\si{{{unit}}}"
+        return fr"\si{{ {unit} }}"
     
     if use_si_prefix and exponent in SI_PREFIXES:
         prefix = SI_PREFIXES[exponent]
-        return fr"\si {{{prefix} {unit}}}"
+        return fr"\si {{ {prefix} {unit} }}"
     else:
-        return fr"\ensuremath{{ 10^{{{exponent}}} }}\,\si {{{unit}}}"
+        return fr"\ensuremath{{ 10^{{{exponent}}} }}\,\si {{ {unit} }}"
 
 def format_header(metadata: ColumnMetadata, index: str) -> str:
     """Returns the formatted header string."""
