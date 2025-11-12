@@ -185,12 +185,17 @@ def scatter(
     y: List[Measurement | float | int],
     with_error = True,
     plot: Optional[Tuple[Figure, Any]] = None,
+    change_viewport: bool = True,
     **kwargs
 ) -> ScatterResult:
     if len(x) != len(y):
         raise ValueError(f"x and y have different lengths: {len(x)} vs {len(y)}")
 
     fig, ax = plot if plot else plt.subplots();
+
+    # get the current plot dimensions
+    xmin, xmax = ax.get_xlim();
+    ymin, ymax = ax.get_ylim();
 
     x_values, x_err = _extract_value_error(x)
     y_values, y_err = _extract_value_error(y)
@@ -205,6 +210,11 @@ def scatter(
     if with_error and (np.any(x_err > 0) or np.any(y_err > 0)):
         errorbar = ax.errorbar(x_values, y_values, xerr=x_err, yerr=y_err, linestyle=linestyle, color=face_colors, zorder=zorder+.1)
 
+    # restore viewport
+    if not change_viewport:
+        ax.set_xlim(xmin, xmax)
+        ax.set_ylim(ymin, ymax)
+
     return ScatterResult(scatter=scatter, plot=(fig, ax), errorbar=errorbar)
 
 def scatter_data(
@@ -213,6 +223,7 @@ def scatter_data(
     y_index: str,
     with_error: bool = True,
     plot: Optional[Tuple[Figure, Any]] = None,
+    change_viewport: bool = True,
     **kwargs
 ) -> ScatterResult:
     if not x_index in data.get_column_names():
@@ -222,7 +233,7 @@ def scatter_data(
 
     x = data.column(x_index);
     y = data.column(y_index);
-    return scatter(x, y, with_error, plot=plot, **kwargs);
+    return scatter(x, y, with_error, plot=plot, change_viewport=change_viewport, **kwargs);
 
 def scatter_dataframe(
     data: pd.DataFrame,
