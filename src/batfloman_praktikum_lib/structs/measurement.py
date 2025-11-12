@@ -1,11 +1,11 @@
-from typing import Optional
+from typing import Optional, Union, Literal
 import numpy as np;
 # import pint
 
 from .. import util
 from .measurementBase import MeasurementBase, ConvertibleToFloat
-from ..significant_rounding import format_measurement
 # from structs.measurementBase import MeasurementBase, ConvertibleToFloat
+from ..significant_rounding.formatter import format_measurement, UncertaintyNotation
 
 # ureg = pint.UnitRegistry();
 # ureg.formatter.default_format = "~P"
@@ -74,28 +74,68 @@ class Measurement(MeasurementBase):
     def _display_number_as_exponent(self, value, exponent):
         return value / (10 ** exponent);
     
-    def save_latex(self, path: str, unit: Optional[str] = None, use_si_prefix: bool = True, print_success_msg: bool = True) -> str:
+    # def save_latex(self, path: str, unit: Optional[str] = None, use_si_prefix: bool = True, print_success_msg: bool = True) -> str:
+    #     from ..tables.latex_table.formatter import format_unit
+    #     from ..tables.validation import ensure_extension
+    #
+    #     string = f"{self}"
+    #     if "e" in string:
+    #         num_text = string.split("e")[0]
+    #         exp = int(string.split("e")[1])
+    #         unit_text = format_unit(unit, exponent=exp, use_si_prefix=use_si_prefix)
+    #     else:
+    #         num_text = string
+    #         unit_text = format_unit(unit, use_si_prefix=use_si_prefix)
+    #
+    #     latex_str = fr"\ensuremath{{{num_text}}}\,{unit_text}"
+    #
+    #     # In Datei schreiben
+    #     path = ensure_extension(path, ".tex")
+    #
+    #     with open(path, "w", encoding="utf-8") as f:
+    #         f.write(latex_str)
+    #     if print_success_msg:
+    #         print(f"{self} has been saved to {path}")
+    #
+    #     return latex_str
+
+    def save_latex(
+        self,
+        path: str,
+        unit: Optional[str] = None,
+        use_si_prefix: bool = True,
+        print_success_msg: bool = True,
+        mode: Union[UncertaintyNotation, Literal["pm", "brk"]] = UncertaintyNotation.Parentheses,
+        format_spec: str = ""
+    ) -> str:
+        """
+        Saves a LaTeX string representing the measurement with its uncertainty.
+        Supports both ± and bracket notation via `mode`.
+        """
         from ..tables.latex_table.formatter import format_unit
         from ..tables.validation import ensure_extension
 
-        string = f"{self}"
-        if "e" in string:
-            num_text = string.split("e")[0]
-            exp = int(string.split("e")[1])
+        # 🔹 Use the new formatter instead of str(self)
+        formatted = format_measurement(self.value, self.error, mode=mode, format_spec=format_spec)
+
+        # 🔹 Handle scientific notation (e.g. 1.23e-3)
+        if "e" in formatted:
+            num_text, exp_str = formatted.split("e")
+            exp = int(exp_str)
             unit_text = format_unit(unit, exponent=exp, use_si_prefix=use_si_prefix)
         else:
-            num_text = string
+            num_text = formatted
             unit_text = format_unit(unit, use_si_prefix=use_si_prefix)
 
         latex_str = fr"\ensuremath{{{num_text}}}\,{unit_text}"
 
-        # In Datei schreiben
+        # 🔹 Write to file
         path = ensure_extension(path, ".tex")
-
         with open(path, "w", encoding="utf-8") as f:
             f.write(latex_str)
+
         if print_success_msg:
-            print(f"{self} has been saved to {path}")
+            print(f"Saved [{formatted}] to {path}")
 
         return latex_str
 

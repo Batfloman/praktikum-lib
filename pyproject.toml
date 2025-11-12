@@ -1,6 +1,6 @@
 [project]
 name = "batfloman-praktikum-lib"
-version = "0.2.3.9"
+version = "0.2.3.10"
 description = "Library for scientific measurements and data analysis"
 authors = [{ name = "Florian Hirche" }]
 readme = "README.md"

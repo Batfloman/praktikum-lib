@@ -56,10 +56,10 @@ def _display_parenthesis(val: float, err: float, format_spec: str = "") -> str:
             decimals = 0
         exponent = _get_3n_exponent(err) if format_spec.endswith("e3") else get_sig_digit_position(err)
         val /= 10**exponent
-        err /= 10**exponent
+        err /= 10**(exponent - decimals)
         val, err = round_sig_fixed(val, err, decimals)
         val_str = format(val, f".{decimals}f")
-        err_str = format(err, f".{decimals}f")
+        err_str = format(err, f".0f")
         exp_str = f"e{int(exponent)}" if exponent != 0 else "";
         return f"{val_str}({err_str}){exp_str}"
 
