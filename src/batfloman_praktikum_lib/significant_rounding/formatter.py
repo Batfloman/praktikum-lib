@@ -7,7 +7,7 @@ from .core import get_sig_digit_position, round_sig, round_sig_fixed
 
 def _get_3n_exponent(uncertainty: float) -> int:
     exponent = np.log10(abs(uncertainty))
-    if exponent < 0 and (abs(exponent) % 3) < 1:
+    if exponent < 0 and (abs(exponent) % 3) < 1.7:
         exponent = np.ceil(exponent / 3) * 3
     else:
         exponent = np.floor(exponent / 3) * 3
@@ -57,7 +57,10 @@ def _display_parenthesis(val: float, err: float, format_spec: str = "") -> str:
         exponent = _get_3n_exponent(err) if format_spec.endswith("e3") else get_sig_digit_position(err)
         val /= 10**exponent
         err /= 10**(exponent - decimals)
-        val, err = round_sig_fixed(val, err, decimals)
+
+        val, _ = round_sig_fixed(val, 0, decimals)
+        _, err = round_sig_fixed(0, err, decimals=0)
+
         val_str = format(val, f".{decimals}f")
         err_str = format(err, f".0f")
         exp_str = f"e{int(exponent)}" if exponent != 0 else "";
