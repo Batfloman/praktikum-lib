@@ -9,6 +9,8 @@ def _get_3n_exponent(uncertainty: float) -> int:
     exponent = np.log10(abs(uncertainty))
     if exponent < 0 and (abs(exponent) % 3) < 1.7:
         exponent = np.ceil(exponent / 3) * 3
+    elif exponent > 0 and (abs(exponent) % 3) > 2.5:
+        exponent = np.ceil(exponent / 3) * 3
     else:
         exponent = np.floor(exponent / 3) * 3
     return int(exponent)
