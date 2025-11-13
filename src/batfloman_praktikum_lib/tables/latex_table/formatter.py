@@ -45,7 +45,10 @@ def format_unit(unit: str | None, exponent: Optional[int] = None, use_si_prefix:
     Returns a string suitable for siunitx: \si{unit}.
     """
     if unit is None or unit == "":
-        return ""
+        if not exponent:
+            return ""
+        else:
+            return fr"\ensuremath{{ 10^{{ {exponent} }} }}"
 
     if not exponent:
         return fr"\si{{ {unit} }}"
@@ -77,10 +80,14 @@ def format_value(
 ) -> Union[float, str, Measurement]:
     if str(val).strip() == "-":
         return "-"
-    num_val = float(val) if isinstance(val, str) else val
+    try:
+        num_val = float(val) if isinstance(val, str) else val
+    except:
+        return val
     shifted_val = num_val / 10**display_exponent if display_exponent else num_val
 
     if isinstance(shifted_val, Measurement):
+        return f"${shifted_val:.0e}$" if force_exponent else f"${shifted_val}$"
         s = shifted_val if not force_exponent else shifted_val.to_str_bracket(0)
         return f"${s}$"  # Math mode for Measurement strings
 
