@@ -112,6 +112,7 @@ def plot_func(
     plot: Optional[Tuple[Figure, Any]] = None,
     change_viewport: bool =True,
     with_error: bool = True,
+    log_scale: bool = False,
     **kwargs
 ) -> PlotResult:
     """
@@ -127,8 +128,12 @@ def plot_func(
     # get the current plot dimensions
     xmin, xmax = ax.get_xlim();
 
-    # Generate a smooth line for the model
-    x_smooth = np.linspace(xmin, xmax, 10000)
+    if log_scale:
+        # kleine Verschiebung, um log(0) zu vermeiden
+        x_smooth = np.logspace(np.log10(max(xmin, 1e-10)), np.log10(xmax), 10000)
+    else:
+        x_smooth = np.linspace(xmin, xmax, 10000)
+
     func = fit_func.func if isinstance(fit_func, FitResult) else fit_func
     y_smooth = [func(x) for x in x_smooth]
 
