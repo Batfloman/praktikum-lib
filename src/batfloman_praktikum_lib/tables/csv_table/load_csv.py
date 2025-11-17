@@ -18,6 +18,7 @@ def load_csv(filename: str, section: str | None = None) -> pd.DataFrame:
     data = []
     headers = None
     in_section = section is None  # True if no section specified
+    section_found = section is None  # track if section ever appears
 
     with open(filename, newline="") as file:
         reader = csv.reader(file)
@@ -34,6 +35,8 @@ def load_csv(filename: str, section: str | None = None) -> pd.DataFrame:
             matchSection = _SECTION_PATTERN.match(line)
             if matchSection and section is not None:
                 in_section = (matchSection.group("name") == section)
+                if in_section:
+                    section_found = True
                 continue;
             if not in_section:
                 continue;
@@ -47,6 +50,9 @@ def load_csv(filename: str, section: str | None = None) -> pd.DataFrame:
             # Data row → apply type conversion
             row_clean = [x.strip() for x in line.split(",")]
             data.append([_maybe_number(x) for x in row_clean])
+
+    if section is not None and not section_found:
+        raise ValueError(f"Section '{section}' not found in {filename}")
 
     return pd.DataFrame(data, columns=headers if headers else None)
 
