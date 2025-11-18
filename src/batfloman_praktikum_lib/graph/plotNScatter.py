@@ -87,7 +87,11 @@ def plot_func(
         xmin = np.log10(max(xmin, 1e-10)) # kleine Verschiebung, um log(0) zu vermeiden
         xmax = np.log10(xmax)
 
-    x_smooth = list(np.linspace(xmin, xmax, 10000))
+    x_smooth = np.linspace(xmin, xmax, 10000))
+
+    if log_scale:
+        x_smooth = 10**x_smooth 
+    x_smooth = list(x_smooth)
 
     func = fit_func.func if isinstance(fit_func, FitResult) else fit_func
     y_smooth = [func(x) for x in x_smooth]

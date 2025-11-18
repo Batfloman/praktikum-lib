@@ -177,7 +177,14 @@ class MeasurementBase:
 
         value = self.value ** other_val
         t1 = other_val * self.value ** (other_val - 1) * self.error
-        t2 = value * np.log(self.value) * other_err
+
+        t2 = 0
+        if other_err != 0:
+            if self.value > 0:
+                t2 = other_err * value * np.log(self.value)
+            else:
+                raise NotImplementedError("Error propagation for x^y with x <= 0 not implemented")
+
         error = np.sqrt(t1**2 + t2**2)
 
         return self.__class__.from_value_error(value, error)
