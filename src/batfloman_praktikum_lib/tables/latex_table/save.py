@@ -8,6 +8,10 @@ def export_as_latex(arr: np.ndarray, path: str, has_header: bool = True) -> None
     path = ensure_extension(path, ".tex")
     rows, cols = arr.shape
 
+    dir_path = os.path.dirname(path)
+    if dir_path:
+        os.makedirs(dir_path, exist_ok=True)
+
     with open(path, 'w') as f:
         f.write("\\begin{tabular}{" + "c" * cols + "}\n")
         f.write("\t\\toprule\n")
