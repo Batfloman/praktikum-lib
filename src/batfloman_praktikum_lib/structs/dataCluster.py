@@ -70,11 +70,14 @@ class DataCluster:
 
     # ==================================================
 
-    def __init__(self, datasets: Union[List[Measurement], pd.DataFrame] = None):
+    def __init__(self, datasets: Union[List, np.ndarray, pd.DataFrame] = None):
         if isinstance(datasets, pd.DataFrame):
-            datasets = _df_to_Dataset_arr(datasets)
+            datasets = _df_to_Dataset_arr(datasets)  # keep your existing conversion
 
-        self.data = datasets or [];
+        elif isinstance(datasets, np.ndarray):
+            datasets = datasets.tolist()  # convert NumPy array to list
+
+        self.data = datasets or []
         self.metadata_manager = MetadataManager()
 
     # ==================================================
@@ -82,8 +85,8 @@ class DataCluster:
     def __len__(self) -> int:
         return len(self.data)
 
-    def __getitem__(self, index: int) -> Dataset:
-        return self.data[index]
+    def __getitem__(self, index):
+        return np.array(self.data)[index]
 
     def __iter__(self):
         return iter(self.data)
