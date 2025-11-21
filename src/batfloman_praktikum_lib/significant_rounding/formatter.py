@@ -120,38 +120,6 @@ def _display_parenthesis(val: float, err: float, format_spec: str = "") -> str:
 
         return _display_parenthesis_exponent(val, err, exponent + offset, offset)
 
-# def _display_parenthesis(val: float, err: float, format_spec: str = "") -> str:
-#     if format_spec.endswith(("e3", "e")):
-#         decimals = _extract_precision(format_spec)
-#         if decimals is None:
-#             decimals = 0
-#         exponent = _get_3n_exponent(err) if format_spec.endswith("e3") else get_sig_digit_position(err)
-#         val /= 10**exponent
-#         err /= 10**(exponent - decimals)
-#
-#         val, _ = round_sig_fixed(val, 0, decimals)
-#         _, err = round_sig_fixed(0, err, decimals=0)
-#
-#         val_str = format(val, f".{decimals}f")
-#         err_str = format(err, f".0f")
-#         exp_str = f"e{int(exponent)}" if exponent != 0 else "";
-#         return f"{val_str}({err_str}){exp_str}"
-#
-#     decimals = 0;
-#     if format_spec.endswith("f"):
-#         decimals = _extract_precision(format_spec)
-#         if decimals is None:
-#             decimals = 0
-#
-#     sig_digit = min(get_sig_digit_position(err), 0)
-#
-#     val, err = round_sig_fixed(val, err, -sig_digit + decimals)
-#     val_str = format(val, f".{-sig_digit + decimals}f")
-#     err *= 10**(-sig_digit + decimals)
-#     err_str = format(err, f".0f")
-#
-#     return f"{val_str}({err_str})"
-
 class UncertaintyNotation(Enum):
     PlusMinus = "pm"     # für ±-Notation, z.B. 1.23 ± 0.01
     Parentheses = "brk" # für Klammer-Notation, z.B. 1.23(1)
