@@ -5,42 +5,38 @@ from typing import List, Union, Optional
 import numpy as np
 import re
 
+from ..metadata import MetadataManager, DEFAULT_ALIGNMENT, ALIGNMENT, ALIGNMENT_VALUES
 # typing alias
 CellValue = Union[float, str, Measurement]
 
-def format_symbol(name: str) -> str:
+# ==================================================
+# helper
+
+SI_PREFIXES = {
+     9: r"\giga",  # giga
+     6: r"\mega",  # mega
+     3: r"\kilo",  # kilo
+    -3: r"\milli",  # milli
+    -6: r"\micro ",  # micro (space important so that latex \textmu[--Unit--] does not result in an unknown command!)
+    # -6: r"\textmu ",  # micro (space important so that latex \textmu[--Unit--] does not result in an unknown command!)
+    -9: r"\nano",  # nano
+    -12: r"\pico", # pico
+}
+
+def _format_symbol(name: str) -> str:
     # crude heuristic: if it contains `_` or `^` or is a single letter → math mode
     pattern = r"^[A-Za-z](?:([_^](?:\{[^{}]+\}|[A-Za-z0-9]+)))*"
     if re.match(pattern, name):
         return f"${name}$"
     return name
 
-# SI_PREFIXES = {
-#      9: "G",  # giga
-#      6: "M",  # mega
-#      3: "k",  # kilo
-#     -3: "m",  # milli
-#     -6: r"\textmu ",  # micro (space important so that latex \textmuUnit does not result in an unknown command!)
-#     -9: "n",  # nano
-#     -12: "p", # pico
-# }
-SI_PREFIXES = {
-     9: r"\giga",  # giga
-     6: r"\mega",  # mega
-     3: r"\kilo",  # kilo
-    -3: r"\milli",  # milli
-    -6: r"\micro ",  # micro (space important so that latex \textmuUnit does not result in an unknown command!)
-    -9: r"\nano",  # nano
-    -12: r"\pico", # pico
-}
-
-def format_exponent(exponent: int | None, use_si_prefix: bool = True) -> str:
+def _format_exponent(exponent: int | None, use_si_prefix: bool = True) -> str:
     if exponent in (None, 0):
         return "";
     
     return SI_PREFIXES[exponent] if (use_si_prefix and exponent in SI_PREFIXES) else fr"\ensuremath{{ 10^{{{exponent}}} }}";
 
-def format_unit(unit: str | None, exponent: Optional[int] = None, use_si_prefix: bool = True) -> str:
+def _format_unit(unit: str | None, exponent: Optional[int] = None, use_si_prefix: bool = True) -> str:
     """
     Returns a string suitable for siunitx: \si{unit}.
     """
@@ -59,39 +55,173 @@ def format_unit(unit: str | None, exponent: Optional[int] = None, use_si_prefix:
     else:
         return fr"\ensuremath{{ 10^{{{exponent}}} }}\,\si {{ {unit} }}"
 
-def format_header(metadata: ColumnMetadata, index: str) -> str:
-    """Returns the formatted header string."""
-    name = metadata.name or format_symbol(index)
+# ==================================================
 
+def format_header(index: str, metadata: ColumnMetadata) -> str:
+    """
+    Generate a LaTeX-ready header string for a column.
+
+    Parameters
+    ----------
+    metadata : ColumnMetadata
+        Metadata object containing optional name, unit, exponent, SI prefix flag.
+    index : str
+        Fallback column name if metadata.name is not specified.
+
+    Returns
+    -------
+    str
+        Formatted header string, e.g. 'Voltage in V', or 'Energy in J x 10^3'.
+    """
+    # Use the name from metadata or fallback to a formatted index
+    name = metadata.name or _format_symbol(index)
+
+    # Determine unit formatting
     unit = metadata.unit
     exponent = metadata.display_exponent
     use_si = True if (metadata.use_si_prefix is None) else metadata.use_si_prefix
 
-    unit_text = format_unit(unit, exponent=exponent, use_si_prefix=use_si)
-    if unit_text != "":
+    # Format unit string (empty string if no unit)
+    unit_text = _format_unit(unit, exponent=exponent, use_si_prefix=use_si)
+    if unit_text:
         unit_text = f" in {unit_text}"
 
     return rf"{name}{unit_text}"
 
+# ==================================================
+
+def get_single_column_format(
+    index: str, metadata: Optional[ColumnMetadata]
+) -> str:
+    """
+    Generates the LaTeX `column_format` for a single index
+
+    metadata (if `metadata_manager` is provided) and determines:
+        - the alignment ('l', 'c', 'r')
+        - optional left and right vertical borders ('|')
+
+    If no `metadata` is given, default to `DEFAULT_ALIGNMENT` ('c').
+
+    Parameters
+    ----------
+    index : str
+        column identifier
+    metadata : Optional[MetadataManager]
+        An optional metadata Object that contains formatting info for the `index`-column.
+
+    Returns
+    -------
+    str
+        A single string representing the LaTeX column format for the given `index`.
+        Example: 'c|' → centered with a right border
+
+    """
+    if not metadata:
+        return DEFAULT_ALIGNMENT
+
+    s = ""
+
+    if getattr(metadata, "left_border", False):
+        s += "|"
+
+    alignment = getattr(metadata, "alignment", DEFAULT_ALIGNMENT)
+    if alignment not in ALIGNMENT_VALUES:
+        print(f"Warning: Invalid alignment '{alignment}'. Must be one of {ALIGNMENT_VALUES}.")
+        alignment = DEFAULT_ALIGNMENT
+    s += alignment
+
+    if getattr(metadata, "right_border", False):
+        s += "|"
+
+    return s
+
+def get_column_format(
+    indices = list[str],
+    metadata_manager: Optional[MetadataManager] = None
+) -> str:
+    """
+    Generate a LaTeX `column_format` string for a table based on column metadata.
+
+    For each column index in `indices`, this function checks the corresponding
+    metadata (if `metadata_manager` is provided) and determines:
+        - the alignment ('l', 'c', 'r')
+        - optional left and right vertical borders ('|')
+    
+    If no `metadata_manager` is given, all columns default to `DEFAULT_ALIGNMENT` ('c').
+
+    Parameters
+    ----------
+    indices : list[str]
+        A list of column identifiers (matching the DataFrame columns or indices).
+    metadata_manager : Optional[MetadataManager]
+        An optional metadata manager that contains formatting info for each column.
+
+    Returns
+    -------
+    str
+        A single string representing the LaTeX column format.
+        Example: 'c|l|l||r' → first column centered, second and third left-aligned
+        with borders, last column right-aligned.
+
+    Notes
+    -----
+    - If the alignment in the metadata is invalid, a warning is printed
+      and the default alignment is used.
+    - Borders are included according to `left_border` and `right_border` flags
+      in the column metadata.
+    """
+    if not metadata_manager:
+        return DEFAULT_ALIGNMENT * len(indices)
+    return "".join(get_single_column_format(i, metadata_manager.get_metadata(i)) for i in indices)
+
+# ==================================================
+
 def format_value(
-    val: Union[float, str, Measurement],
-    display_exponent: Optional[int] = None,
-    force_exponent: bool = False
-) -> Union[float, str, Measurement]:
-    if str(val).strip() == "-":
-        return "-"
-    try:
-        num_val = float(val) if isinstance(val, str) else val
-    except:
-        return val
-    shifted_val = num_val / 10**display_exponent if display_exponent else num_val
+    val: Union[int, float, np.integer, np.floating, Measurement, str, np.str_],
+    metadata: ColumnMetadata
+) -> str:
+    """
+    Format a single cell value according to the metadata.
 
-    if isinstance(shifted_val, Measurement):
-        return f"${shifted_val:.0e}$" if force_exponent else f"${shifted_val}$"
-        s = shifted_val if not force_exponent else shifted_val.to_str_bracket(0)
-        return f"${s}$"  # Math mode for Measurement strings
+    - Applies exponent scaling, SI prefix, and numeric formatting.
+    - Returns a LaTeX-ready string.
+    """
+    if isinstance(val, (str, np.str_)):
+        try: 
+            val = float(val)
+        except:
+            return val
 
-    return f"${np.round(shifted_val, 10)}$"
+    if np.isnan(val):
+        return "NaN"
+
+    offset_exp = metadata.display_exponent or 0
+    val /= 10**offset_exp
+
+    if metadata.format_spec:
+        return f"\\num{{{val:{metadata.format_spec}}}}"
+
+    return f"\\num{{{val}}}"
+
+# def format_value(
+#     val: Union[float, str, Measurement],
+#     display_exponent: Optional[int] = None,
+#     force_exponent: bool = False
+# ) -> Union[float, str, Measurement]:
+#     if str(val).strip() == "-":
+#         return "-"
+#     try:
+#         num_val = float(val) if isinstance(val, str) else val
+#     except:
+#         return val
+#     shifted_val = num_val / 10**display_exponent if display_exponent else num_val
+
+#     if isinstance(shifted_val, Measurement):
+#         return f"${shifted_val:.0e}$" if force_exponent else f"${shifted_val}$"
+#         s = shifted_val if not force_exponent else shifted_val.to_str_bracket(0)
+#         return f"${s}$"  # Math mode for Measurement strings
+
+#     return f"${np.round(shifted_val, 10)}$"
 
 def format_column_data(column_data, metadata: ColumnMetadata) -> List[CellValue]:
     force_exp: bool = metadata.force_exponent or False;

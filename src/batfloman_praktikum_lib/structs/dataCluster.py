@@ -189,8 +189,13 @@ class DataCluster:
 
         return np.vstack([indicies, arr]) if with_header else np.array(arr)
     
-    def to_dataframe(use_indicies = None, exclude_indicies = None) -> pd.DataFrame:
-        df = pd.DataFrame()
+    def to_dataframe(self, use_indicies = None, exclude_indicies = None) -> pd.DataFrame:
+        indicies = self.get_column_names() if use_indicies is None else use_indicies;
+        if exclude_indicies is not None:
+            indicies = [i for i in indicies if i not in exclude_indicies];
+
+        arr = self.to_numpy(use_indicies=use_indicies, exclude_indicies=exclude_indicies, with_header=False)
+        df = pd.DataFrame(arr, columns=indicies)
         return df;
 
     def mean(self) -> dict:
@@ -251,9 +256,8 @@ class DataCluster:
         raise NotImplementedError("save to csv not implemented!")
 
     def save_latex(self, filename: str, use_indices=None, exclude_indicies=None) -> None:
-        data = self._latex_format_data(use_indicies=use_indices, exclude_indicies=exclude_indicies)
-        # data = self.to_numpy(use_indicies=use_indices, exclude_indicies=exclude_indicies, with_header=True)
-        tables.export_as_latex(data, filename, has_header=True)
+        df = self.to_dataframe()
+        tables.export_as_latex_table(df, filename, metadata_manager=self.metadata_manager)
     
     # ==================================================
 
