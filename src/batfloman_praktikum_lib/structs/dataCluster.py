@@ -256,7 +256,7 @@ class DataCluster:
         raise NotImplementedError("save to csv not implemented!")
 
     def save_latex(self, filename: str, use_indices=None, exclude_indicies=None) -> None:
-        df = self.to_dataframe()
+        df = self.to_dataframe(use_indicies=use_indices, exclude_indicies=exclude_indicies)
         tables.export_as_latex_table(df, filename, metadata_manager=self.metadata_manager)
     
     # ==================================================
