@@ -112,7 +112,7 @@ class Measurement(MeasurementBase):
         Saves a LaTeX string representing the measurement with its uncertainty.
         Supports both ± and bracket notation via `mode`.
         """
-        from ..tables.latex_table.formatter import format_unit
+        from ..tables.latex_table.formatter import _format_unit as format_unit
         from ..tables.validation import ensure_extension
 
         # 🔹 Use the new formatter instead of str(self)
