@@ -16,7 +16,7 @@ def generic_fit(model, x_data, y_data, xerr=None, yerr=None, initial_guess=None,
     out = odr.run()
 
     # return out.beta, out.sd_beta  # Best-fit parameters and uncertainties
-    return generate_fit_result(model, out.beta, out.sd_beta, cov=out.cov_beta, param_names=param_names);
+    return generate_fit_result(model, out.beta, out.sd_beta, cov=out.cov_beta, param_names=param_names, quality=out.res_var);
 
 def _odr_wrapper(B, x, model):
     """Wrapper to adapt curve_fit-style functions for ODR."""
