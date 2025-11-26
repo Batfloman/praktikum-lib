@@ -106,7 +106,8 @@ class Measurement(MeasurementBase):
         use_si_prefix: bool = True,
         print_success_msg: bool = True,
         mode: Union[UncertaintyNotation, Literal["pm", "brk"]] = UncertaintyNotation.Parentheses,
-        format_spec: str = ""
+        format_spec: str = "",
+        with_error: bool = True,
     ) -> str:
         """
         Saves a LaTeX string representing the measurement with its uncertainty.
@@ -126,6 +127,14 @@ class Measurement(MeasurementBase):
         else:
             num_text = formatted
             unit_text = format_unit(unit, use_si_prefix=use_si_prefix)
+
+        if not with_error:
+            if "±" in num_text:
+                num_text = num_text.split("±")[0]
+                if "(" in num_text:
+                    num_text = num_text.split("(")[1]
+            elif "(" in num_text:
+                num_text = num_text.split("(")[0]
 
         latex_str = fr"\ensuremath{{{num_text}}}\,{unit_text}"
 
