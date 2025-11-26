@@ -9,10 +9,6 @@ _HEADER_PATTERN = re.compile(r"^#\s*(?P<header>.+)$")
 _COMMENT_PATTERN = re.compile(r"\s*//.*$")
 
 def load_csv(filename: str, section: str | None = None) -> pd.DataFrame:
-    """
-    Load a custom CSV file with optional [sections] and '#' headers.
-    Values are automatically converted to float if possible.
-    """
     filename = validate_filename(filename, ".csv")
 
     data = []
@@ -22,7 +18,7 @@ def load_csv(filename: str, section: str | None = None) -> pd.DataFrame:
 
     with open(filename, newline="") as file:
         reader = csv.reader(file)
-        for row in reader:
+        for i, row in enumerate(reader):
             if not row:
                 continue  # skip empty lines
 
@@ -49,6 +45,15 @@ def load_csv(filename: str, section: str | None = None) -> pd.DataFrame:
 
             # Data row → apply type conversion
             row_clean = [x.strip() for x in line.split(",")]
+
+            if headers:
+                expected = len(headers)
+            else:
+                expected = len(data[0]) if data else len(row_clean)
+
+            if len(row_clean) < expected:
+                print(f"Warning: row in line {i+1} has only {len(row_clean)} columns, expected {expected}: {row_clean}")
+
             data.append([_maybe_number(x) for x in row_clean])
 
     if section is not None and not section_found:
