@@ -1,14 +1,19 @@
-from typing import Optional, Union, Literal
+from typing import NamedTuple, Optional, Union, Literal
 import numpy as np;
 # import pint
 
 from .. import util
-from .measurementBase import MeasurementBase, ConvertibleToFloat
+from .measurementBase import MeasurementBase, ConvertibleToFloat, _get_value_and_error
 # from structs.measurementBase import MeasurementBase, ConvertibleToFloat
 from ..significant_rounding.formatter import format_measurement, UncertaintyNotation
 
 # ureg = pint.UnitRegistry();
 # ureg.formatter.default_format = "~P"
+
+class Abweichung(NamedTuple):
+    sigma: float;
+    percent: float;
+    ratio: float;
 
 class Measurement(MeasurementBase):
     def __init__(self, value: ConvertibleToFloat, uncertainty: ConvertibleToFloat,
@@ -24,8 +29,18 @@ class Measurement(MeasurementBase):
 
     # ==================================================
 
-    def abweichung(self, base):
-        return ((self - base) / base).value;
+    def abweichung(self, base) -> Abweichung:
+        other_val, other_err = _get_value_and_error(base)
+        if other_val == 0:
+            raise ValueError("Cannot calculate Abweichung to 0")
+
+        ratio = self.value / other_val
+        combined_error = (self.error**2 + other_err**2)**0.5
+        return Abweichung(
+            ratio=ratio,
+            percent=(ratio - 1) * 100,
+            sigma=abs(self.value - other_val) / combined_error
+        )
 
     # ==================================================
 
