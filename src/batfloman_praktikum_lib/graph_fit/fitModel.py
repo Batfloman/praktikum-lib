@@ -11,6 +11,10 @@ import numpy as np
 import warnings
 
 class FitModel:
+    @classmethod
+    def __call__(cls, *args, **kwargs):
+        return cls.model(*args, **kwargs)
+
     @staticmethod
     def model(x, **args) -> float:
         raise NotImplementedError("Subclasses must implement the model method.")
