@@ -77,6 +77,9 @@ class DataCluster:
         elif isinstance(datasets, np.ndarray):
             datasets = datasets.tolist()  # convert NumPy array to list
 
+        if not all(isinstance(obj, Dataset) for obj in datasets):
+            raise ValueError("Data Objects should manage only datasets!")
+
         self.data = datasets or []
         self.metadata_manager = MetadataManager()
 
@@ -274,7 +277,7 @@ class DataCluster:
 
             def to_str(value) -> str:
                 if isinstance(value, Measurement):
-                    return f"{value:e3}";
+                    return f"{value}";
                 return str(value)
 
 
