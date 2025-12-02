@@ -1,4 +1,4 @@
-from batfloman_praktikum_lib import graph_fit, rel_path
+from batfloman_praktikum_lib import graph_fit, rel_path, graph
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -26,7 +26,11 @@ y_data = model(x_data,
     0.001, 1
 )
 
-params = graph_fit.find_init_params(x_data, y_data, model, cachePath=rel_path("./fitcache.json", __file__), index=1)
-print(params)
+params = graph_fit.find_init_params(x_data, y_data, model, cachePath=rel_path("./fitcache.json", __file__), )
+res = graph_fit.least_squares_fit(model, x_data, y_data, initial_guess=params)
+
+plot = graph.create_plot()
+graph.scatter(x_data, y_data, plot=plot)
+graph.plot_func(res.func_no_err, plot=plot)
 
 plt.show()

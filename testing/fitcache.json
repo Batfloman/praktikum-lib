@@ -1,38 +1,42 @@
 {
-  "1": {
-    "slider_value": 1.0,
-    "exponent": 0
-  },
   "A1": {
-    "slider_value": 2.1522762951334373,
-    "exponent": -3
+    "slider_value": 3.1079664570230623,
+    "exponent": -3,
+    "name": null
   },
   "s1": {
-    "slider_value": 5.154631083202511,
-    "exponent": -1
+    "slider_value": 7.5272536687631035,
+    "exponent": -1,
+    "name": null
   },
   "x1": {
-    "slider_value": 3.032967032967032,
-    "exponent": 0
+    "slider_value": 2.8763102725366885,
+    "exponent": 0,
+    "name": null
   },
   "A2": {
-    "slider_value": 3.9803767660910507,
-    "exponent": -3
+    "slider_value": 3.731656184486374,
+    "exponent": -3,
+    "name": null
   },
   "s2": {
-    "slider_value": 9.504709576138147,
-    "exponent": -1
+    "slider_value": 89.17190775681343,
+    "exponent": -2,
+    "name": null
   },
   "x2": {
-    "slider_value": 5.007849293563578,
-    "exponent": 0
+    "slider_value": 5.014675052410903,
+    "exponent": 0,
+    "name": null
   },
   "m": {
-    "slider_value": 1.0305337519623232,
-    "exponent": -3
+    "slider_value": 10.093291404612161,
+    "exponent": -4,
+    "name": null
   },
   "n": {
-    "slider_value": 9.998430141287283,
-    "exponent": -1
+    "slider_value": 9.968553459119498,
+    "exponent": -1,
+    "name": null
   }
 }

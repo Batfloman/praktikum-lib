@@ -3,8 +3,6 @@ from typing import List
 from batfloman_praktikum_lib.structs.measurement import Measurement
 
 from ..structs import DataCluster
-from .least_squares import generic_fit as ls_fit
-from .orthogonal_distance import generic_fit as odr_fit
 from .fitResult import FitResult
 
 import numpy as np
@@ -43,6 +41,8 @@ class FitModel:
     
     @classmethod
     def ls_fit(cls, x, y, yerr = None) -> FitResult:
+        from .least_squares import generic_fit as ls_fit
+
         if all(hasattr(y, "value") and hasattr(y, "error") for y in y):
             # Extract values and errors
             yerr = np.array([y.error for y in y])
@@ -68,6 +68,8 @@ class FitModel:
     
     @classmethod
     def odr_fit(cls, x, y, xerr = None, yerr = None) -> FitResult:
+        from .orthogonal_distance import generic_fit as odr_fit
+
         param_names = cls.get_param_names()
         initial_guess = cls.get_initial_guess(x, y)
         return odr_fit(cls.model, x, y, xerr=xerr, yerr=yerr, initial_guess=initial_guess, param_names=param_names)
