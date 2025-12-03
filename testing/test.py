@@ -2,15 +2,8 @@ from batfloman_praktikum_lib import graph_fit, rel_path, graph
 
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Slider, TextBox
-import inspect
-
-import os
-import json
-from pathlib import Path
 
 # ==================================================
-
 
 def gaussian(x, A, sigma, x0):
     return A * np.exp(- ( (x-x0)/sigma )**2 )
@@ -19,18 +12,32 @@ def model(x, A1, s1, x1, A2, s2, x2, m, n):
     return gaussian(x, A1, s1, x1) + gaussian(x, A2, s2, x2) + graph_fit.Linear.model(x, m, n)
 
 # x-Werte zufällig erzeugen
-x_data = np.random.uniform(0, 9, 35)  # 50 zufällige Punkte zwischen -5 und 5
+x_data = np.random.uniform(0, 9, 350)  # 50 zufällige Punkte zwischen -5 und 5
 y_data = model(x_data, 
     2e-3, 0.5, 3,
     4e-3, 1, 5,
     0.001, 1
 )
+# add noise
+noise = np.random.normal(0, 1e-4, size=y_data.shape)
+sigma = np.full_like(y_data, 1e-4)  # entspricht dem Noise-Std
+y_data = y_data + noise
 
-params = graph_fit.find_init_params(x_data, y_data, model, cachePath=rel_path("./fitcache.json", __file__), )
-res = graph_fit.least_squares_fit(model, x_data, y_data, initial_guess=params)
+
+initial_guess = graph_fit.find_init_params(x_data, y_data, model, cachePath=rel_path("./fitcache.json", __file__))
+
+res = graph_fit.least_squares_fit(model, x_data, y_data, yerr=sigma, initial_guess=initial_guess, param_names=["A1, s1, x1, A2, s2, x2, m, n"])
+
+print(res.params)
+
+# ==================================================
+# plot
 
 plot = graph.create_plot()
-graph.scatter(x_data, y_data, plot=plot)
-graph.plot_func(res.func_no_err, plot=plot)
+fig, ax = plot
 
+graph.scatter(x_data, y_data, plot=plot, zorder=2)
+graph.plot_func(res.func_no_err, plot=plot, label=fr"$\chi^2_\mathrm{{red}}$ = {res.quality}", color="red")
+
+ax.legend()
 plt.show()
