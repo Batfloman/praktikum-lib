@@ -3,14 +3,23 @@ import numpy as np
 from scipy.optimize import curve_fit
 
 from .fitResult import generate_fit_result, FitResult
+from .find_initial_parameters import order_initial_params
 
-def generic_fit(model, x_data, y_data, yerr=None, initial_guess=None, param_names = None) -> FitResult:
+def generic_fit(
+    model,
+    x_data,
+    y_data,
+    yerr=None,
+    initial_guess=None,
+    param_names = None
+) -> FitResult:
     if all(hasattr(y, "value") and hasattr(y, "error") for y in y_data):
         # Extract values and errors
         yerr = np.array([y.error for y in y_data])
         y_data = np.array([y.value for y in y_data])
 
     if initial_guess is not None:
+        initial_guess = order_initial_params(model, initial_guess);
         initial_guess = [guess.value if isinstance(guess, MeasurementBase) else guess for guess in initial_guess]
 
     if yerr is None or np.all(yerr == 0):
