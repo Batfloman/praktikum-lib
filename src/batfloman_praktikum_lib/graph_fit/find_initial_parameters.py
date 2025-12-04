@@ -41,7 +41,7 @@ class ParameterManager:
         from mpl_toolkits.axes_grid1.inset_locator import inset_axes
         slider_ax = inset_axes(
             total_ax,
-            width="50%", height="60%",
+            width="60%", height="50%",
             loc='center left'
         )
         # Buttons rechts (je 10% Breite)
@@ -71,11 +71,22 @@ class ParameterManager:
             loc="center"
         )
 
+        def create_slider(ax, label, valmin, valmax, valinit):
+            self.slider = Slider(ax, label=label, valmin=valmin, valmax=valmax, valinit=valinit)
+            self.slider.label.set_x(1.02)
+            self.slider.label.set_horizontalalignment("left")
+            self.slider.valtext.set_x(-0.01)
+            self.slider.valtext.set_horizontalalignment("right")
+
         self.slider_value = initial_value
-        self.slider = Slider(slider_ax, label=param, valmin=self.min, valmax=self.max, valinit=initial_value)
+        create_slider(ax=slider_ax, label=param, valmin=self.min, valmax=self.max, valinit=initial_value)
+
+        def get_delta_text():
+           # return f"Δ = {self.max - self.min:.2e}"
+            return fr"Range $({self.center:.3g} \pm {abs(self.max - self.min)/2:.2g})$"
 
         self.text_delta = total_ax.text(
-            0.65, 0.5, f"Δ = {self.max - self.min:.2f}", ha="left", va="center",
+            0.31, 0.9, get_delta_text(), ha="center", va="center",
             transform=total_ax.transAxes
         )
         self.b1 = Button(ax_mini, '–')
@@ -93,12 +104,7 @@ class ParameterManager:
             label = self.slider.label.get_text()
             val = self.slider.val
             ax.clear()
-            self.slider = Slider(ax, 
-                 label=label, 
-                 valmin=self.min, 
-                 valmax=self.max,
-                 valinit=val,
-            )
+            create_slider(ax=ax, label=label, valmin=self.min, valmax=self.max, valinit=val)
             self.slider.on_changed(slider_callback)  # reattach callback
 
         def btn_center_callback(event):
@@ -106,6 +112,8 @@ class ParameterManager:
             self.min += offset
             self.max += offset
             self.center += offset
+
+            self.text_delta.set_text(get_delta_text())
             recreate_slider()
 
         self.b2.on_clicked(btn_center_callback);
@@ -117,7 +125,7 @@ class ParameterManager:
             self.min = self.center - 0.5 * new_delta
             self.max = self.center + 0.5 * new_delta
 
-            self.text_delta.set_text(f"Δ = {self.max - self.min:.2f}")
+            self.text_delta.set_text(get_delta_text())
             recreate_slider()
 
         self.b1.on_clicked(btn_minimize_callback)
@@ -129,7 +137,7 @@ class ParameterManager:
             self.min = self.center - 0.5 * new_delta
             self.max = self.center + 0.5 * new_delta
 
-            self.text_delta.set_text(f"Δ = {self.max - self.min:.2f}")
+            self.text_delta.set_text(get_delta_text())
             recreate_slider()
 
         self.b3.on_clicked(btn_expand_callback)
@@ -247,16 +255,22 @@ def find_init_params(
     filepath = ensure_extension(cachePath, ".json")
     CACHE = Path(filepath);
 
-    fig, ax = plt.subplots()
-    ax.set_title("Find Parameters")
-    ax.scatter(x_data, y_data)
+    fig_graph, ax_graph = plt.subplots()
+    fig_slider, ax_slider = plt.subplots()
+    ax_slider.set_xticks([])
+    ax_slider.set_yticks([])
+    ax_slider.set_frame_on(False)
+
+    # fig, ax = plt.subplots()
+    ax_graph.set_title("Find Parameters")
+    ax_graph.scatter(x_data, y_data)
 
     # assume first parameter is the continous parameter (e.g. `x` in `f(x)`)
     params = list(inspect.signature(model).parameters.keys())[1:]
 
-    sliderheight = 0.05
-    offset = sliderheight * len(params) + 2 * sliderheight
-    fig.subplots_adjust(bottom=offset)
+    sliderheight = min(0.075, 1/(len(params)+2))
+    # offset = sliderheight * len(params) + 2 * sliderheight
+    # fig.subplots_adjust(bottom=offset)
     
     default = _extract_default_values(x_data, y_data, model, default_values)
     default_vals: List[float] = order_initial_params(model, default);
@@ -267,13 +281,13 @@ def find_init_params(
         if p in cached:
             settings = cached[p]
             val = settings.get("slider_value", None);
-            if val:
+            if val is not None:
                 cached_values[p] = val
 
     starting_params = order_initial_params(model, {**default, **cached_values})
 
     x_plot = np.linspace(x_data.min(), x_data.max(), 200)
-    line, = ax.plot(x_plot, model(x_plot, *starting_params), color='red')
+    line, = ax_graph.plot(x_plot, model(x_plot, *starting_params), color='red')
 
     parameters: dict[str, ParameterManager] = {};
 
@@ -283,18 +297,24 @@ def find_init_params(
         line.set_ydata(y_line)
 
         # Achsen automatisch anpassen
-        ymin = min(y_data.min(), y_line.min())
-        ymax = max(y_data.max(), y_line.max())
+        ymin = min(y_data.min(), np.min(y_line))
+        ymax = max(y_data.max(), np.max(y_line))
         dy = ymax - ymin or 1.0
         pad = 0.05 * dy
-        ax.set_ylim(ymin - pad, ymax + pad)
+        ax_graph.set_ylim(ymin - pad, ymax + pad)
+
+        fig_graph.canvas.draw_idle()
 
     for i, p in enumerate(params):
         settings = cached[p] if p in cached else {};
+        val = settings.get("slider_value")
+        initial_value = val if val is not None else default_vals[i];
+
         parameters[p] = ParameterManager(
             param = p,
-            total_ax = plt.axes((0.10, offset - (i+2)*sliderheight, 0.8, sliderheight)),
-            initial_value = settings.get("slider_value") or default_vals[i],
+            # total_ax = fig_slider.add_axes((0.10, offset - (i+2)*sliderheight, 0.8, sliderheight)),
+            total_ax = fig_slider.add_axes((0.1, 1 - (i+2)*sliderheight, 0.85, sliderheight)),
+            initial_value = initial_value,
             update_callback = redraw,
             min = settings.get("min", None), 
             max = settings.get("max", None), 
