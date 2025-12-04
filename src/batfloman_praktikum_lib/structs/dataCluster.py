@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import re
 import copy
-from typing import List, Union, Callable
+from typing import List, Union, Callable, Optional
 
 from batfloman_praktikum_lib.tables.latex_table import formatter as latex_formatter
 from batfloman_praktikum_lib.tables.metadata import MetadataManager
@@ -70,15 +70,14 @@ class DataCluster:
 
     # ==================================================
 
-    def __init__(self, datasets: Union[List, np.ndarray, pd.DataFrame] = None):
-        if isinstance(datasets, pd.DataFrame):
-            datasets = _df_to_Dataset_arr(datasets)  # keep your existing conversion
-
-        elif isinstance(datasets, np.ndarray):
-            datasets = datasets.tolist()  # convert NumPy array to list
-
-        if not all(isinstance(obj, Dataset) for obj in datasets):
-            raise ValueError("Data Objects should manage only datasets!")
+    def __init__(self, datasets: Optional[Union[List, np.ndarray, pd.DataFrame]] = None):
+        if datasets is not None:
+            if isinstance(datasets, pd.DataFrame):
+                datasets = _df_to_Dataset_arr(datasets)  # keep your existing conversion
+            elif isinstance(datasets, np.ndarray):
+                datasets = datasets.tolist()  # convert NumPy array to list
+            if not all(isinstance(obj, Dataset) for obj in datasets):
+                raise ValueError("Data Objects should manage only datasets!")
 
         self.data = datasets or []
         self.metadata_manager = MetadataManager()
