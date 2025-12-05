@@ -202,6 +202,17 @@ class MeasurementBase:
     # ==================================================
     # numpy compatibility
 
+    def sin(self):
+        val = np.sin(self.value)
+        err = np.abs(np.cos(self.value) * self.error)
+
+        return self.__class__.from_value_error(val, err)
+
+    def deg2rad(self):
+        val = np.deg2rad(self.value)
+        err = np.deg2rad(self.error)
+        return self.__class__.from_value_error(val, err)
+
     def rint(self):
         return self.__class__.from_value_error(np.rint(self.value), np.ceil(self.error))
 
@@ -209,6 +220,7 @@ class MeasurementBase:
         """
         Handle NumPy universal functions.
         """
+        __array_priority__ = 10000
         if method != "__call__":
             return NotImplemented
         
@@ -285,7 +297,7 @@ class MeasurementBase:
     # ==================================================
 
     def __str__(self):
-        return f"{self.value} \pm {self.error}";
+        return fr"{self.value} \pm {self.error}";
 
     def __repr__(self):
         return f"Measurement(value={self.value}, error={self.error})"
