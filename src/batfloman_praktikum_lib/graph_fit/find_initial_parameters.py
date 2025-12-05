@@ -286,7 +286,7 @@ def find_init_params(
 
     starting_params = order_initial_params(model, {**default, **cached_values})
 
-    x_plot = np.linspace(x_data.min(), x_data.max(), 200)
+    x_plot = np.linspace(x_data.min(), x_data.max(), 10000)
     line, = ax_graph.plot(x_plot, model(x_plot, *starting_params), color='red')
 
     parameters: dict[str, ParameterManager] = {};
