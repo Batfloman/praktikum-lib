@@ -1,5 +1,6 @@
 from typing import NamedTuple, Optional, Union, Literal
 import numpy as np;
+import json
 # import pint
 
 from .. import util
@@ -156,6 +157,43 @@ class Measurement(MeasurementBase):
             print(f"Saved [{formatted}] to {path}")
 
         return latex_str
+
+    # ==================================================
+
+    def to_dict(self) -> dict:
+        return {
+            "value": self.value,
+            "error": self.error
+        }
+
+    @staticmethod
+    def from_dict(d):
+        return Measurement(d["value"], d["error"])
+
+    def to_json(self, indent: Optional[int] = None) -> str:
+        return json.dumps(self.to_dict(), indent=indent)
+
+    @staticmethod
+    def from_json(json_str: str):
+        return Measurement.from_dict(json.loads(json_str))
+
+    def save_json(self, path: str, indent: Optional[int] = 3):
+        from ..tables.validation import ensure_extension
+        path = ensure_extension(path, ".json")
+
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(self.to_json(indent=indent))
+
+    @staticmethod
+    def load_json(path: str):
+        from ..tables.validation import ensure_extension
+        path = ensure_extension(path, ".json")
+
+        with open(path, "r", encoding="utf-8") as f:
+            json_str = f.read()
+        return Measurement.from_json(json_str)
+
+    # ==================================================
 
     def __str__(self):
         return format_measurement(self.value, self.error, mode="brk");

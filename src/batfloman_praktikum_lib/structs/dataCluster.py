@@ -1,3 +1,4 @@
+import json
 import numpy as np
 import pandas as pd
 import re
@@ -10,6 +11,7 @@ from batfloman_praktikum_lib.structs.measurement import Measurement
 from batfloman_praktikum_lib.structs.dataset import Dataset 
 
 from .. import tables
+from ..tables.validation import ensure_extension
 
 def _get_column_with_error_indicies(indicies: List[str]) -> dict:
     property_has_error = {}
@@ -261,6 +263,33 @@ class DataCluster:
         df = self.to_dataframe(use_indicies=use_indices, exclude_indicies=exclude_indicies)
         tables.export_as_latex_table(df, filename, metadata_manager=self.metadata_manager)
     
+    # ==================================================
+    # json
+
+    def to_json(self, indent: Optional[int] = None) -> str:
+        data = [json.loads(ds.to_json()) for ds in self.data]
+        return json.dumps(data, indent=indent)
+
+    @staticmethod
+    def from_json(json_str: str):
+        raw_list = json.loads(json_str)
+        datasets = [Dataset.from_json(json.dumps(d)) for d in raw_list]
+        return DataCluster(datasets)
+
+    def save_json(self, path: str, indent: Optional[int] = 3):
+        path = ensure_extension(path, ".json")
+
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(self.to_json(indent=indent))
+
+    @staticmethod
+    def load_json(path: str):
+        path = ensure_extension(path, ".json")
+
+        with open(path, "r", encoding="utf-8") as f:
+            json_str = f.read()
+        return DataCluster.from_json(json_str)
+
     # ==================================================
 
     def __str__(self):
