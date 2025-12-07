@@ -283,7 +283,7 @@ class DataCluster:
             f.write(self.to_json(indent=indent))
 
     @staticmethod
-    def load_json(path: str):
+    def load_json(path: str) -> "DataCluster":
         path = ensure_extension(path, ".json")
 
         with open(path, "r", encoding="utf-8") as f:

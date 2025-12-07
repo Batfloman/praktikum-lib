@@ -110,3 +110,20 @@ class AmpTiefpass(FitModel):
         idx = np.argmin(np.abs(y - half))
         fc = f[idx] if len(f) > 0 else 1.0
         return [A0, fc]
+
+
+class Gaussian(FitModel):
+    @staticmethod
+    def model(x, A, sigma, x0):
+        return A * np.exp(- ( (x-x0)/sigma )**2 )
+
+    @staticmethod
+    def get_param_names():
+        return ["A", "sigma", "x0"]
+
+    @staticmethod
+    def get_initial_guess(x, y):
+        A = np.max(y)
+        x0 = np.sum(x * y) / np.sum(y)
+        sigma = np.sqrt(np.sum(y * (x - x0)**2) / np.sum(y))
+        return [A, sigma, x0]
