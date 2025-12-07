@@ -246,14 +246,18 @@ def _extract_default_values(
 # ==================================================
 
 def find_init_params(
+    model: Union[Callable, FitModel],
     x_data,
     y_data,
-    model: Union[Callable, FitModel],
     cachePath="fitcache.json",
-    default_values: Optional[Union[List[float], dict[str, float]]] = None
+    default_values: Optional[Union[List[float], dict[str, float]]] = None,
+    warn_filter_nan: bool = True,
 ) -> dict[str, float]:
     filepath = ensure_extension(cachePath, ".json")
     CACHE = Path(filepath);
+
+    from batfloman_praktikum_lib.graph.plotNScatter import filter_nan_values
+    x_data, y_data = filter_nan_values(x_data, y_data, warn_filter_nan=warn_filter_nan)
 
     fig_graph, ax_graph = plt.subplots()
     fig_slider, ax_slider = plt.subplots()
@@ -263,7 +267,8 @@ def find_init_params(
 
     # fig, ax = plt.subplots()
     ax_graph.set_title("Find Parameters")
-    ax_graph.scatter(x_data, y_data)
+    from ..graph import scatter
+    scatter(x_data, y_data, plot=(fig_graph, ax_graph), zorder=1)
 
     # assume first parameter is the continous parameter (e.g. `x` in `f(x)`)
     params = list(inspect.signature(model).parameters.keys())[1:]
@@ -286,8 +291,9 @@ def find_init_params(
 
     starting_params = order_initial_params(model, {**default, **cached_values})
 
-    x_plot = np.linspace(x_data.min(), x_data.max(), 10000)
-    line, = ax_graph.plot(x_plot, model(x_plot, *starting_params), color='red')
+    xmin, xmax = np.min(x_data), np.max(x_data)
+    x_plot = np.linspace(xmin, xmax, 10000)
+    line, = ax_graph.plot(x_plot, model(x_plot, *starting_params), color='red', zorder=2)
 
     parameters: dict[str, ParameterManager] = {};
 

@@ -11,6 +11,23 @@ from .adapter_measurement import extract_value_error
 
 from .types import SupportedValues, ScatterResult, PlotResult
 
+def filter_nan_values(
+    x,
+    y,
+    warn_filter_nan: bool = True
+):
+    x = np.array(x);
+    y = np.array(y);
+
+    mask = ~np.isnan(x) & ~np.isnan(y)
+    x_clean = x[mask]
+    y_clean = y[mask]
+
+    if warn_filter_nan and len(x) != len(x_clean):
+        print("filtered nan values")
+
+    return x_clean, y_clean
+
 # ==================================================
 
 def plot(
@@ -58,9 +75,37 @@ def plot(
 
     return PlotResult(line=line, fill=fill);
 
-# ==================================================
+plot_xy = plot # access point for plot function; allowing the `plot` parameter-name in functions
 
-plot_xy = plot # access point for plot function; allowing the plot parameter in functions
+def plot_data(
+    data: DataCluster,
+    x_index: str,
+    y_index: str,
+    plot: Tuple[Figure, Any],
+    with_error: bool = True,
+    change_viewport: bool = True,
+    warn_filter_nan: bool = True,
+    **kwargs
+) -> PlotResult:
+    if not x_index in data.get_column_names():
+        raise ValueError(f"Column \"{x_index}\" not found in data.")
+    if not y_index in data.get_column_names():
+        raise ValueError(f"Column \"{y_index}\" not found in data.")
+
+    x = data.column(x_index)
+    y = data.column(y_index)
+
+    x, y = filter_nan_values(x, y, warn_filter_nan=warn_filter_nan)
+
+    return plot_xy(
+        x=x,
+        y=y,
+        plot=plot,
+        with_error=with_error,
+        change_viewport=change_viewport,
+        **kwargs
+    );
+
 
 # ==================================================
 
@@ -182,6 +227,7 @@ def scatter_data(
     plot: Tuple[Figure, Any],
     with_error: bool = True,
     change_viewport: bool = True,
+    warn_filter_nan: bool = True,
     **kwargs
 ) -> ScatterResult:
     if not x_index in data.get_column_names():
@@ -191,6 +237,9 @@ def scatter_data(
 
     x = list(data.column(x_index));
     y = list(data.column(y_index));
+
+    x, y = filter_nan_values(x, y, warn_filter_nan=warn_filter_nan)
+
     return scatter(
         x=x,
         y=y,

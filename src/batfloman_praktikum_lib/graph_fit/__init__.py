@@ -4,7 +4,7 @@ from .find_initial_parameters import find_init_params
 
 from .fitResult import FitResult
 from .fitModel import FitModel
-from .models import Linear, InverseSquare, Exponential, LimitedGrowth, ResonanceCurve, AmpTiefpass
+from .models import Linear, InverseSquare, Exponential, LimitedGrowth, ResonanceCurve, AmpTiefpass, Gaussian
 
 __all__ = [
     "least_squares_fit",
@@ -15,6 +15,7 @@ __all__ = [
     # models
     "FitModel",
     "Linear",
+    "Gaussian",
     "InverseSquare",
     "Exponential",
     "LimitedGrowth",
