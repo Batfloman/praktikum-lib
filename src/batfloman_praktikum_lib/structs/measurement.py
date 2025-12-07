@@ -21,12 +21,6 @@ class Measurement(MeasurementBase):
                  min_error=0):
         super().__init__(value, uncertainty, min_error=min_error)
 
-        # self.unit = ureg.Unit(unit)
-
-        # displayoptions
-        self.display_unit = False;
-        self.additional_digits = 0;
-
     # ==================================================
 
     def abweichung(self, base) -> Abweichung:

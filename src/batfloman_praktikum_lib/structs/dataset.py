@@ -1,3 +1,5 @@
+import json
+
 from .measurement import Measurement
 
 class Dataset:
@@ -27,3 +29,28 @@ class Dataset:
 
     def __iter__(self):
         return iter(self.measurements.values())
+
+    def to_json(self) -> str:
+        data = {}
+        for key, value in self.measurements.items():
+            if isinstance(value, Measurement):
+                data[key] = {
+                    "value": value.value,
+                    "error": value.error
+                }
+            else:
+                data[key] = {"value": value}
+        return json.dumps(data)
+
+    @staticmethod
+    def from_json(json_str: str):
+        raw = json.loads(json_str)
+        measurements = {}
+
+        for key, entry in raw.items():
+            if "error" in entry:
+                measurements[key] = Measurement(entry["value"], entry["error"])
+            else:
+                measurements[key] = entry["value"]
+
+        return Dataset(measurements)
