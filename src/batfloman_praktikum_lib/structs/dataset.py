@@ -1,4 +1,5 @@
 import json
+import os
 
 from .measurement import Measurement
 
@@ -54,3 +55,13 @@ class Dataset:
                 measurements[key] = entry["value"]
 
         return Dataset(measurements)
+
+    def save_json(self, path: str):
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(self.to_json())
+
+    @staticmethod
+    def load_json(path: str):
+        with open(path, "r", encoding="utf-8") as f:
+            json_str = f.read()
+        return Dataset.from_json(json_str)
