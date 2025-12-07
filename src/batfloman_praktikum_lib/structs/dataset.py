@@ -2,6 +2,7 @@ import json
 import os
 
 from .measurement import Measurement
+from ..tables.validation import ensure_extension
 
 class Dataset:
     def __init__(self, measurements: dict = None):
@@ -57,11 +58,15 @@ class Dataset:
         return Dataset(measurements)
 
     def save_json(self, path: str):
+        path = ensure_extension(path, ".json")
+
         with open(path, "w", encoding="utf-8") as f:
             f.write(self.to_json())
 
     @staticmethod
     def load_json(path: str):
+        path = ensure_extension(path, ".json")
+
         with open(path, "r", encoding="utf-8") as f:
             json_str = f.read()
         return Dataset.from_json(json_str)
