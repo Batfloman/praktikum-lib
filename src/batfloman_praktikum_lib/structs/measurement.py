@@ -154,7 +154,7 @@ class Measurement(MeasurementBase):
             f.write(latex_str)
 
         if print_success_msg:
-            print(f"Saved [{formatted}] to {path}")
+            print(f"Succesfully saved `{self}` to {path} as [{latex_str}]")
 
         return latex_str
 
