@@ -95,8 +95,15 @@ def _display_parenthesis(val: float, err: float, format_spec: str = "") -> str:
 
     if format_spec.endswith("e3"):
         exponent = _get_3n_exponent(err)
-        return _display_parenthesis_exponent(val, err, exponent, decimals)
-    if format_spec.endswith(("e3", "e")):
+        try:
+            first = _get_first_digit_position(val)
+        except ValueError as e:
+            first = None
+        offset = max(np.floor((first - exponent) / 3) * 3, 0) if first else 0
+        offset = int(offset)
+
+        return _display_parenthesis_exponent(val, err, exponent + offset, decimals + offset)
+    if format_spec.endswith("e"):
         exponent = get_sig_digit_position(err)
         try:
             first = _get_first_digit_position(val)
