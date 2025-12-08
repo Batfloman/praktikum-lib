@@ -8,7 +8,7 @@ import json
 import inspect
 
 from ..tables.validation import ensure_extension
-from .fitModel import FitModel
+from .models.fitModel import FitModel
 
 # ==================================================
 

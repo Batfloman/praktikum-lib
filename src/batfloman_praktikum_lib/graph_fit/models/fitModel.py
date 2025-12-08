@@ -2,17 +2,14 @@ from typing import List
 
 from batfloman_praktikum_lib.structs.measurement import Measurement
 
-from ..structs import DataCluster
-from .fitResult import FitResult
+from batfloman_praktikum_lib.structs.dataCluster import DataCluster
+from ..fitResult import FitResult
+from .modelMeta import ModelMeta
 
 import numpy as np
 import warnings
 
-class FitModel:
-    @classmethod
-    def __call__(cls, *args, **kwargs):
-        return cls.model(*args, **kwargs)
-
+class FitModel(metaclass=ModelMeta):
     @staticmethod
     def model(x, **args) -> float:
         raise NotImplementedError("Subclasses must implement the model method.")
@@ -87,3 +84,12 @@ class FitModel:
         y_errors = data.errors(y_index);
 
         return cls.fit(x_values, y_values, xerr=x_errors, yerr=y_errors);
+
+    def __add__(self, other):
+        from .compositeFitModel import CompositeFitModel
+        if isinstance(other, CompositeFitModel):
+            return CompositeFitModel(self, *other.models)
+        elif isinstance(self, CompositeFitModel):
+            return CompositeFitModel(*self.models, other)
+        else:
+            return CompositeFitModel(self, other)

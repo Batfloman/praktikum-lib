@@ -1,18 +1,26 @@
-from batfloman_praktikum_lib.structs.measurementBase import MeasurementBase
+from typing import Union, Callable, Type
+from inspect import isclass
 import numpy as np
 from scipy.optimize import curve_fit
 
+from batfloman_praktikum_lib.graph_fit.models.fitModel import FitModel
+from batfloman_praktikum_lib.structs.measurementBase import MeasurementBase
 from .fitResult import generate_fit_result, FitResult
 from .find_initial_parameters import order_initial_params
 
 def generic_fit(
-    model,
+    model: Union[Callable, Type[FitModel]],
     x_data,
     y_data,
     yerr=None,
     initial_guess=None,
     param_names = None
 ) -> FitResult:
+    if isclass(model) and issubclass(model, FitModel):
+        if not param_names:
+            param_names = model.get_param_names()
+        model = model.model
+
     if all(hasattr(y, "value") and hasattr(y, "error") for y in y_data):
         # Extract values and errors
         yerr = np.array([y.error for y in y_data])
