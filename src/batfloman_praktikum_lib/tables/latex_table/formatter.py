@@ -21,6 +21,7 @@ SI_PREFIXES = {
     # -6: r"\textmu ",  # micro (space important so that latex \textmu[--Unit--] does not result in an unknown command!)
     -9: r"\nano",  # nano
     -12: r"\pico", # pico
+    -15: r"\femto", # femto
 }
 
 def _format_symbol(name: str) -> str:
@@ -36,8 +37,12 @@ def _format_exponent(exponent: int | None, use_si_prefix: bool = True) -> str:
     
     return SI_PREFIXES[exponent] if (use_si_prefix and exponent in SI_PREFIXES) else fr"\ensuremath{{ 10^{{{exponent}}} }}";
 
-def _format_unit(unit: str | None, exponent: Optional[int] = None, use_si_prefix: bool = True) -> str:
-    """
+def _format_unit(
+    unit: str | None, 
+    exponent: Optional[int] = None, 
+    use_si_prefix: bool = True
+) -> str:
+    r"""
     Returns a string suitable for siunitx: \si{unit}.
     """
     if unit is None or unit == "":
@@ -58,21 +63,6 @@ def _format_unit(unit: str | None, exponent: Optional[int] = None, use_si_prefix
 # ==================================================
 
 def format_header(index: str, metadata: ColumnMetadata) -> str:
-    """
-    Generate a LaTeX-ready header string for a column.
-
-    Parameters
-    ----------
-    metadata : ColumnMetadata
-        Metadata object containing optional name, unit, exponent, SI prefix flag.
-    index : str
-        Fallback column name if metadata.name is not specified.
-
-    Returns
-    -------
-    str
-        Formatted header string, e.g. 'Voltage in V', or 'Energy in J x 10^3'.
-    """
     # Use the name from metadata or fallback to a formatted index
     name = metadata.name or _format_symbol(index)
 
@@ -93,29 +83,6 @@ def format_header(index: str, metadata: ColumnMetadata) -> str:
 def get_single_column_format(
     index: str, metadata: Optional[ColumnMetadata]
 ) -> str:
-    """
-    Generates the LaTeX `column_format` for a single index
-
-    metadata (if `metadata_manager` is provided) and determines:
-        - the alignment ('l', 'c', 'r')
-        - optional left and right vertical borders ('|')
-
-    If no `metadata` is given, default to `DEFAULT_ALIGNMENT` ('c').
-
-    Parameters
-    ----------
-    index : str
-        column identifier
-    metadata : Optional[MetadataManager]
-        An optional metadata Object that contains formatting info for the `index`-column.
-
-    Returns
-    -------
-    str
-        A single string representing the LaTeX column format for the given `index`.
-        Example: 'c|' → centered with a right border
-
-    """
     if not metadata:
         return DEFAULT_ALIGNMENT
 
@@ -139,37 +106,6 @@ def get_column_format(
     indices = list[str],
     metadata_manager: Optional[MetadataManager] = None
 ) -> str:
-    """
-    Generate a LaTeX `column_format` string for a table based on column metadata.
-
-    For each column index in `indices`, this function checks the corresponding
-    metadata (if `metadata_manager` is provided) and determines:
-        - the alignment ('l', 'c', 'r')
-        - optional left and right vertical borders ('|')
-    
-    If no `metadata_manager` is given, all columns default to `DEFAULT_ALIGNMENT` ('c').
-
-    Parameters
-    ----------
-    indices : list[str]
-        A list of column identifiers (matching the DataFrame columns or indices).
-    metadata_manager : Optional[MetadataManager]
-        An optional metadata manager that contains formatting info for each column.
-
-    Returns
-    -------
-    str
-        A single string representing the LaTeX column format.
-        Example: 'c|l|l||r' → first column centered, second and third left-aligned
-        with borders, last column right-aligned.
-
-    Notes
-    -----
-    - If the alignment in the metadata is invalid, a warning is printed
-      and the default alignment is used.
-    - Borders are included according to `left_border` and `right_border` flags
-      in the column metadata.
-    """
     if not metadata_manager:
         return DEFAULT_ALIGNMENT * len(indices)
     return "".join(get_single_column_format(i, metadata_manager.get_metadata(i)) for i in indices)
@@ -223,17 +159,17 @@ def format_value(
 
 #     return f"${np.round(shifted_val, 10)}$"
 
-def format_column_data(column_data, metadata: ColumnMetadata) -> List[CellValue]:
-    force_exp: bool = metadata.force_exponent or False;
-    return [format_value(val, metadata.display_exponent, force_exp) for val in column_data]
+# def format_column_data(column_data, metadata: ColumnMetadata) -> List[CellValue]:
+#     force_exp: bool = metadata.force_exponent or False;
+#     return [format_value(val, metadata.display_exponent, force_exp) for val in column_data]
 
-def format_latex_string(value: str) -> str:
-    """Apply LaTeX-specific replacements to a string."""
-    latex_patterns = {
-        r'\bphi\b': r'$\varphi$',
-        r"_{?(\w+)}?": r"_{\1}",
-        r"\^{?(\w+)}?": r"^{\1}",
-    }
-    for pattern, replacement in latex_patterns.items():
-        value = re.sub(pattern, replacement, value)
-    return value
+# def format_latex_string(value: str) -> str:
+#     """Apply LaTeX-specific replacements to a string."""
+#     latex_patterns = {
+#         r'\bphi\b': r'$\varphi$',
+#         r"_{?(\w+)}?": r"_{\1}",
+#         r"\^{?(\w+)}?": r"^{\1}",
+#     }
+#     for pattern, replacement in latex_patterns.items():
+#         value = re.sub(pattern, replacement, value)
+#     return value
