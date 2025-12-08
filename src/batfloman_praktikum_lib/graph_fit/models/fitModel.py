@@ -11,7 +11,7 @@ import warnings
 
 class FitModel(metaclass=ModelMeta):
     @staticmethod
-    def model(x, **args) -> float:
+    def model(x, *args, **kwargs) -> float:
         raise NotImplementedError("Subclasses must implement the model method.")
     
     @staticmethod
@@ -38,7 +38,7 @@ class FitModel(metaclass=ModelMeta):
     
     @classmethod
     def ls_fit(cls, x, y, yerr = None) -> FitResult:
-        from .least_squares import generic_fit as ls_fit
+        from ..least_squares import generic_fit as ls_fit
 
         if all(hasattr(y, "value") and hasattr(y, "error") for y in y):
             # Extract values and errors
@@ -65,7 +65,7 @@ class FitModel(metaclass=ModelMeta):
     
     @classmethod
     def odr_fit(cls, x, y, xerr = None, yerr = None) -> FitResult:
-        from .orthogonal_distance import generic_fit as odr_fit
+        from ..orthogonal_distance import generic_fit as odr_fit
 
         param_names = cls.get_param_names()
         initial_guess = cls.get_initial_guess(x, y)
@@ -84,12 +84,3 @@ class FitModel(metaclass=ModelMeta):
         y_errors = data.errors(y_index);
 
         return cls.fit(x_values, y_values, xerr=x_errors, yerr=y_errors);
-
-    def __add__(self, other):
-        from .compositeFitModel import CompositeFitModel
-        if isinstance(other, CompositeFitModel):
-            return CompositeFitModel(self, *other.models)
-        elif isinstance(self, CompositeFitModel):
-            return CompositeFitModel(*self.models, other)
-        else:
-            return CompositeFitModel(self, other)
