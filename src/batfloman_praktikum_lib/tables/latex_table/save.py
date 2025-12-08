@@ -6,7 +6,7 @@ from typing import Optional
 
 from ..validation import ensure_extension
 
-from .formatter import format_latex_string, get_column_format, format_header, format_value
+from .formatter import get_column_format, format_header, format_value
 from ..metadata import MetadataManager
 
 # ==================================================
