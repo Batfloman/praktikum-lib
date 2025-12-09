@@ -1,30 +1,32 @@
 import numpy as np;
+import warnings
 
 # typing
 from typing import Any, Callable, List, Optional, Sequence, Tuple, Union, NamedTuple
 from matplotlib.figure import Figure
+from matplotlib.axes import Axes
 
 from batfloman_praktikum_lib.structs.dataCluster import DataCluster
-from batfloman_praktikum_lib.graph_fit import FitResult
+from ..graph_fit.fitResult import FitResult
 
 from .adapter_measurement import extract_value_error
 
 from .types import SupportedValues, ScatterResult, PlotResult
 
 def filter_nan_values(
-    x,
-    y,
+    x: Union[Sequence[SupportedValues], np.ndarray],
+    y: Union[Sequence[SupportedValues], np.ndarray],
     warn_filter_nan: bool = True
 ):
-    x = np.array(x);
-    y = np.array(y);
+    x_arr = np.array(x, dtype=float);
+    y_arr = np.array(y, dtype=float);
 
-    mask = ~np.isnan(x) & ~np.isnan(y)
+    mask = ~np.isnan(x_arr) & ~np.isnan(y_arr)
     x_clean = x[mask]
     y_clean = y[mask]
 
     if warn_filter_nan and len(x) != len(x_clean):
-        print("filtered nan values")
+        warnings.warn("\nFiltered NaN values.", RuntimeWarning)
 
     return x_clean, y_clean
 
@@ -179,15 +181,17 @@ def plot_line_at_point(
 # ==================================================
 
 def scatter(
-    x: List[SupportedValues],
-    y: List[SupportedValues],
-    plot: Tuple[Figure, Any],
-    with_error = True,
+    x: Union[Sequence[SupportedValues], np.ndarray],
+    y: Union[Sequence[SupportedValues], np.ndarray],
+    plot: Tuple[Figure, Axes],
+    with_error: bool = True,
     change_viewport: bool = True,
-    **kwargs
+    warn_filter_nan: bool = True,
+    **kwargs: Any
 ) -> ScatterResult:
     if len(x) != len(y):
         raise ValueError(f"x and y have different lengths: {len(x)} vs {len(y)}")
+    x_values, y_values = filter_nan_values(x, y, warn_filter_nan=warn_filter_nan)
 
     fig, ax = plot
 
@@ -235,16 +239,12 @@ def scatter_data(
     if not y_index in data.get_column_names():
         raise ValueError(f"Column \"{y_index}\" not found in data.")
 
-    x = list(data.column(x_index));
-    y = list(data.column(y_index));
-
-    x, y = filter_nan_values(x, y, warn_filter_nan=warn_filter_nan)
-
     return scatter(
-        x=x,
-        y=y,
+        x=data.column(x_index),
+        y=data.column(y_index),
         plot=plot,
         with_error=with_error,
         change_viewport=change_viewport,
+        warn_filter_nan=warn_filter_nan,
         **kwargs
     );

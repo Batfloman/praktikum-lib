@@ -216,6 +216,9 @@ class MeasurementBase:
     def rint(self):
         return self.__class__.from_value_error(np.rint(self.value), np.ceil(self.error))
 
+    def __float__(self):
+        return float(self.value)
+
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         """
         Handle NumPy universal functions.

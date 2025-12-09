@@ -1,7 +1,10 @@
-from batfloman_praktikum_lib.structs.measurementBase import MeasurementBase
 import numpy as np
 from scipy.optimize import curve_fit
+import warnings
 
+from batfloman_praktikum_lib.structs.measurementBase import MeasurementBase
+from .helper import extract_vals_and_errors
+from ..graph.plotNScatter import filter_nan_values
 from .fitResult import generate_fit_result, FitResult
 from .find_initial_parameters import order_initial_params
 
@@ -9,31 +12,33 @@ def generic_fit(
     model,
     x_data,
     y_data,
-    yerr=None,
+    y_err=None,
     initial_guess=None,
     param_names = None
 ) -> FitResult:
-    if all(hasattr(y, "value") and hasattr(y, "error") for y in y_data):
-        # Extract values and errors
-        yerr = np.array([y.error for y in y_data])
-        y_data = np.array([y.value for y in y_data])
+    x_data, y_data = filter_nan_values(x_data, y_data, warn_filter_nan=True)
+
+    if any(isinstance(x, MeasurementBase) and x.error is not None for x in x_data):
+        warnings.warn(
+            "\nx-value uncertainties were detected but are ignored by least-squares fitting. "
+            "\nUse ODR if x-errors should be included.",
+            UserWarning
+        )
+
+    y_data, y_err = extract_vals_and_errors(y_data, y_err)
+    x_data, _     = extract_vals_and_errors(x_data, None)
 
     if initial_guess is not None:
         initial_guess = order_initial_params(model, initial_guess);
         initial_guess = [guess.value if isinstance(guess, MeasurementBase) else guess for guess in initial_guess]
 
-    if yerr is None or np.all(yerr == 0):
-        yerr = np.ones_like(y_data)  # Assume equal weights if no error provided
-    if np.any(yerr <= 0):
-        raise ValueError("Error values in 'yerr' must be positive and non-zero for meaningful fitting.")
-
     # Perform the curve fit
-    popt, pcov = curve_fit(model, x_data, y_data, sigma=yerr, absolute_sigma=True, p0=initial_guess)
+    popt, pcov = curve_fit(model, x_data, y_data, sigma=y_err, absolute_sigma=True, p0=initial_guess)
 
     # Uncertainties from covariance matrix (sqrt of diagonal elements)
     perr = np.sqrt(np.diag(pcov))
 
-    chi_squared_red = _calc_chi_squared(model, x_data, y_data, yerr, popt)
+    chi_squared_red = _calc_chi_squared(model, x_data, y_data, y_err, popt)
     
     # return popt, perr
     return generate_fit_result(model, popt, perr, pcov, param_names=param_names, quality=chi_squared_red);

@@ -258,6 +258,8 @@ def find_init_params(
 
     from batfloman_praktikum_lib.graph.plotNScatter import filter_nan_values
     x_data, y_data = filter_nan_values(x_data, y_data, warn_filter_nan=warn_filter_nan)
+    x_data = np.array(x_data, dtype=float)
+    y_data = np.array(y_data, dtype=float)
 
     fig_graph, ax_graph = plt.subplots()
     fig_slider, ax_slider = plt.subplots()
