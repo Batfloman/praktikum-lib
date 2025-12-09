@@ -1,3 +1,5 @@
+from typing import Type, Callable, Union
+from inspect import isclass
 import numpy as np
 import warnings
 from scipy.odr import ODR, Model, RealData
@@ -6,10 +8,11 @@ from batfloman_praktikum_lib.structs.measurementBase import MeasurementBase
 from ..graph.plotNScatter import filter_nan_values
 from .helper import extract_vals_and_errors
 from .fitResult import generate_fit_result, FitResult
+from .models.fitModel import FitModel
 from .find_initial_parameters import order_initial_params
 
 def generic_fit(
-    model, 
+    model: Union[Callable, Type[FitModel]],
     x_data, 
     y_data, 
     x_err=None, 
@@ -17,6 +20,11 @@ def generic_fit(
     initial_guess=None, 
     param_names = None
 ) -> FitResult:
+    if isclass(model) and issubclass(model, FitModel):
+        if not param_names:
+            param_names = model.get_param_names()
+        model = model.model
+
     x_data, y_data = filter_nan_values(x_data, y_data, warn_filter_nan=True)
 
     y_data, y_err = extract_vals_and_errors(y_data, y_err)
