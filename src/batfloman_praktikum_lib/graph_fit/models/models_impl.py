@@ -102,15 +102,14 @@ class AmpTiefpass(FitModel):
         return ["A0", "f_grenz"]
 
     @staticmethod
-    def get_initial_guess(f, y):
+    def get_initial_guess(x, y):
         A0 = np.max(y)
         # fc ~ Frequenz bei -3dB (A0/sqrt(2))
         half = A0 / np.sqrt(2)
         # finde Index, wo y ~ half
         idx = np.argmin(np.abs(y - half))
-        fc = f[idx] if len(f) > 0 else 1.0
+        fc = x[idx] if len(x) > 0 else 1.0
         return [A0, fc]
-
 
 class Gaussian(FitModel):
     @staticmethod

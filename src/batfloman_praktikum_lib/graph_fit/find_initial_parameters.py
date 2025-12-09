@@ -1,4 +1,4 @@
-from typing import Optional, Union, List, Callable
+from typing import Optional, Union, List, Callable, Type
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button
 import numpy as np
@@ -6,9 +6,10 @@ import numpy as np
 from pathlib import Path
 import json
 import inspect
+from inspect import isclass
 
 from ..tables.validation import ensure_extension
-from .fitModel import FitModel
+from .models import FitModel, CompositeFitModel
 
 # ==================================================
 
@@ -211,7 +212,7 @@ def _load_slider_settings(file: Path) -> dict[str, dict]:
 def _extract_default_values(
     x_data,
     y_data,
-    model: Union[Callable, FitModel],
+    model: Callable,
     user_specified: Optional[Union[List[float], dict[str, float]]] = None
 ) -> dict[str, float]:
     params = list(inspect.signature(model).parameters.keys())[1:]
@@ -246,7 +247,7 @@ def _extract_default_values(
 # ==================================================
 
 def find_init_params(
-    model: Union[Callable, FitModel],
+    model: Union[Callable, Type[FitModel]],
     x_data,
     y_data,
     cachePath="fitcache.json",
@@ -255,6 +256,13 @@ def find_init_params(
 ) -> dict[str, float]:
     filepath = ensure_extension(cachePath, ".json")
     CACHE = Path(filepath);
+
+    # has_components = False
+    # components = {}
+    if isclass(model) and issubclass(model, FitModel):
+        # has_components = issubclass(model, CompositeFitModel)
+        model = model.model
+        # TODO: Add drawing individual components
 
     from batfloman_praktikum_lib.graph.plotNScatter import filter_nan_values
     x_data, y_data = filter_nan_values(x_data, y_data, warn_filter_nan=warn_filter_nan)

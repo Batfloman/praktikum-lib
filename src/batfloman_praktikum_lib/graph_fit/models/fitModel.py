@@ -2,19 +2,16 @@ from typing import List
 
 from batfloman_praktikum_lib.structs.measurement import Measurement
 
-from ..structs import DataCluster
-from .fitResult import FitResult
+from batfloman_praktikum_lib.structs.dataCluster import DataCluster
+from ..fitResult import FitResult
+from .modelMeta import ModelMeta
 
 import numpy as np
 import warnings
 
-class FitModel:
-    @classmethod
-    def __call__(cls, *args, **kwargs):
-        return cls.model(*args, **kwargs)
-
+class FitModel(metaclass=ModelMeta):
     @staticmethod
-    def model(x, **args) -> float:
+    def model(x, *args, **kwargs) -> float:
         raise NotImplementedError("Subclasses must implement the model method.")
     
     @staticmethod
@@ -41,7 +38,7 @@ class FitModel:
     
     @classmethod
     def ls_fit(cls, x, y, yerr = None) -> FitResult:
-        from .least_squares import generic_fit as ls_fit
+        from ..least_squares import generic_fit as ls_fit
 
         if all(hasattr(y, "value") and hasattr(y, "error") for y in y):
             # Extract values and errors
@@ -68,7 +65,7 @@ class FitModel:
     
     @classmethod
     def odr_fit(cls, x, y, xerr = None, yerr = None) -> FitResult:
-        from .orthogonal_distance import generic_fit as odr_fit
+        from ..orthogonal_distance import generic_fit as odr_fit
 
         param_names = cls.get_param_names()
         initial_guess = cls.get_initial_guess(x, y)
