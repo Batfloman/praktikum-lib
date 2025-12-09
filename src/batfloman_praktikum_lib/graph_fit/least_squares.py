@@ -24,6 +24,8 @@ def generic_fit(
             param_names = model.get_param_names()
         model = model.model
 
+    x_data, y_data = filter_nan_values(x_data, y_data, warn_filter_nan=True)
+
     if any(isinstance(x, MeasurementBase) and x.error is not None for x in x_data):
         warnings.warn(
             "\nx-value uncertainties were detected but are ignored by least-squares fitting. "
