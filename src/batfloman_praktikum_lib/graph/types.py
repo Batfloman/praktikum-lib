@@ -1,10 +1,11 @@
 import numpy as np
 
 from dataclasses import dataclass
-from typing import Union as _Union, Optional as _Optional
+from typing import Union as _Union, Optional
 
 from matplotlib.lines import Line2D as _Line2D
-from matplotlib.collections import PathCollection as _PathCollection, PolyCollection as _PolyCollection
+from matplotlib.collections import PathCollection, PolyCollection
+from matplotlib.container import ErrorbarContainer as _ErrorbarContainer
 
 from batfloman_praktikum_lib.structs.measurementBase import MeasurementBase as _MeasurementBase
 
@@ -16,7 +17,7 @@ type SupportedValues = _Union[int, float, _MeasurementBase, np.integer, np.float
 @dataclass
 class PlotResult:
     line: _Line2D
-    fill: _Optional[_PolyCollection] = None
+    fill: Optional[PolyCollection] = None
 
     def remove(self):
         self.line.remove()
@@ -26,8 +27,8 @@ class PlotResult:
 
 @dataclass
 class ScatterResult:
-    scatter: _PathCollection
-    errorbar: _Optional[_PolyCollection] = None
+    scatter: PathCollection
+    errorbar: Optional[_ErrorbarContainer] = None
 
     def remove(self):
         self.scatter.remove()
