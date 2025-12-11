@@ -268,6 +268,9 @@ class MeasurementBase:
             case np.arccos:
                 val = np.arccos(values[0])
                 err = errors[0] / (1 - values[0]**2)**0.5
+            case np.arctan:
+                val = np.arctan(values[0])
+                err = errors[0] / (1 + values[0]**2)
             case np.tan:
                 val = np.tan(values[0])
                 err = np.abs((1 / np.cos(values[0])**2) * errors[0])
