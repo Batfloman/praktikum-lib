@@ -120,13 +120,6 @@ def plot_func(
     log_scale: bool = False,
     **kwargs
 ) -> PlotResult:
-    """
-    Plot data with error bars and a fitted model.
-
-    Parameters:
-    fit_func (callable): The fitted model function with specific parameters.
-    plot (tuple): Tuple containing the figure and axis objects for plotting.
-    """
     _, ax = plot;
     xmin, xmax = ax.get_xlim() if not interval else interval;
 

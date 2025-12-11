@@ -1,8 +1,9 @@
-from typing import Sequence, Tuple, Union, List, Any
+from typing import Sequence, Tuple, Union, List, Any, Optional, Callable
 import numpy as np
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 
+from ..graph_fit.fitResult import FitResult
 from batfloman_praktikum_lib.structs.dataCluster import DataCluster
 from .types import SupportedValues, ScatterResult, PlotResult
 
@@ -33,6 +34,58 @@ def filter_nan_values(
 # ==================================================
 # plot
 # ==================================================
+
+def plot(
+    x: Sequence[SupportedValues],
+    y: Sequence[SupportedValues],
+    plot: Tuple[Figure, Any],
+    change_viewport: bool =True,
+    with_error: bool = True,
+    **kwargs,
+) -> PlotResult:
+    ...
+
+def plot_data(
+    data: DataCluster,
+    x_index: str,
+    y_index: str,
+    plot: Tuple[Figure, Any],
+    with_error: bool = True,
+    change_viewport: bool = True,
+    warn_filter_nan: bool = True,
+    **kwargs
+) -> PlotResult:
+    ...
+
+def plot_func(
+    fit_func: Union[Callable, FitResult],
+    plot: Tuple[Figure, Any],
+    interval: Optional[Tuple[float, float]] = None,
+    change_viewport: bool =True,
+    with_error: bool = True,
+    log_scale: bool = False,
+    **kwargs
+) -> PlotResult:
+    """
+    Plot data with error bars and a fitted model.
+
+    Parameters:
+    fit_func (callable): The fitted model function with specific parameters.
+    plot (tuple): Tuple containing the figure and axis objects for plotting.
+    """
+    ...
+
+def plot_line_at_point(
+    m: SupportedValues,
+    point: Tuple[SupportedValues, SupportedValues],
+    plot: Tuple[Figure, Any],
+    interval: Optional[Tuple[float, float]] = None,
+    change_viewport: bool =True,
+    with_error: bool = True,
+    log_scale: bool = False,
+    **kwargs
+) -> PlotResult:
+    ...
 
 # ==================================================
 # scatter
