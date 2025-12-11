@@ -6,7 +6,7 @@ from ..validation import validate_filename
 
 _SECTION_PATTERN = re.compile(r"^\[(?P<name>[^\]]+)\]$")
 _HEADER_PATTERN = re.compile(r"^#\s*(?P<header>.+)$")
-_COMMENT_PATTERN = re.compile(r"\s*//.*$")
+_COMMENT_PATTERN = re.compile(r"//.*$")
 
 def load_csv(filename: str, section: str | None = None) -> pd.DataFrame:
     filename = validate_filename(filename, ".csv")
