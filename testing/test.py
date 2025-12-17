@@ -2,6 +2,10 @@ from batfloman_praktikum_lib import graph_fit, rel_path, graph
 
 import numpy as np
 import matplotlib.pyplot as plt
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument("--use-cache", action="store_true")
+args = parser.parse_args()
 
 # ==================================================
 
@@ -24,9 +28,15 @@ sigma = np.full_like(y_data, 1e-4)  # entspricht dem Noise-Std
 y_data = y_data + noise
 
 
-initial_guess = graph_fit.find_init_params(x_data, y_data, model, cachePath=rel_path("./fitcache.json", __file__))
+initial_guess = graph_fit.find_init_params(
+    model, 
+    x_data, 
+    y_data, 
+    cachePath=rel_path("./fitcache.json", __file__),
+    use_cache = args.use_cache,
+)
 
-res = graph_fit.least_squares_fit(model, x_data, y_data, yerr=sigma, initial_guess=initial_guess, param_names=["A1, s1, x1, A2, s2, x2, m, n"])
+res = graph_fit.least_squares_fit(model, x_data, y_data, y_err=sigma, initial_guess=initial_guess, param_names=["A1, s1, x1, A2, s2, x2, m, n"])
 
 print(res.params)
 

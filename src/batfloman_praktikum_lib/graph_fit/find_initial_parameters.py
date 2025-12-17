@@ -2,13 +2,14 @@ from typing import Optional, Union, List, Callable, Type
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button
 import numpy as np
+import os
 
 from pathlib import Path
 import json
 import inspect
 from inspect import isclass
 
-from ..tables.validation import ensure_extension
+from ..tables.validation import ensure_extension, validate_filename
 from .models import FitModel, CompositeFitModel
 
 # ==================================================
@@ -253,9 +254,14 @@ def find_init_params(
     cachePath="fitcache.json",
     default_values: Optional[Union[List[float], dict[str, float]]] = None,
     warn_filter_nan: bool = True,
+    use_cache: bool = False,
 ) -> dict[str, float]:
     filepath = ensure_extension(cachePath, ".json")
     CACHE = Path(filepath);
+    
+    # --------------------
+    # deconststruct parameters
+    # --------------------
 
     # has_components = False
     # components = {}
@@ -269,24 +275,9 @@ def find_init_params(
     x_data = np.array(x_data, dtype=float)
     y_data = np.array(y_data, dtype=float)
 
-    fig_graph, ax_graph = plt.subplots()
-    fig_slider, ax_slider = plt.subplots()
-    ax_slider.set_xticks([])
-    ax_slider.set_yticks([])
-    ax_slider.set_frame_on(False)
-
-    # fig, ax = plt.subplots()
-    ax_graph.set_title("Find Parameters")
-    from ..graph import scatter
-    scatter(x_data, y_data, plot=(fig_graph, ax_graph), zorder=1)
-
     # assume first parameter is the continous parameter (e.g. `x` in `f(x)`)
     params = list(inspect.signature(model).parameters.keys())[1:]
 
-    sliderheight = min(0.075, 1/(len(params)+2))
-    # offset = sliderheight * len(params) + 2 * sliderheight
-    # fig.subplots_adjust(bottom=offset)
-    
     default = _extract_default_values(x_data, y_data, model, default_values)
     default_vals: List[float] = order_initial_params(model, default);
     cached = _load_slider_settings(CACHE)
@@ -300,6 +291,29 @@ def find_init_params(
                 cached_values[p] = val
 
     starting_params = order_initial_params(model, {**default, **cached_values})
+
+    if use_cache:
+        if not os.path.exists(filepath):
+            raise ReferenceError("File not found!")
+        else: 
+            return {**default, **cached_values};
+
+    # --------------------
+    # plot
+    # --------------------
+
+    fig_graph, ax_graph = plt.subplots()
+    fig_slider, ax_slider = plt.subplots()
+    ax_slider.set_xticks([])
+    ax_slider.set_yticks([])
+    ax_slider.set_frame_on(False)
+
+    sliderheight = min(0.075, 1/(len(params)+2))
+
+    # fig, ax = plt.subplots()
+    ax_graph.set_title("Find Parameters")
+    from ..graph import scatter
+    scatter(x_data, y_data, plot=(fig_graph, ax_graph), zorder=1)
 
     xmin, xmax = np.min(x_data), np.max(x_data)
     x_plot = np.linspace(xmin, xmax, 10000)
