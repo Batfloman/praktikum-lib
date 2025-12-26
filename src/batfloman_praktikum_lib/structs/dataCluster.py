@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import re
 import copy
-from typing import List, Union, Callable, Optional
+from typing import List, Union, Callable, Optional, Iterable
 
 from batfloman_praktikum_lib.tables.latex_table import formatter as latex_formatter
 from batfloman_praktikum_lib.tables.metadata import MetadataManager
@@ -97,10 +97,26 @@ class DataCluster:
 
     # ==================================================
     
-    def add(self, to_add: Dataset | list[Dataset]) -> None:
-        if not isinstance(to_add, list):
-            to_add = [to_add]
-        self.data.extend(to_add)
+    def add(self,
+        to_add: Dataset | dict | Iterable[Dataset | dict]
+    ) -> None:
+        if isinstance(to_add, (Dataset, dict)):
+            add_arr = [to_add]
+        elif isinstance(to_add, Iterable):
+            add_arr = list(to_add)
+        else:
+            raise TypeError("Invalid input")
+
+        normalized = []
+        for item in add_arr:
+            if isinstance(item, Dataset):
+                normalized.append(item)
+            elif isinstance(item, dict):
+                normalized.append(Dataset(item))
+            else:
+                raise TypeError("Expected Dataset or dict")
+
+        self.data.extend(normalized)
 
     def remove(self, to_remove: Dataset | list[Dataset]) -> None:
         if not isinstance(to_remove, list):
