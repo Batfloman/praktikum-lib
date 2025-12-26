@@ -1,6 +1,5 @@
 from typing import Optional, Any
 
-from batfloman_praktikum_lib.io.table_metadata import TableColumnMetadata
 from batfloman_praktikum_lib.io import save_latex
 from batfloman_praktikum_lib import rel_path, set_file
 from batfloman_praktikum_lib.path_managment import create_dirs
@@ -14,8 +13,6 @@ def _test(
     obj: Any,
     *,
     print_success_msg: bool = True,
-    # tables
-    tableMetadata: Optional[TableColumnMetadata] = None,
     # values
     unit: Optional[str] = None,
     use_si_prefix: bool = True,
@@ -31,7 +28,6 @@ def _test(
     create_dirs(path)
     save_latex(obj, path, 
         print_success_msg = print_success_msg, 
-        tableMetadata = tableMetadata,
         unit = unit,
         use_si_prefix = use_si_prefix,
         fixed_exponent = fixed_exponent,

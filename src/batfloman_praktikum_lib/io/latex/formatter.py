@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, cast
 import numpy as np
 import numbers
 import re
@@ -115,7 +115,7 @@ def _get_single_column_format(
     return s
 
 def get_column_format(
-    indices = list[str],
+    indices: list[str],
     metadata_manager: Optional[TableMetadataManager] = None
 ) -> str:
     if not metadata_manager:
@@ -159,19 +159,20 @@ def format_table_value(
     metadata = normalize_metadata(metadata);
 
     # if not convertable, just use the text
+    val: float = np.nan
     if isinstance(value, (str, np.str_)):
         try: 
-            value = float(value)
+            val = float(value)
         except:
             return value
 
-    if np.isnan(value):
+    if np.isnan(val):
         return "NaN"
 
     offset_exp = metadata.display_exponent or 0
-    value /= 10**offset_exp
+    val /= 10**offset_exp
 
     return format_number_latex_str(
-        value, 
+        cast(numbers.Real, val), 
         format_spec = metadata.format_spec or ""
     )
