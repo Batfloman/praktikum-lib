@@ -5,9 +5,10 @@ import pandas as pd
 
 from batfloman_praktikum_lib.structs.dataCluster import DataCluster
 from batfloman_praktikum_lib.structs.measurement import Measurement
-from ..validation import ensure_extension
-from ..table_metadata import TableColumnMetadata
-from .formatter import format_number_latex_str
+from ..validation import create_dirs, ensure_extension
+from ..table_metadata import TableColumnMetadata, TableMetadataManager
+from .formatter import format_number_latex_str, format_table_header, format_table_value, get_column_format
+
 
 @singledispatch
 def save_latex(
@@ -15,8 +16,9 @@ def save_latex(
     path: str,
     *,
     print_success_msg: bool = True,
+    auto_create_dirs: bool = False,
     # tables
-    tableMetadata: Optional[TableColumnMetadata] = None,
+    tableMetadata: TableMetadataManager | dict[str, TableColumnMetadata] = TableMetadataManager(),
     # values
     format_spec: str = "",
     unit: Optional[str] = None,
@@ -26,14 +28,17 @@ def save_latex(
 ) -> str:
     raise NotImplementedError(f"LaTeX saving for type {type(obj)} not Implemented!")
 
+# ==================================================
+
 @save_latex.register
 def _(
     value: numbers.Real,
     path: str, 
     *,
     print_success_msg: bool = True,
+    auto_create_dirs: bool = False,
     # tables
-    tableMetadata: Optional[TableColumnMetadata] = None,
+    tableMetadata: TableMetadataManager | dict[str, TableColumnMetadata] = TableMetadataManager(),
     # values
     format_spec: str = "",
     unit: Optional[str] = None,
@@ -50,6 +55,8 @@ def _(
 
     # Write to file
     path = ensure_extension(path, ".tex")
+    if auto_create_dirs:
+        create_dirs(path)
     with open(path, "w", encoding="utf-8") as f:
         f.write(latex_str)
 
@@ -58,14 +65,17 @@ def _(
 
     return latex_str
 
+# ==================================================
+
 @save_latex.register
 def _(
     value: Measurement,
     path: str, 
     *,
     print_success_msg: bool = True,
+    auto_create_dirs: bool = False,
     # tables
-    tableMetadata: Optional[TableColumnMetadata] = None,
+    tableMetadata: TableMetadataManager | dict[str, TableColumnMetadata] = TableMetadataManager(),
     # values
     format_spec: str = "",
     unit: Optional[str] = None,
@@ -84,6 +94,8 @@ def _(
 
     # Write to file
     path = ensure_extension(path, ".tex")
+    if auto_create_dirs:
+        create_dirs(path)
     with open(path, "w", encoding="utf-8") as f:
         f.write(latex_str)
 
@@ -100,8 +112,9 @@ def _(
     path: str, 
     *,
     print_success_msg: bool = True,
+    auto_create_dirs: bool = False,
     # tables
-    tableMetadata: Optional[TableColumnMetadata] = None,
+    tableMetadata: TableMetadataManager | dict[str, TableColumnMetadata] = TableMetadataManager(),
     # values
     format_spec: str = "",
     unit: Optional[str] = None,
@@ -109,24 +122,45 @@ def _(
     fixed_exponent: Optional[int] = None,
     with_error: bool = True,
 ) -> str:
-    # Build formatted headers if metadata is provided
-    if tableMetadata:
-        formatted_headers = [
-            format_header(col, tableMetadata.get_metadata(col)) for col in df.columns
+    if isinstance(tableMetadata, dict):
+        md = TableMetadataManager()
+        for k, v in tableMetadata.items():
+            md.update_metadata(k, v)
+        tableMetadata = md
+
+    column_format = get_column_format(obj.columns, tableMetadata)
+    formatted_headers = [
+        format_table_header(col, tableMetadata.get_metadata(col)) for col in obj.columns
+    ]
+
+    latex_str = ""
+    latex_str += r"\begin{tabular}{" + column_format + "}\n"
+
+    # header
+    latex_str += "\t" + r"\toprule" + "\n"
+    latex_str += "\t" + (" & ".join(formatted_headers)) + r"\\" + "\n"
+    latex_str += "\t" + r"\midrule" + "\n"
+
+    #values
+    for _, row in obj.iterrows():
+        processed_row = [
+            format_table_value(v, tableMetadata.get_metadata(k)) for k,v in zip(obj.columns, row)
         ]
-    else:
-        formatted_headers = header  # can be True/False
+        latex_str += "\t" + (" & ".join(processed_row)) + r"\\" + "\n"
+    latex_str += "\t" + r"\bottomrule" + "\n"
 
-
+    latex_str += r"\end{tabular}" + "\n"
 
     # write to file
     path = ensure_extension(path, ".tex")
-    with open(path, "w", encoding="utf-8") as f:
+    if auto_create_dirs:
+        create_dirs(path)
+    with open(path, 'w') as f:
         f.write(latex_str)
-    
+
     # done
     if print_success_msg:
-        print(f"Succesfully saved `{repr(obj)}` to {path}")
+        print(f"Succesfully saved table to {path}")
 
     return latex_str
 
@@ -135,10 +169,12 @@ def _(
 @save_latex.register
 def _(
     obj: DataCluster,
+    path: str,
     *,
     print_success_msg: bool = True,
+    auto_create_dirs: bool = False,
     # tables
-    tableMetadata: Optional[TableColumnMetadata] = None,
+    tableMetadata: TableMetadataManager | dict[str, TableColumnMetadata] = TableMetadataManager(),
     # values
     format_spec: str = "",
     unit: Optional[str] = None,
@@ -146,10 +182,13 @@ def _(
     fixed_exponent: Optional[int] = None,
     with_error: bool = True,
 ) -> str:
-    return obj
-
-    if print_success_msg:
-        print(f"Succesfully saved `{value}` to {path} as [{latex_str}]")
-
-    return latex_str
-
+    return save_latex(
+        obj.to_dataframe(),
+        path,
+        # named
+        print_success_msg = print_success_msg,
+        auto_create_dirs = auto_create_dirs,
+        # tables
+        tableMetadata = tableMetadata
+        # rest is not used
+    )

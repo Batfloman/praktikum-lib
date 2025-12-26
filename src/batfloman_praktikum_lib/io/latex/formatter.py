@@ -4,7 +4,7 @@ import numbers
 import re
 
 from batfloman_praktikum_lib.structs.measurement import Measurement
-from .format_maps import SIUNITX_UNIT_MAP, SI_PREFIXE_MAP
+from .format_maps import SIUNITX_UNIT_MAP, SI_PREFIX_MAP
 from ..table_metadata import DEFAULT_ALIGNMENT, ALIGNMENT_VALUES, TableColumnMetadata, TableMetadataManager, normalize_metadata
 
 def get_siunitx_unit(unit: Optional[str] = None) -> str | None:
@@ -12,28 +12,31 @@ def get_siunitx_unit(unit: Optional[str] = None) -> str | None:
         return SIUNITX_UNIT_MAP[unit]
     return None
 
-def _generate_latex_siunitx_str(
+def _format_unit(
+    unit: str | None, 
     *,
-    value: Optional[numbers.Real | Measurement],
-    unit: Optional[str],
-    fixed_exponent: Optional[int],
-    use_si_prefix: bool = True,
+    exponent: Optional[int] = None, 
+    use_si_prefix: bool = True
 ) -> str:
-    latex_str = ""
-
-    if value is not None:
-        if fixed_exponent:
-            latex_str += fr"\num[scientific-notation=fixed, fixed-exponent={fixed_exponent}]{{{value}}}"
+    r"""
+    Returns a string suitable for siunitx: \si{unit}.
+    """
+    if unit is None or unit == "":
+        if exponent:
+            return rf"\ensuremath{{10^{exponent}}}"
         else:
-            latex_str += fr"\num{{{value}}}"
+            return ""
 
-    if value and unit:
-        latex_str += fr"\,"
+    unit_str = get_siunitx_unit(unit) or unit
 
-    if unit:
-        latex_str +=
+    if not exponent:
+        return fr"\si{{{unit_str}}}"
 
-    return latex_str
+    if use_si_prefix and (exponent in SI_PREFIX_MAP):
+        prefix = SI_PREFIX_MAP[exponent]
+        return rf"\si{{{prefix}{unit_str}}}"
+    else:
+        return rf"\ensuremath{{10^{exponent}}}\,\si{{{unit_str}}}"
 
 def format_number_latex_str(
     value: numbers.Real | Measurement,
@@ -43,7 +46,17 @@ def format_number_latex_str(
     fixed_exponent: Optional[int] = None,
     format_spec: str = "",
 ) -> str:
-    if unit is not None:
+    if unit is None:
+        if fixed_exponent is None:
+            formatted = format(value, format_spec); 
+
+            return fr"\num{{{formatted}}}"
+        else:
+            val = value / 10**fixed_exponent
+            formatted = format(val, format_spec)
+
+            return fr"\num[scientific-notation=fixed, fixed-exponent={fixed_exponent}]{{{formatted}e{fixed_exponent}}}"
+    else:
         if fixed_exponent is not None:
             val = value / 10**fixed_exponent
             formatted = format(val, format_spec)
@@ -52,8 +65,8 @@ def format_number_latex_str(
             
             unit_str = get_siunitx_unit(unit) or unit
 
-            if (use_si_prefix) and (fixed_exponent in SI_PREFIXE_MAP):
-                unit_text = f"{SI_PREFIXE_MAP[fixed_exponent]}{unit_str}"
+            if (use_si_prefix) and (fixed_exponent in SI_PREFIX_MAP):
+                unit_text = f"{SI_PREFIX_MAP[fixed_exponent]}{unit_str}"
                 return fr"\SI[scientific-notation=fixed]{{{formatted}}}{{{unit_text}}}"
             else:
                 return fr"\SI[scientific-notation=fixed, fixed-exponent={fixed_exponent}]{{{formatted}e{fixed_exponent}}}{{{unit_str}}}"
@@ -61,27 +74,19 @@ def format_number_latex_str(
             formatted = format(value, format_spec)
             unit_str = get_siunitx_unit(unit) or unit
 
-            if "e" in formatted:
+            if "e" not in formatted:
+                return fr"\SI{{{formatted}}}{{{unit_str}}}"
+            else:
                 num_str, exp_str = formatted.split("e")
                 num_val = float(num_str)
                 exp_val = int(exp_str)
                 formatted = format(num_val)
 
-                if (use_si_prefix) and (exp_val in SI_PREFIXE_MAP):
-                    unit_text = f"{SI_PREFIXE_MAP[exp_val]}{unit_str}"
+                if (use_si_prefix) and (exp_val in SI_PREFIX_MAP):
+                    unit_text = f"{SI_PREFIX_MAP[exp_val]}{unit_str}"
                     return fr"\SI{{{formatted}}}{{{unit_text}}}"
                 else:
                     return fr"\SI{{{formatted}e{exp_val}}}{{{unit_str}}}"
-            else:
-                return fr"\SI{{{formatted}}}{{{unit_str}}}"
-    else:
-        if fixed_exponent is not None:
-            val = value / 10**fixed_exponent
-            formatted = format(val, format_spec)
-            return fr"\num[scientific-notation=fixed, fixed-exponent={fixed_exponent}]{{{formatted}e{fixed_exponent}}}"
-        else:
-            formatted = format(value, format_spec); 
-            return fr"\num{{{formatted}}}"
 
 # ==================================================
 # tables
@@ -125,31 +130,12 @@ def _format_symbol(name: str) -> str:
         return f"${name}$"
     return name
 
-def _format_unit(
-    unit: str | None, 
-    exponent: Optional[int] = None, 
-    use_si_prefix: bool = True
+def format_table_header(
+    index: str,
+    metadata: TableColumnMetadata, 
+    *, 
+    sep=" in "
 ) -> str:
-    r"""
-    Returns a string suitable for siunitx: \si{unit}.
-    """
-    if unit is None or unit == "":
-        if not exponent:
-            return ""
-        else:
-            return fr"\ensuremath{{ 10^{{ {exponent} }} }}"
-
-    if not exponent:
-        return fr"\si{{ {unit} }}"
-    
-    if use_si_prefix and exponent in SI_PREFIXES:
-        prefix = SI_PREFIXES[exponent]
-        return fr"\si {{ {prefix} {unit} }}"
-    else:
-        return fr"\ensuremath{{ 10^{{{exponent}}} }}\,\si {{ {unit} }}"
-
-def format_header(index: str, metadata: TableColumnMetadata) -> str:
-    # Use the name from metadata or fallback to a formatted index
     metadata = normalize_metadata(metadata);
     name = metadata.name or _format_symbol(index)
 
@@ -160,7 +146,32 @@ def format_header(index: str, metadata: TableColumnMetadata) -> str:
 
     # Format unit string (empty string if no unit)
     unit_text = _format_unit(unit, exponent=exponent, use_si_prefix=use_si)
-    if unit_text:
-        unit_text = f" in {unit_text}"
 
-    return rf"{name}{unit_text}"
+    if not unit_text:
+        return name;
+    else:
+        return f"{name}{sep}{unit_text}"
+
+def format_table_value(
+    value: numbers.Real | str | np.str_ | Measurement, 
+    metadata: TableColumnMetadata,
+) -> str:
+    metadata = normalize_metadata(metadata);
+
+    # if not convertable, just use the text
+    if isinstance(value, (str, np.str_)):
+        try: 
+            value = float(value)
+        except:
+            return value
+
+    if np.isnan(value):
+        return "NaN"
+
+    offset_exp = metadata.display_exponent or 0
+    value /= 10**offset_exp
+
+    return format_number_latex_str(
+        value, 
+        format_spec = metadata.format_spec or ""
+    )

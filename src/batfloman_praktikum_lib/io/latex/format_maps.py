@@ -42,7 +42,7 @@ SIUNITX_UNIT_MAP = {
     "lm": r"\lumen",
 }
 
-SI_PREFIXE_MAP = {
+SI_PREFIX_MAP = {
      9: r"\giga",
      6: r"\mega",
      3: r"\kilo",
