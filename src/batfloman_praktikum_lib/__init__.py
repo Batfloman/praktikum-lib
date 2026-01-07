@@ -3,6 +3,7 @@ from . import util
 from . import graph_old, graph_fit
 from . import function_analysis
 from . import tables
+from . import io
 
 from .structs import DataCluster, Dataset, Measurement
 from .saving import save_latex
@@ -15,6 +16,7 @@ __all__ = [
     "graph",
     "graph_fit",
     "tables",
+    "io",
     # files 
     "graph_old",
     "util",
