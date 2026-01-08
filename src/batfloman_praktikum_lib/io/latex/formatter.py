@@ -77,9 +77,9 @@ def format_number_latex_str(
             if "e" not in formatted:
                 return fr"\SI{{{formatted}}}{{{unit_str}}}"
             else:
-                num_str, exp_str = formatted.split("e")
-                num_val = float(num_str)
+                _, exp_str = formatted.split("e")
                 exp_val = int(exp_str)
+                num_val = value / 10**exp_val
                 formatted = format(num_val)
 
                 if (use_si_prefix) and (exp_val in SI_PREFIX_MAP):
