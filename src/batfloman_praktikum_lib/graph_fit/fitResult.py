@@ -1,9 +1,23 @@
 from collections import namedtuple
-from typing import Callable, NamedTuple, List
+from typing import Callable, NamedTuple, List, Literal
 import numpy as np
 
 from batfloman_praktikum_lib.structs.measurement import Measurement
 from batfloman_praktikum_lib.structs.dataset import Dataset
+
+type FIT_METHODS = Literal["least_squares", "ODR", "idk"]
+
+def _get_quality_statement(quality):
+    if quality > 2:
+        return  "(Residuen zu groß / Modell passt schlecht)"
+    elif quality > 1.2:
+        return "(Residuen leicht größer als erwartet)"
+    elif quality < 0.5:
+        return "(Residuen zu klein / Unsicherheiten überschätzt)"
+    elif quality < 0.8:
+        return "(Residuen etwas kleiner als erwartet)"
+    else:
+        return ""  # alles ok
 
 class FitResult(NamedTuple):
     func: Callable[[float], Measurement]
@@ -13,11 +27,27 @@ class FitResult(NamedTuple):
     func_no_err: Callable[[float], float]
     min_1sigma: Callable[[float], float]
     max_1sigma: Callable[[float], float]
-# FitResult = namedtuple('FitResult', ['func', 'params', 'covariance', 'value_func', 'min_func', 'max_func'])
-# FitResult = namedtuple('FitResult', ['func', 'params', 'quality', 'func_no_err', 'min_1sigma', 'max_1sigma'])
-# FitResult = namedtuple('FitResult', ['func', 'params', 'func_no_err', 'min_1sigma', 'max_1sigma', 'min_5sigma', 'max_5sigma'])
+    method: FIT_METHODS
 
-def generate_fit_result(model, values, errors, cov, param_names = None, quality=None) -> FitResult:
+    def __repr__(self):
+        return (
+            "FitResult(\n"
+            f"  method  = {self.method}\n"
+            f"  quality = {self.quality:.3f} {_get_quality_statement(self.quality)}\n"
+            f"  params  = {{{self.params}}}\n"
+            f"  cov=\n{self.cov}\n"
+            f"  func        = {self.func}\n"
+            f"  func_no_err = {self.func_no_err}\n"
+            f"  min_1sigma  = {self.min_1sigma}\n"
+            f"  max_1sigma  = {self.max_1sigma}\n"
+            ")"
+        )
+
+def generate_fit_result(model, values, errors, cov, 
+    param_names = None, 
+    quality=None, 
+    method: FIT_METHODS = "idk",
+) -> FitResult:
     if param_names is None:
         param_names = [f"param_{i}" for i in range(len(values))]
     elif len(param_names) < len(values):
@@ -58,5 +88,6 @@ def generate_fit_result(model, values, errors, cov, param_names = None, quality=
         cov=cov,
         func_no_err=func_no_err,
         min_1sigma=min_1sigma,
-        max_1sigma=max_1sigma
+        max_1sigma=max_1sigma,
+        method = method,
     )

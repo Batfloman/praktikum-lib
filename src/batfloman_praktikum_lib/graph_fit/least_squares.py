@@ -2,7 +2,7 @@ from typing import Union, Callable, Type
 from inspect import isclass
 import numpy as np
 from scipy.optimize import curve_fit
-import warnings
+import warnings, traceback
 
 from batfloman_praktikum_lib.graph_fit.models.fitModel import FitModel
 from batfloman_praktikum_lib.structs.measurementBase import MeasurementBase
@@ -11,13 +11,55 @@ from ..graph.plotNScatter import filter_nan_values
 from .fitResult import generate_fit_result, FitResult
 from .find_initial_parameters import order_initial_params
 
+from ..io.termColors import bcolors
+
+def _warn_user_no_y_errors(y_data, y_err, ignore_y_errors: bool
+):
+    if ignore_y_errors or (y_err is not None):
+        return
+
+    has_errors = False
+    try:
+        # z.B. iterierbare Messwerte mit .error
+        has_errors = all(hasattr(y, "error") and y.error is not None for y in y_data)
+    except TypeError:
+        # z.B. Skalar mit .error
+        has_errors = hasattr(y_data, "error") and y_data.error is not None
+
+    if not has_errors:
+        stack = traceback.extract_stack()
+        frame = stack[-2]
+
+        print(f"{bcolors.WARNING}Warning: no y-value uncertainties were detected, using equal weights !{bcolors.ENDC}")
+        print(f"{bcolors.OKBLUE}{bcolors.BOLD} At Line {frame.lineno}{bcolors.ENDC}: `{frame.line}`")
+        print(f"\tin {frame.filename}:{frame.lineno}:0")
+        print(f"{bcolors.WARNING} - Call with `ignore_warning_y_error = True` to surpress this warning!{bcolors.ENDC}")
+
+def _warn_user_x_errors(x_data, ignore_x_errors: bool):
+    if ignore_x_errors:
+        return
+
+    has_x_err = any(isinstance(x, MeasurementBase) and x.error is not None for x in x_data)
+    if has_x_err and not ignore_x_errors:
+        stack = traceback.extract_stack()
+        frame = stack[-2]
+
+        print(f"{bcolors.WARNING}Warning: x-value uncertainties were detected but are ignored by least-squares fitting!{bcolors.ENDC}")
+        print(f"{bcolors.OKBLUE}{bcolors.BOLD} At Line {frame.lineno}{bcolors.ENDC}: `{frame.line}`")
+        print(f"\tin {frame.filename}:{frame.lineno}:0")
+        print(f"{bcolors.WARNING} - Use ODR-Fit if x-errors should be included!{bcolors.ENDC}")
+        print(f"{bcolors.WARNING} - Call with `ignore_warning_x_error = True` to surpress this warning!{bcolors.ENDC}")
+
 def generic_fit(
     model: Union[Callable, Type[FitModel]],
     x_data,
     y_data,
     y_err=None,
     initial_guess=None,
-    param_names = None
+    *,
+    param_names = None,
+    ignore_warning_x_errors: bool = False,
+    ignore_warning_y_errors: bool = False,
 ) -> FitResult:
     if isclass(model) and issubclass(model, FitModel):
         if not param_names:
@@ -26,12 +68,8 @@ def generic_fit(
 
     x_data, y_data = filter_nan_values(x_data, y_data, warn_filter_nan=True)
 
-    if any(isinstance(x, MeasurementBase) and x.error is not None for x in x_data):
-        warnings.warn(
-            "\nx-value uncertainties were detected but are ignored by least-squares fitting. "
-            "\nUse ODR if x-errors should be included.",
-            UserWarning
-        )
+    _warn_user_x_errors(x_data, ignore_warning_x_errors)
+    _warn_user_no_y_errors(y_data, y_err, ignore_warning_y_errors)
 
     y_data, y_err = extract_vals_and_errors(y_data, y_err)
     x_data, _     = extract_vals_and_errors(x_data, None)
@@ -49,7 +87,7 @@ def generic_fit(
     chi_squared_red = _calc_chi_squared(model, x_data, y_data, y_err, popt)
     
     # return popt, perr
-    return generate_fit_result(model, popt, perr, pcov, param_names=param_names, quality=chi_squared_red);
+    return generate_fit_result(model, popt, perr, pcov, param_names=param_names, quality=chi_squared_red, method="least squares");
 
 def _calc_chi_squared(model, x_data, y_data, yerr, popt):
     residuals = (y_data - model(x_data, *popt)) / yerr
