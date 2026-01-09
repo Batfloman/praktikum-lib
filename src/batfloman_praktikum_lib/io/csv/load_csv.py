@@ -2,7 +2,7 @@ import re
 import csv
 import pandas as pd
 
-from ..validation import validate_filename
+from batfloman_praktikum_lib.path_managment import validate_filename
 
 _SECTION_PATTERN = re.compile(r"^\[(?P<name>[^\]]+)\]$")
 _HEADER_PATTERN = re.compile(r"^#\s*(?P<header>.+)$")

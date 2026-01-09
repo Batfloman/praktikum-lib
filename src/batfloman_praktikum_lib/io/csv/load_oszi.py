@@ -1,7 +1,7 @@
 import numpy as np
 import csv
 
-from ..validation import validate_filename
+from batfloman_praktikum_lib.path_managment import validate_filename
 
 def load_csv_oszi(filename):
     """

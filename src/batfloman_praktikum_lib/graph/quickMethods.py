@@ -7,20 +7,30 @@ from typing import Any
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 
+from ..io.termColors import bcolors
+from ..path_managment import create_dirs, dir_exist
+
 # ==================================================
 
 def save_plot(
         plot: tuple[Figure, Axes | np.ndarray],
         path: str,
-        print_successMsg: bool = True
+        *,
+        print_successMsg: bool = True,
+        auto_create_dir: bool = False,
 ):
     fig, _ = plot
-    dir_path = os.path.dirname(path)
-    if dir_path:
-        os.makedirs(dir_path, exist_ok=True)
+
+    if auto_create_dir and not dir_exist(path):
+        create_dirs(path)
+        print(f"{bcolors.CREATED}Created directory: {bcolors.ENDC}{path}")
+
     fig.savefig(path, dpi=300)
+
     if print_successMsg:
-        print(f"file {os.path.basename(path)} has been saved to {os.path.abspath(dir_path or '.')}")
+        print(f"{bcolors.OKGREEN}Succesfully saved{bcolors.ENDC}",
+              f"{bcolors.OKBLUE}Plot{bcolors.ENDC}")
+        print(f"\t{bcolors.DIM}to {path}{bcolors.ENDC}")
 
 # --------------------
 

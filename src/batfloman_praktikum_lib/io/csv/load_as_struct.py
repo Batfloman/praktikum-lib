@@ -1,6 +1,6 @@
 import pandas as pd
 
-from ..validation import validate_filename
+from batfloman_praktikum_lib.path_managment import validate_filename
 from .load_csv import load_csv
 
 def load_csv_datacluster(filename: str, section: str | None = None):

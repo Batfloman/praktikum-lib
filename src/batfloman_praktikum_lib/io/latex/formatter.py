@@ -159,12 +159,14 @@ def format_table_value(
     metadata = normalize_metadata(metadata);
 
     # if not convertable, just use the text
-    val: float = np.nan
+    val = np.nan
     if isinstance(value, (str, np.str_)):
         try: 
             val = float(value)
         except:
             return value
+    else:
+        val = value
 
     if np.isnan(val):
         return "NaN"

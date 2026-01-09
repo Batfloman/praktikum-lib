@@ -3,7 +3,6 @@ import numbers
 import pandas as pd
 
 from ..table_metadata import TableColumnMetadata, TableMetadataManager
-from .save_impl import save_numbers, save_Measurement, save_pd_dataframe, save_DataCluster
 
 def save_latex(
     obj: Any,
@@ -24,6 +23,7 @@ def save_latex(
 ) -> str:
     from batfloman_praktikum_lib.structs.dataCluster import DataCluster
     from batfloman_praktikum_lib.structs.measurement import Measurement
+    from .save_impl import save_numbers, save_Measurement, save_pd_dataframe, save_DataCluster
 
     if isinstance(obj, numbers.Real):
         return save_numbers(obj, path, 
