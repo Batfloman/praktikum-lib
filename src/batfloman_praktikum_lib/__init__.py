@@ -6,7 +6,8 @@ from . import tables
 from . import io
 
 from .structs import DataCluster, Dataset, Measurement
-from .saving import save_latex
+# from .saving import save_latex
+from .io import save_latex
 from .path_managment import set_file, rel_path, ensure_extension, validate_filename
 
 from . import graph

@@ -22,11 +22,11 @@ def save_numbers(
     use_si_prefix: bool = True,
     fixed_exponent: Optional[int] = None,
 ) -> str:
-    latex_str = format_number_latex_str(value, 
+    latex_str = format_number_latex_str(val, 
         unit=unit,
         use_si_prefix=use_si_prefix,
         fixed_exponent=fixed_exponent,
-        format_spec=format_spec
+        format_spec=format_spec,
     )
 
     # Write to file

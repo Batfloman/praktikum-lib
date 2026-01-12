@@ -6,7 +6,8 @@ import copy
 from typing import List, Union, Callable, Optional, Iterable
 
 from batfloman_praktikum_lib.tables.latex_table import formatter as latex_formatter
-from batfloman_praktikum_lib.tables.metadata import MetadataManager
+# from batfloman_praktikum_lib.tables.metadata import MetadataManager
+from batfloman_praktikum_lib.io.table_metadata import TableMetadataManager
 from batfloman_praktikum_lib.structs.measurement import Measurement
 from batfloman_praktikum_lib.structs.dataset import Dataset 
 
@@ -82,7 +83,7 @@ class DataCluster:
                 raise ValueError("Data Objects should manage only datasets!")
 
         self.data = datasets or []
-        self.metadata_manager = MetadataManager()
+        self.metadata_manager = TableMetadataManager()
 
     # ==================================================
 
@@ -275,9 +276,24 @@ class DataCluster:
     def save_csv(self, filename: str) -> None:
         raise NotImplementedError("save to csv not implemented!")
 
-    def save_latex(self, filename: str, use_indices=None, exclude_indicies=None) -> None:
-        df = self.to_dataframe(use_indicies=use_indices, exclude_indicies=exclude_indicies)
-        tables.export_as_latex_table(df, filename, metadata_manager=self.metadata_manager)
+    def save_latex(self, filename: str, 
+        *, 
+        print_success_msg: bool = True,
+        auto_create_dirs: bool = False,
+        use_indices=None, 
+        exclude_indices=None
+    ) -> None:
+        from ..io.latex import save_latex
+
+        save_latex(self, filename,
+            print_success_msg=print_success_msg,
+            auto_create_dirs=auto_create_dirs,
+            tableMetadata=self.metadata_manager,
+            use_indices=use_indices,
+            exclude_indices=exclude_indices,
+        )
+        # df = self.to_dataframe(use_indicies=use_indices, exclude_indicies=exclude_indices)
+        # tables.export_as_latex_table(df, filename, metadata_manager=self.metadata_manager)
     
     # ==================================================
     # json
