@@ -7,7 +7,7 @@ type FormattingSupported = numbers.Real | MeasurementBase
 
 def custom_format(
     value: FormattingSupported,
-    format_spec: str
+    format_spec: str = "",
 ) -> str:
     from batfloman_praktikum_lib.structs.measurement import Measurement
 

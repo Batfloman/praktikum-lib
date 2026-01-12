@@ -10,10 +10,15 @@ def random_exp(min_exp=-12, max_exp=12):
     return m * 10**e
 
 def test_vals():
-    val = random_exp()
-    val = Measurement(val, random.randint(1, 50)/1000 * val)
+    print("\n")
+    # x = Measurement(2942, 161) * 1e-3
+    # print(f"{x:pm}")
 
-    print(f" === {val:.4g} === ")
-    print(custom_format(val, "f"))
-    print(custom_format(val, "e3"))
-    print(custom_format(val, ".1e3"))
+    for x in range(20):
+        val = random_exp()
+        val = Measurement(val, random.randint(1, 50)/1000 * val)
+
+        val_str = f"{val:}"
+        val_str3 = f"{val:pm}"
+        val_str4 = f"{val:e3pm}"
+        print(f"{val_str:<20} | {val_str3:<20} | {val_str4:<20}")

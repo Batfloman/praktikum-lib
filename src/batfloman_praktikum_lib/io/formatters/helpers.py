@@ -8,16 +8,15 @@ def get_first_digit_position(val: float) -> int:
 
 def get_3n_exponent(uncertainty: float) -> int:
     exponent = np.log10(abs(uncertainty))
-    # return int(np.floor(exponent / 3) * 3)
-    if exponent < 0 and (abs(exponent) % 3) < 1.7:
-    # if exponent < 0:
-        exponent = np.floor(exponent / 3) * 3
-    elif exponent > 0 and (abs(exponent) % 3) > 2.5:
-    # elif exponent > 0:
-        exponent = np.ceil(exponent / 3) * 3
-    else:
-        exponent = np.floor(exponent / 3) * 3
-    return int(exponent)
+    return int(np.floor(exponent / 3) * 3)
+
+    # if exponent < 0 and (abs(exponent) % 3) < 1.7:
+    #     exponent = np.floor(exponent / 3) * 3
+    # elif exponent > 0 and (abs(exponent) % 3) > 2.5:
+    #     exponent = np.ceil(exponent / 3) * 3
+    # else:
+    #     exponent = np.floor(exponent / 3) * 3
+    # return int(exponent)
 
 def extract_precision(format_spec: str) -> int | None:
     """
