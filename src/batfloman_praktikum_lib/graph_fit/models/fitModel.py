@@ -1,9 +1,9 @@
-from typing import List
+from typing import List, Optional
 
 from batfloman_praktikum_lib.structs.measurement import Measurement
 
 from batfloman_praktikum_lib.structs.dataCluster import DataCluster
-from ..fitResult import FitResult
+from ..fitResult import FitResult, FIT_METHODS
 from .modelMeta import ModelMeta
 
 import numpy as np
@@ -23,7 +23,10 @@ class FitModel(metaclass=ModelMeta):
         raise NotImplementedError("Subclasses must implement the model method.")
 
     @classmethod
-    def fit(cls, x, y, xerr = None, yerr = None) -> FitResult:
+    def fit(cls, x, y, xerr = None, yerr = None,
+        *,
+        method: Optional[FIT_METHODS] = None,
+    ) -> FitResult:
         # if all(hasattr(y, "value") and hasattr(y, "error") for y in y):
         #     # Extract values and errors
         #     yerr = np.array([y.error for y in y])
@@ -31,15 +34,27 @@ class FitModel(metaclass=ModelMeta):
         #
         # return cls.ls_fit(x, y, yerr=yerr);
 
+        from batfloman_praktikum_lib.structs.measurementBase import MeasurementBase
         has_xerr = xerr is not None and xerr.size > 0;
-        if has_xerr:
+        x_has_err = any(isinstance(val, MeasurementBase) and val.error is not None for val in x)
+
+        if method == "least squares":
+            return cls.ls_fit(x, y, yerr=yerr, ignore_warning_x_errors=True);
+        if method == "ODR":
+            return cls.odr_fit(x, y, xerr=xerr, yerr=yerr);
+
+        if has_xerr or x_has_err:
             return cls.odr_fit(x, y, xerr=xerr, yerr=yerr);
         else:
             return cls.ls_fit(x, y, yerr=yerr);
     
     @classmethod
-    def ls_fit(cls, x, y, yerr = None) -> FitResult:
-        from ..least_squares import generic_fit as ls_fit
+    def ls_fit(cls, x, y, yerr = None,
+        *,
+        ignore_warning_x_errors: bool = False,
+        ignore_warning_y_errors: bool = False,
+    ) -> FitResult:
+        from ..least_squares import generic_fit
 
         if all(hasattr(y, "value") and hasattr(y, "error") for y in y):
             # Extract values and errors
@@ -49,18 +64,12 @@ class FitModel(metaclass=ModelMeta):
         param_names = cls.get_param_names()
         initial_guess = cls.get_initial_guess(x, y)
 
-        res = ls_fit(cls.model, x, y, yerr, initial_guess=initial_guess, param_names=param_names)
-
-        # temporär Warnformat ändern
-        old_format = warnings.formatwarning
-        warnings.formatwarning = lambda msg, *args, **kwargs: f"Warning: {msg}\n"
-        if yerr is None or np.all(yerr == 0):
-            warnings.warn("No y-errors provided. Fit will ignore uncertainties, parameter errors may be meaningless, and will be set to nan.")
-            for p in res.params:
-                if isinstance(p, Measurement):
-                    p.error = float('nan')
-        # wieder altes Format zurücksetzen
-        warnings.formatwarning = old_format
+        res = generic_fit(cls.model, x, y, yerr,
+            initial_guess=initial_guess, 
+            param_names=param_names,
+            ignore_warning_x_errors=ignore_warning_x_errors,
+            ignore_warning_y_errors=ignore_warning_y_errors,
+        )
 
         return res
     
@@ -73,7 +82,10 @@ class FitModel(metaclass=ModelMeta):
         return odr_fit(cls.model, x, y, x_err=xerr, y_err=yerr, initial_guess=initial_guess, param_names=param_names)
     
     @classmethod
-    def on_data(cls, data: DataCluster, x_index: str, y_index: str) -> FitResult:
+    def on_data(cls, data: DataCluster, x_index: str, y_index: str,
+        *,
+        method: Optional[FIT_METHODS] = None,
+    ) -> FitResult:
         if not x_index in data.get_column_names():
             raise NameError(f"Column {x_index} not found")
         if not y_index in data.get_column_names():
@@ -82,4 +94,4 @@ class FitModel(metaclass=ModelMeta):
         x_values = data.column(x_index);
         y_values = data.column(y_index);
 
-        return cls.fit(x_values, y_values);
+        return cls.fit(x_values, y_values, method=method);

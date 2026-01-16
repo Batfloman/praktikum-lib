@@ -6,6 +6,7 @@ import re
 from batfloman_praktikum_lib.structs.measurement import Measurement
 from batfloman_praktikum_lib.significant_rounding.formatter import _get_3n_exponent as get_3n_exponent, _extract_precision as extract_precision
 from batfloman_praktikum_lib.tables.latex_table import formatter
+from batfloman_praktikum_lib.io.formatters import custom_format
 from .format_maps import SIUNITX_UNIT_MAP, SI_PREFIX_MAP
 from ..table_metadata import DEFAULT_ALIGNMENT, ALIGNMENT_VALUES, TableColumnMetadata, TableMetadataManager, normalize_metadata
 
@@ -40,14 +41,6 @@ def _format_unit(
     else:
         return rf"\ensuremath{{10^{exponent}}}\,\si{{{unit_str}}}"
 
-def _custom_format(value, format_spec) -> str:
-    if ["e3"] in format_spec:
-        exp = get_3n_exponent(value)
-        val = value / 10**exp
-        pre = extract_precision(format_spec)
-        return f"{val:.{pre}f}"
-    else:
-        return format(value, format_spec)
 
 def format_number_latex_str(
     value: numbers.Real | Measurement,
@@ -59,7 +52,7 @@ def format_number_latex_str(
 ) -> str:
     if unit is None:
         if fixed_exponent is None:
-            formatted = _custom_format(value, format_spec); 
+            formatted = custom_format(value, format_spec); 
 
             return fr"\num{{{formatted}}}"
         else:
@@ -70,7 +63,7 @@ def format_number_latex_str(
     else:
         if fixed_exponent is not None:
             val = value / 10**fixed_exponent
-            formatted = _custom_format(val, format_spec)
+            formatted = custom_format(val, format_spec)
             if "e" in formatted:
                 raise ValueError("Unexpected scientific notation in formatted value")
             
@@ -82,7 +75,7 @@ def format_number_latex_str(
             else:
                 return fr"\SI[scientific-notation=fixed, fixed-exponent={fixed_exponent}]{{{formatted}e{fixed_exponent}}}{{{unit_str}}}"
         else:
-            formatted = _custom_format(value, format_spec)
+            formatted = custom_format(value, format_spec)
             unit_str = get_siunitx_unit(unit) or unit
 
             if "e" not in formatted:
@@ -91,7 +84,7 @@ def format_number_latex_str(
                 _, exp_str = formatted.split("e")
                 exp_val = int(exp_str)
                 num_val = value / 10**exp_val
-                formatted = _custom_format(num_val)
+                formatted = custom_format(num_val)
 
                 if (use_si_prefix) and (exp_val in SI_PREFIX_MAP):
                     unit_text = f"{SI_PREFIX_MAP[exp_val]}{unit_str}"

@@ -9,6 +9,7 @@ from matplotlib.axes import Axes
 
 from ..io.termColors import bcolors
 from ..path_managment import create_dirs, dir_exist
+from ..flags import check_quiet
 
 # ==================================================
 
@@ -37,3 +38,9 @@ def save_plot(
 def create_plot(**kwargs) -> tuple[Figure, Any]:
     return plt.subplots(**kwargs);
 
+# --------------------
+
+def show(*, ignore_quiet: bool = False) -> None:
+    if check_quiet() and not ignore_quiet:
+        return
+    return plt.show()

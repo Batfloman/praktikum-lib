@@ -9,6 +9,7 @@ from .structs import DataCluster, Dataset, Measurement
 # from .saving import save_latex
 from .io import save_latex
 from .path_managment import set_file, rel_path, ensure_extension, validate_filename
+from .flags import check_quiet
 
 from . import graph
 
@@ -33,6 +34,7 @@ __all__ = [
     "save_latex",
     "ensure_extension",
     "validate_filename",
+    "check_quiet",
 ]
 
 def lazy_imports():

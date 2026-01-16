@@ -1,9 +1,10 @@
 import numpy as np
 import re
 
-def get_first_digit_position(val: float) -> int:
+def get_first_digit_position(val: float) -> int | None:
     if val == 0:
-        raise ValueError("Zero has no leading digit!")
+        return None
+    #     raise ValueError("Zero has no leading digit!")
     return int(np.floor(np.log10(abs(val))))
 
 def get_3n_exponent(uncertainty: float) -> int:

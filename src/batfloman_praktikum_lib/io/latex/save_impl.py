@@ -104,9 +104,19 @@ def save_pd_dataframe(
             md.update_metadata(k, v)
         tableMetadata = md
 
+    if use_indices is not None:
+        missing = set(use_indices) - set(df.columns)
+        if missing:
+            raise ValueError(f"{missing} not in {list(df.columns)}")
+    if exclude_indices is not None:
+        missing = set(exclude_indices) - set(df.columns)
+        if missing:
+            raise ValueError(f"{missing} not in {list(df.columns)}")
+
     indices = list(df.columns) if use_indices is None else use_indices
     indices = [c for c in indices if c not in exclude_indices]
 
+    # start table construction
     column_format = get_column_format(indices, tableMetadata)
     formatted_headers = [
         format_table_header(col, tableMetadata.get_metadata(col)) for col in indices

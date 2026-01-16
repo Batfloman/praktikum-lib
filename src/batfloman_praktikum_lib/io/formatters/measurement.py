@@ -114,37 +114,33 @@ def _display_parenthesis_float(val: float, err: float, decimals: int = 0) -> str
 def _display_parenthesis(val: float, err: float, format_spec: str = "") -> str:
     decimals = extract_precision(format_spec) or 0;
 
-    if format_spec.endswith("e3"):
-        exponent = get_3n_exponent(err)
-        try:
-            first = get_first_digit_position(val)
-        except ValueError as e:
-            first = None
-        offset = max(np.floor((first - exponent) / 3) * 3, 0) if first else 0
-        offset = int(offset)
+    if "e3" in format_spec:
+        exponent = get_3n_exponent(val)
+        err_exp = get_sig_digit_position(err)
+        offset = max(exponent - err_exp, 0)
+        if err_exp - exponent > 0:
+            exponent = get_3n_exponent(err)
+        return _display_parenthesis_exponent(val, err, exponent, offset + decimals)
 
-        return _display_parenthesis_exponent(val, err, exponent + offset, decimals + offset)
-    if format_spec.endswith("e"):
-        exponent = get_sig_digit_position(err)
-        try:
-            first = get_first_digit_position(val)
-        except ValueError as e:
-            first = None
-        offset = max(first - exponent, 0) if first else 0
-
-        return _display_parenthesis_exponent(val, err, exponent + offset, decimals + offset)
-    if format_spec.endswith("f"):
+    if "f" in format_spec:
         return _display_parenthesis_float(val, err, decimals);
 
-    exponent = get_sig_digit_position(err);
-    if abs(exponent) < 6:
-        return _display_parenthesis_float(val, err, 0)
-    else:
-        try:
-            first = get_first_digit_position(val)
-        except ValueError as e:
-            first = None
-        offset = max(first - exponent, 0) if first else 0
+    if "e" in format_spec:
+        err_exp = get_sig_digit_position(err)
+        exponent = err_exp if (tmp := get_first_digit_position(val)) is None else tmp
+        offset = max(exponent - err_exp, 0)
 
-        return _display_parenthesis_exponent(val, err, exponent + offset, offset)
+        return _display_parenthesis_exponent(val, err, exponent, offset + decimals)
+
+
+    # if "g" in format_spec:
+    # default
+    err_exp = get_sig_digit_position(err)
+    exponent = err_exp if (tmp := get_first_digit_position(val)) is None else tmp
+    offset = max(exponent - err_exp, 0)
+
+    if -3 <= exponent < 6 and err_exp < exponent:
+        return _display_parenthesis_float(val, err, decimals)
+    else:
+        return _display_parenthesis_exponent(val, err, exponent, offset + decimals);
 

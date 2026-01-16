@@ -5,7 +5,7 @@ import numpy as np
 from batfloman_praktikum_lib.structs.measurement import Measurement
 from batfloman_praktikum_lib.structs.dataset import Dataset
 
-type FIT_METHODS = Literal["least_squares", "ODR", "idk"]
+type FIT_METHODS = Literal["least squares", "ODR", "idk"]
 
 def _get_quality_statement(quality):
     if quality > 2:
