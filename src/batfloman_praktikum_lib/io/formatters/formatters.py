@@ -12,17 +12,17 @@ def custom_format(
     from batfloman_praktikum_lib.structs.measurement import Measurement
 
     if isinstance(value, Measurement):
-        return custom_format_measurement(value, format_spec);
+        return custom_format_measurement(value, format_spec)
 
     fval = float(value)
 
     if "e3" in format_spec:
         exp = get_3n_exponent(fval)
-        val = value / 10**exp
+        val = fval / 10**exp
         pre = extract_precision(format_spec) or 0
 
         exp_str = "" if exp == 0 else f"e{exp}"
 
         return f"{val:.{pre}f}{exp_str}"
     else:
-        return format(value, format_spec)
+        return format(fval, format_spec)

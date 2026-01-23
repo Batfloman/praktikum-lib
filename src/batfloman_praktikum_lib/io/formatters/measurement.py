@@ -1,10 +1,8 @@
 from typing import Literal
 from enum import Enum
-import re
-import numpy as np
 
 from batfloman_praktikum_lib.structs.measurementBase import MeasurementBase
-from batfloman_praktikum_lib.significant_rounding import get_sig_digit_position, round_sig, round_sig_fixed
+from batfloman_praktikum_lib.significant_rounding import get_sig_digit_position, round_sig_fixed
 from .helpers import get_3n_exponent, extract_precision, get_first_digit_position
 
 class UncertaintyNotation(Enum):
@@ -50,7 +48,7 @@ def format_measurement(
         case _:
             raise ValueError(f"Unknown uncertainty notation: {mode}")
 
-def _diplay_plusminus_exponent(val: float, err: float, exponent: int, decimals: int = 0) -> str:
+def _display_plusminus_exponent(val: float, err: float, exponent: int, decimals: int = 0) -> str:
     val /= 10**exponent
     err /= 10**exponent
     val, err = round_sig_fixed(val, err, decimals)
@@ -75,7 +73,7 @@ def _display_plusminus(val: float, err: float, format_spec: str = "") -> str:
 
     if format_spec.endswith(("e3", "e")):
         exponent = get_3n_exponent(err) if format_spec.endswith("e3") else get_sig_digit_position(err)
-        return _diplay_plusminus_exponent(val, err, exponent, decimals);
+        return _display_plusminus_exponent(val, err, exponent, decimals);
     if format_spec.endswith("f"):
         return _display_plusminus_float(val, err, decimals)
     
@@ -84,7 +82,7 @@ def _display_plusminus(val: float, err: float, format_spec: str = "") -> str:
         decimals = max(0, -get_sig_digit_position(err))
         return _display_plusminus_float(val, err, decimals)
     else:
-        return _diplay_plusminus_exponent(val, err, exponent, 0)
+        return _display_plusminus_exponent(val, err, exponent, 0)
 
 # ==================================================
 # parenthesis notation
@@ -131,7 +129,6 @@ def _display_parenthesis(val: float, err: float, format_spec: str = "") -> str:
         offset = max(exponent - err_exp, 0)
 
         return _display_parenthesis_exponent(val, err, exponent, offset + decimals)
-
 
     # if "g" in format_spec:
     # default
