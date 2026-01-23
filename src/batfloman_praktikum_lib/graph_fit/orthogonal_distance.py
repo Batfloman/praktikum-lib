@@ -11,7 +11,7 @@ from ..graph.plotNScatter import filter_nan_values
 from .helper import extract_vals_and_errors
 from .fitResult import generate_fit_result, FitResult
 from .models.fitModel import FitModel
-from .find_initial_parameters import order_initial_params
+from .init_params.order_init_params import order_initial_params
 
 def _warn_user_no_errors(y_data, y_err, ignore_y_errors: bool, coord: Literal["x", "y"]):
     if ignore_y_errors or (y_err is not None):
