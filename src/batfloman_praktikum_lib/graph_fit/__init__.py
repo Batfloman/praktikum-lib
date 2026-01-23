@@ -4,6 +4,7 @@ from .find_initial_parameters import find_init_params
 from .fitResult import FitResult
 
 from .models import (
+    ConstFunc,
     FitModel, 
     CompositeFitModel, 
     Linear,
@@ -23,6 +24,7 @@ __all__ = [
     "find_init_params",
 
     # models
+    "ConstFunc",
     "FitModel",
     "CompositeFitModel",
     "Linear",
