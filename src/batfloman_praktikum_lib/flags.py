@@ -9,5 +9,5 @@ parser.add_argument(
 )
 
 def check_quiet():
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
     return args.quiet
