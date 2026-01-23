@@ -2,6 +2,20 @@ import numpy as np;
 
 from .fitModel import FitModel
 
+class ConstFunc(FitModel):
+    @staticmethod
+    def model(x, b):
+        return b;
+    
+    @staticmethod
+    def get_param_names():
+        return ["b"]
+
+    @staticmethod
+    def get_initial_guess(x, y):
+        b = np.mean(y)
+        return [b]
+
 class Linear(FitModel):
     @staticmethod
     def model(x, m, n):

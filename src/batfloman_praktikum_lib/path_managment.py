@@ -37,3 +37,7 @@ def validate_filename(filename: str, extension: str) -> str:
 def create_dirs(filepath: str) -> None:
     dir = os.path.dirname(filepath)
     os.makedirs(dir, exist_ok=True)
+
+def dir_exist(filepath: str) -> bool:
+    dir = os.path.dirname(filepath)
+    return os.path.exists(dir)

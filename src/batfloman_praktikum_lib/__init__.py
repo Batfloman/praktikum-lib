@@ -3,10 +3,13 @@ from . import util
 from . import graph_old, graph_fit
 from . import function_analysis
 from . import tables
+from . import io
 
 from .structs import DataCluster, Dataset, Measurement
-from .saving import save_latex
+# from .saving import save_latex
+from .io import save_latex
 from .path_managment import set_file, rel_path, ensure_extension, validate_filename
+from .flags import check_quiet
 
 from . import graph
 
@@ -15,6 +18,7 @@ __all__ = [
     "graph",
     "graph_fit",
     "tables",
+    "io",
     # files 
     "graph_old",
     "util",
@@ -30,6 +34,7 @@ __all__ = [
     "save_latex",
     "ensure_extension",
     "validate_filename",
+    "check_quiet",
 ]
 
 def lazy_imports():

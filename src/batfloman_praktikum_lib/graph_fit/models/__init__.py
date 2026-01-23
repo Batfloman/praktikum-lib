@@ -1,6 +1,7 @@
 from .fitModel import FitModel
 from .compositeFitModel import CompositeFitModel
 from .models_impl import (
+    ConstFunc,
     Linear, 
     InverseSquare, 
     Exponential, 
@@ -15,6 +16,7 @@ __all__ = [
     "CompositeFitModel", # for typechecking
 
     # models
+    "ConstFunc",
     "Linear",
     "Gaussian",
     "InverseSquare",

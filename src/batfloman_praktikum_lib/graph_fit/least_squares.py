@@ -2,7 +2,6 @@ from typing import Union, Callable, Type
 from inspect import isclass
 import numpy as np
 from scipy.optimize import curve_fit
-import warnings
 
 from batfloman_praktikum_lib.graph_fit.models.fitModel import FitModel
 from batfloman_praktikum_lib.structs.measurementBase import MeasurementBase
@@ -11,13 +10,18 @@ from ..graph.plotNScatter import filter_nan_values
 from .fitResult import generate_fit_result, FitResult
 from .find_initial_parameters import order_initial_params
 
+from .user_warnings import warn_user_no_y_errors_least_squares, warn_user_x_errors_least_squares
+
 def generic_fit(
     model: Union[Callable, Type[FitModel]],
     x_data,
     y_data,
     y_err=None,
     initial_guess=None,
-    param_names = None
+    *,
+    param_names = None,
+    ignore_warning_x_errors: bool = False,
+    ignore_warning_y_errors: bool = False,
 ) -> FitResult:
     if isclass(model) and issubclass(model, FitModel):
         if not param_names:
@@ -26,12 +30,8 @@ def generic_fit(
 
     x_data, y_data = filter_nan_values(x_data, y_data, warn_filter_nan=True)
 
-    if any(isinstance(x, MeasurementBase) and x.error is not None for x in x_data):
-        warnings.warn(
-            "\nx-value uncertainties were detected but are ignored by least-squares fitting. "
-            "\nUse ODR if x-errors should be included.",
-            UserWarning
-        )
+    warn_user_x_errors_least_squares(x_data, ignore_warning_x_errors)
+    warn_user_no_y_errors_least_squares(y_data, y_err, ignore_warning_y_errors)
 
     y_data, y_err = extract_vals_and_errors(y_data, y_err)
     x_data, _     = extract_vals_and_errors(x_data, None)
@@ -49,7 +49,7 @@ def generic_fit(
     chi_squared_red = _calc_chi_squared(model, x_data, y_data, y_err, popt)
     
     # return popt, perr
-    return generate_fit_result(model, popt, perr, pcov, param_names=param_names, quality=chi_squared_red);
+    return generate_fit_result(model, popt, perr, pcov, param_names=param_names, quality=chi_squared_red, method="least squares");
 
 def _calc_chi_squared(model, x_data, y_data, yerr, popt):
     residuals = (y_data - model(x_data, *popt)) / yerr

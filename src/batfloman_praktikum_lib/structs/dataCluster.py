@@ -3,10 +3,11 @@ import numpy as np
 import pandas as pd
 import re
 import copy
-from typing import List, Union, Callable, Optional
+from typing import List, Union, Callable, Optional, Iterable
 
 from batfloman_praktikum_lib.tables.latex_table import formatter as latex_formatter
-from batfloman_praktikum_lib.tables.metadata import MetadataManager
+# from batfloman_praktikum_lib.tables.metadata import MetadataManager
+from batfloman_praktikum_lib.io.table_metadata import TableMetadataManager
 from batfloman_praktikum_lib.structs.measurement import Measurement
 from batfloman_praktikum_lib.structs.dataset import Dataset 
 
@@ -82,7 +83,7 @@ class DataCluster:
                 raise ValueError("Data Objects should manage only datasets!")
 
         self.data = datasets or []
-        self.metadata_manager = MetadataManager()
+        self.metadata_manager = TableMetadataManager()
 
     # ==================================================
 
@@ -97,10 +98,26 @@ class DataCluster:
 
     # ==================================================
     
-    def add(self, to_add: Dataset | list[Dataset]) -> None:
-        if not isinstance(to_add, list):
-            to_add = [to_add]
-        self.data.extend(to_add)
+    def add(self,
+        to_add: Dataset | dict | Iterable[Dataset | dict]
+    ) -> None:
+        if isinstance(to_add, (Dataset, dict)):
+            add_arr = [to_add]
+        elif isinstance(to_add, Iterable):
+            add_arr = list(to_add)
+        else:
+            raise TypeError("Invalid input")
+
+        normalized = []
+        for item in add_arr:
+            if isinstance(item, Dataset):
+                normalized.append(item)
+            elif isinstance(item, dict):
+                normalized.append(Dataset(item))
+            else:
+                raise TypeError("Expected Dataset or dict")
+
+        self.data.extend(normalized)
 
     def remove(self, to_remove: Dataset | list[Dataset]) -> None:
         if not isinstance(to_remove, list):
@@ -259,9 +276,24 @@ class DataCluster:
     def save_csv(self, filename: str) -> None:
         raise NotImplementedError("save to csv not implemented!")
 
-    def save_latex(self, filename: str, use_indices=None, exclude_indicies=None) -> None:
-        df = self.to_dataframe(use_indicies=use_indices, exclude_indicies=exclude_indicies)
-        tables.export_as_latex_table(df, filename, metadata_manager=self.metadata_manager)
+    def save_latex(self, filename: str, 
+        *, 
+        print_success_msg: bool = True,
+        auto_create_dirs: bool = False,
+        use_indices=None, 
+        exclude_indices=None
+    ) -> None:
+        from ..io.latex import save_latex
+
+        save_latex(self, filename,
+            print_success_msg=print_success_msg,
+            auto_create_dirs=auto_create_dirs,
+            tableMetadata=self.metadata_manager,
+            use_indices=use_indices,
+            exclude_indices=exclude_indices,
+        )
+        # df = self.to_dataframe(use_indicies=use_indices, exclude_indicies=exclude_indices)
+        # tables.export_as_latex_table(df, filename, metadata_manager=self.metadata_manager)
     
     # ==================================================
     # json

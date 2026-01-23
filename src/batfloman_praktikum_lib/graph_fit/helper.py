@@ -11,10 +11,6 @@ def extract_vals_and_errors(vals, errs):
 
     if errs is None or np.all(errs == 0):
         errs = np.ones_like(vals)  # Assume equal weights if no error provided
-        warnings.warn(
-            "\nNo uncertainties were detected! Assuming equal weights (err=1) for all values.",
-            UserWarning
-        )
 
     if np.any(errs <= 0):
         raise ValueError("Error values must be positive and non-zero for meaningful fitting.")
