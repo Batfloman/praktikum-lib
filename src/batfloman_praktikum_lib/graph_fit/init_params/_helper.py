@@ -3,6 +3,14 @@ from typing import Union, Callable, Optional, List
 
 from ..models import FitModel
 
+def get_model_fn(model):
+    from inspect import isclass
+    if isinstance(model, FitModel):
+        return model.model
+    if isclass(model) and issubclass(model, FitModel):
+        return model.model
+    return model
+
 def extract_default_values(
     x_data,
     y_data,

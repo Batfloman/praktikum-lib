@@ -2,8 +2,10 @@ from typing import Callable, List, Union, Any
 from collections.abc import Sequence, Mapping
 import inspect
 
+
 from ..models import FitModel
 from .parameterSlider import ParameterSlider
+from ._helper import get_model_fn
 
 def _extract_value(v):
     # Wenn das Objekt ein slider_value Attribut hat
@@ -14,13 +16,6 @@ def _extract_value(v):
         return v.get("slider_value", 1.0)
     return float(v)
 
-def _get_model_fn(model):
-    from inspect import isclass
-    if isinstance(model, FitModel):
-        return model.model
-    if isclass(model) and issubclass(model, FitModel):
-        return model.model
-    return model
 
 def order_initial_params(
     model: Callable | FitModel,
@@ -29,7 +24,7 @@ def order_initial_params(
         Mapping[str, Any]
     ],
 ) -> List[float]:
-    model_fn = _get_model_fn(model)
+    model_fn = get_model_fn(model)
 
     # assume first argument is x (independent, continuous variable)
     params = list(inspect.signature(model_fn).parameters)[1:]

@@ -1,189 +1,161 @@
-from typing import Callable, Optional
-from PIL.Image import init
-from matplotlib.widgets import Slider, Button, TextBox
-from pathlib import Path
-import json
+from typing import Optional
+from PyQt6.QtWidgets import (
+    QWidget, QHBoxLayout, QVBoxLayout,
+    QSlider, QDoubleSpinBox, QPushButton, QLabel
+)
+from PyQt6.QtCore import Qt
 
-from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-
-from ._widget_helper import mult_slider_range, recenter_slider
-
-def _smart_format(val: float, sig: int = 3) -> str:
-    if val == 0:
-        return "0"
-    if abs(val) >= 1e5 or abs(val) < 1e-2:
-        return f"{val:.{sig}e}"
-    if abs(val) >= 1e3:
-        return f"{val:.0f}"
-    else:
-        return f"{val:.{sig}g}"
-
-class ParameterSlider:
-    slider: Slider;
-
+class ParameterSlider(QWidget):
     def __init__(self,
-        param: str,
-        total_ax, 
+        name: str,
         initial_value: float,
-        update_callback: Optional[Callable],
-        min: Optional[float] = None,
-        max: Optional[float] = None,
+        *,
         center: Optional[float] = None,
+        vmin: Optional[float] = None,
+        vmax: Optional[float] = None,
+        update_callback = None,
     ):
-        center = center or initial_value
-        vmin = min or 0.5 * center
-        vmax = max or 1.5 * center
+        super().__init__()
 
-        # ==================================================
-        # style 
+        self.name = name
+        self.update_callback = update_callback
 
-        total_ax.set_xticks([])
-        total_ax.set_yticks([])
-        total_ax.set_frame_on(False)
-
-        # --------------------
-        # slider
-
-        slider_ax = inset_axes(
-            total_ax, 
-            width="60%", 
-            height="50%", 
-            loc='center left'
-        )
-        slider = Slider(slider_ax, label=param, valmin=vmin, valmax=vmax, valinit=initial_value)
-
-        slider.label.set_x(1.02)
-        slider.label.set_horizontalalignment("left")
-        slider.valtext.set_visible(False)
-
-        self.slider = slider
-
-        # --------------------
-        # range text
-
-        self.text_delta = total_ax.text(
-            0.31, 0.9, "",
-            ha="center",
-            va="center",
-            transform=total_ax.transAxes
-        )
-
-        # --------------------
-        # textbox
-
-        textbox_ax = inset_axes(
-            slider_ax,
-            width="16%",      # Breite der TextBox
-            height="100%",    # volle Höhe der Slider-Achse
-            loc="center left", 
-            bbox_to_anchor=(-0.19, 0, 1, 1),  # x-Offset links, feintunen je nach Abstand
-            bbox_transform=slider_ax.transAxes,
-        )
-        textbox = TextBox(textbox_ax, label="", initial=f"{_smart_format(initial_value)}")
-
-        self.text_box = textbox
-
-        # --------------------
-        # buttons
-
-        def create_button(total_ax, pos, label) -> Button:
-            btn_ax = inset_axes(
-                total_ax,
-                bbox_to_anchor=(pos, 0, 0.1, 1),
-                bbox_transform=total_ax.transAxes,
-                width="80%", height="80%",
-                loc="center"
-            )
-            return Button(btn_ax, label)
-
-        self.b_shrink = create_button(total_ax, pos=0.75, label='–')
-        self.b_center = create_button(total_ax, pos=0.85, label='●')
-        self.b_expand = create_button(total_ax, pos=0.95, label='+')
-
-        # ==================================================
-        # events
-
-        # --------------------
-        # slider-range visual indicator
-
-        def update_delta_text():
-            center = (self.slider.valmin + self.slider.valmax) / 2
-            delta = abs(self.slider.valmax - self.slider.valmin) / 2
-            text = fr"Range $({_smart_format(center)} \pm {_smart_format(delta)})$"
-
-            self.text_delta.set_text(text)
-
-        update_delta_text() # call once at the start
-
-        # --------------------
-        # param_val changers = slider, textbox
+        self.center = center or initial_value
+        self.vmin = vmin or (self.center * 0.5 if self.center != 0 else -1.0)
+        self.vmax = vmax or (self.center * 1.5 if self.center != 0 else 1.0)
 
         self._syncing = False
 
-        def on_slider_change(val):
-            if self._syncing:
-                return
-            self._syncing = True
-            self.text_box.set_val(_smart_format(val))
-            self._syncing = False
+        # ---------------- layout ----------------
+        layout = QHBoxLayout(self)
 
-            if update_callback:
-                update_callback()
+        self.label = QLabel(name)
+        layout.addWidget(self.label)
 
-        self.slider.on_changed(on_slider_change)
+        self.slider = QSlider(Qt.Orientation.Horizontal)
+        self.slider.setRange(0, 1000)
+        layout.addWidget(self.slider, stretch=1)
 
-        def on_textbox_submit(text):
-            if self._syncing:
-                return
-            try:
-                val = float(text)
-            except ValueError:
-                return
+        self.spin = QDoubleSpinBox()
+        self.spin.setDecimals(6)
+        self.spin.setRange(-1e12, 1e12)
+        layout.addWidget(self.spin)
 
-            self._syncing = True
-            self.slider.set_val(val)
-            self._syncing = False
-            recenter_slider(self.slider)
-            update_delta_text()
-            self.text_box.stop_typing()
+        self.btn_shrink = QPushButton("–")
+        self.btn_center = QPushButton("●")
+        self.btn_expand = QPushButton("+")
 
-            if update_callback:
-                update_callback()
+        layout.addWidget(self.btn_shrink)
+        layout.addWidget(self.btn_center)
+        layout.addWidget(self.btn_expand)
 
-        self.text_box.on_submit(on_textbox_submit)
+        # ---------------- init ----------------
+        self.set_value(initial_value)
 
-        # --------------------
-        # buttons
+        # ---------------- signals ----------------
+        self.slider.valueChanged.connect(self._on_slider)
+        self.spin.valueChanged.connect(self._on_spin)
 
-        def shrink(event):
-            mult_slider_range(self.slider, 0.5)
-            update_delta_text()
+        self.btn_center.clicked.connect(self.recenter)
+        self.btn_shrink.clicked.connect(lambda: self.scale_range(0.5))
+        self.btn_expand.clicked.connect(lambda: self.scale_range(2.0))
 
-        def expand(event):
-            mult_slider_range(self.slider, 2)
-            update_delta_text()
+    # ==========================================
+    # mapping
 
-        def recenter(event):
-            recenter_slider(self.slider)
-            update_delta_text()
+    def _slider_to_value(self, i: int) -> float:
+        return self.vmin + (self.vmax - self.vmin) * i / 1000
 
-        self.b_shrink.on_clicked(shrink)
-        self.b_expand.on_clicked(expand)
-        self.b_center.on_clicked(recenter)
+    def _value_to_slider(self, v: float) -> int:
+        return int(1000 * (v - self.vmin) / (self.vmax - self.vmin))
 
-    # ==================================================
+    # ==========================================
+    # sync
+
+    def _on_slider(self, i):
+        if self._syncing:
+            return
+        self._syncing = True
+        v = self._slider_to_value(i)
+        self.spin.setValue(v)
+        self.center = v
+        self._syncing = False
+        self._emit_update()
+
+    def _on_spin(self, v):
+        if self._syncing:
+            return
+        self._syncing = True
+        self.center = v
+        self.slider.setValue(self._value_to_slider(v))
+        self._syncing = False
+        self._emit_update()
+
+    # ==========================================
+    # operations
+
+    def recenter(self):
+        delta = self.center - (self.vmin + self.vmax) / 2
+        self.vmin += delta
+        self.vmax += delta
+        self.slider.setValue(self._value_to_slider(self.center))
+
+    def scale_range(self, factor: float):
+        half = (self.vmax - self.vmin) / 2 * factor
+        self.vmin = self.center - half
+        self.vmax = self.center + half
+        self.slider.setValue(self._value_to_slider(self.center))
+
+    # ==========================================
+
+    def set_value(self, v: float):
+        self.center = v
+        self.spin.setValue(v)
+        self.slider.setValue(self._value_to_slider(v))
+
+    def get_value(self) -> float:
+        return self.center
 
     def to_dict(self):
         return {
-            "min": self.slider.valmin,
-            "max": self.slider.valmax,
-            "center": (self.slider.valmin + self.slider.valmax) / 2,
-            "slider_value": self.slider.val,
+            "min": self.vmin,
+            "max": self.vmax,
+            "center": self.center,
+            "slider_value": self.center,
         }
 
-    @property
-    def slider_value(self):
-        return self.slider.val
+    def _emit_update(self):
+        if self.update_callback:
+            self.update_callback()
+
+    @classmethod
+    def from_cache(cls, name: str, cache: dict, default_value: float, update_callback=None):
+        """
+        Create a ParameterSlider using cached settings if available.
+        cache: dict from load_slider_settings, keyed by parameter name
+        default_value: fallback if no cached value
+        """
+        settings = cache.get(name, {})
+        initial_value = settings.get("slider_value", default_value)
+        center = settings.get("center", initial_value)
+        vmin = settings.get("min", None)
+        vmax = settings.get("max", None)
+        return cls(
+            name=name,
+            initial_value=initial_value,
+            center=center,
+            vmin=vmin,
+            vmax=vmax,
+            update_callback=update_callback
+        )
+
+
+# ==================================================
+# import/exporting values
+# ==================================================
+
+from pathlib import Path
+import json
 
 def save_slider_settings(file: Path, params: dict[str, ParameterSlider]):
     serializable = {}
