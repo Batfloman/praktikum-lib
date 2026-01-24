@@ -5,6 +5,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 
+from batfloman_praktikum_lib.graph_fit.init_params._helper import smart_format
+
 class ParameterSlider(QWidget):
     def __init__(self,
         name: str,
@@ -20,6 +22,7 @@ class ParameterSlider(QWidget):
         self.name = name
         self.update_callback = update_callback
 
+        self.slider_value = initial_value
         self.center = center or initial_value
         self.vmin = vmin or (self.center * 0.5 if self.center != 0 else -1.0)
         self.vmax = vmax or (self.center * 1.5 if self.center != 0 else 1.0)
@@ -32,9 +35,21 @@ class ParameterSlider(QWidget):
         self.label = QLabel(name)
         layout.addWidget(self.label)
 
+        slider_container = QVBoxLayout()
+        slider_container.setContentsMargins(0, 0, 0, 0)  # no extra spacing
+
+        # range label on top
+        self.range_label = QLabel(self._format_range_text())
+        self.range_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        slider_container.addWidget(self.range_label)
+
+        # the slider below
         self.slider = QSlider(Qt.Orientation.Horizontal)
         self.slider.setRange(0, 1000)
-        layout.addWidget(self.slider, stretch=1)
+        slider_container.addWidget(self.slider)
+
+        # add this vertical container to your main horizontal layout
+        layout.addLayout(slider_container, stretch=1)
 
         self.spin = QDoubleSpinBox()
         self.spin.setDecimals(6)
@@ -78,50 +93,63 @@ class ParameterSlider(QWidget):
         self._syncing = True
         v = self._slider_to_value(i)
         self.spin.setValue(v)
-        self.center = v
+        self.slider_value = v
         self._syncing = False
+        self._update_range_label()
         self._emit_update()
 
     def _on_spin(self, v):
         if self._syncing:
             return
         self._syncing = True
-        self.center = v
+        self.slider_value = v
         self.slider.setValue(self._value_to_slider(v))
         self._syncing = False
+        self.recenter()
+        self._update_range_label()
         self._emit_update()
 
     # ==========================================
     # operations
 
+    def _format_range_text(self):
+        delta = abs(self.vmax - self.vmin) / 2
+        return f"Range: ({smart_format(self.center)} ± {smart_format(delta)})"
+
+    def _update_range_label(self):
+        self.range_label.setText(self._format_range_text())
+
     def recenter(self):
-        delta = self.center - (self.vmin + self.vmax) / 2
+        delta = self.slider_value - self.center
         self.vmin += delta
         self.vmax += delta
-        self.slider.setValue(self._value_to_slider(self.center))
+        self.center = (self.vmin + self.vmax) / 2  # recompute center properly
+        self.slider.setValue(self._value_to_slider(self.slider_value))
+        self._update_range_label()
 
     def scale_range(self, factor: float):
         half = (self.vmax - self.vmin) / 2 * factor
         self.vmin = self.center - half
         self.vmax = self.center + half
-        self.slider.setValue(self._value_to_slider(self.center))
+        self.slider.setValue(self._value_to_slider(self.slider_value))
+        self._update_range_label()
 
     # ==========================================
 
     def set_value(self, v: float):
-        self.center = v
+        self.slider_value = v
         self.spin.setValue(v)
         self.slider.setValue(self._value_to_slider(v))
 
     def get_value(self) -> float:
-        return self.center
+        return self.slider_value
 
     def to_dict(self):
         return {
             "min": self.vmin,
             "max": self.vmax,
             "center": self.center,
-            "slider_value": self.center,
+            "slider_value": self.slider_value,
         }
 
     def _emit_update(self):

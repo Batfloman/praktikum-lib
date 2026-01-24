@@ -1,8 +1,10 @@
 from typing import Optional
-from PyQt6.QtWidgets import QWidget, QVBoxLayout
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel
 from PyQt6.QtCore import Qt
 import pyqtgraph as pg
 import numpy as np
+
+from batfloman_praktikum_lib.graph_fit.init_params._helper import smart_format
 
 from .order_init_params import order_initial_params
 
@@ -24,6 +26,10 @@ class GraphWindow(QWidget):
         # PyQtGraph plot widget
         self.plot_widget = pg.PlotWidget()
         layout.addWidget(self.plot_widget)
+
+        # Label to show mouse position
+        self.coord_label = QLabel("x=0, y=0")
+        layout.addWidget(self.coord_label)
 
         # Store data
         self.x_data = np.array(x_data, dtype=float)
@@ -48,6 +54,16 @@ class GraphWindow(QWidget):
             self.model(self.x_line, *list(params.values())),
             pen=pg.mkPen('g', width=2)
         )
+
+        # Connect mouse movement to update coordinates
+        self.plot_widget.scene().sigMouseMoved.connect(self.mouse_moved)
+
+    def mouse_moved(self, pos):
+        """Update coordinate label with current mouse position"""
+        vb = self.plot_widget.plotItem.vb
+        if vb.sceneBoundingRect().contains(pos):
+            mouse_point = vb.mapSceneToView(pos)
+            self.coord_label.setText(f"x={smart_format(mouse_point.x())}, y={smart_format(mouse_point.y())}")
 
     def update_params(self, new_params: dict[str, float]):
         """Update the line plot with new parameter values"""

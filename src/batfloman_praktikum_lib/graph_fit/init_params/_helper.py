@@ -11,6 +11,16 @@ def get_model_fn(model):
         return model.model
     return model
 
+def smart_format(val: float, sig: int = 3) -> str:
+    if val == 0:
+        return "0"
+    if abs(val) >= 1e5 or abs(val) < 1e-2:
+        return f"{val:.{sig}e}"
+    if abs(val) >= 1e3:
+        return f"{val:.0f}"
+    else:
+        return f"{val:.{sig}g}"
+
 def extract_default_values(
     x_data,
     y_data,
