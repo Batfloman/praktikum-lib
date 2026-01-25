@@ -1,5 +1,5 @@
 from batfloman_praktikum_lib import graph_fit, rel_path
-from batfloman_praktikum_lib.graph_fit import FitModel, Gaussian, Linear, CompositeFitModel, find_init_params
+from batfloman_praktikum_lib.graph_fit import FitModel, Gaussian, Linear, CompositeFitModel, manual_init_params
 from batfloman_praktikum_lib import graph
 import numpy as np
 import random
@@ -35,10 +35,11 @@ def test_a():
     y_noise = np.array([random.uniform(0.95, 1.05) for _ in range(200)])
     y_data = test_model(x_data) * y_noise
 
-    params = find_init_params(
+    params = manual_init_params(
         comp,
         x_data, y_data,
-        cachePath=rel_path("./chace", __file__)
+        cache_path=rel_path("./cache", __file__),
+        # use_cache = True,
     )
 
     fit = graph_fit.least_squares_fit(
@@ -53,5 +54,4 @@ def test_a():
     graph.scatter(x_data, y_data, plot=plot)
     graph.plot_func(test_model, plot=plot, interval=(xmin, xmax))
     graph.plot_func(fit, plot=plot, interval=(xmin, xmax), color="red", zorder=4)
-    graph.plt.show()
-
+    # graph.show()
