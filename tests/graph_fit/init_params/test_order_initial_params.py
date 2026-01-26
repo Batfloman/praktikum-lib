@@ -46,8 +46,8 @@ def test_mapping_input_with_slider_real():
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots()
     
-    slider_a = ParameterSlider("a", ax, initial_value=5.0, update_callback=lambda: None)
-    slider_b = ParameterSlider("b", ax, initial_value=7.0, update_callback=lambda: None)
+    slider_a = ParameterSlider("a", initial_value=5.0, update_callback=lambda: None)
+    slider_b = ParameterSlider("b", initial_value=7.0, update_callback=lambda: None)
     
     params = {"a": slider_a, "b": slider_b}
     
