@@ -1,8 +1,9 @@
 from typing import List, Optional
 import numpy as np
 
+from batfloman_praktikum_lib.graph_fit.init_params.order_init_params import InitalParamGuess
 from batfloman_praktikum_lib.structs.dataCluster import DataCluster
-from ..fitResult import FitResult
+from ..fitResult import FIT_METHODS, FitResult
 from .modelMeta import ModelMeta
 
 class FitModel(metaclass=ModelMeta):
@@ -21,7 +22,10 @@ class FitModel(metaclass=ModelMeta):
         x: np.ndarray, 
         y: np.ndarray, 
         xerr: Optional[np.ndarray] = None, 
-        yerr: Optional[np.ndarray] = None
+        yerr: Optional[np.ndarray] = None,
+        *,
+        initial_guess: Optional[InitalParamGuess] = None,
+        method: Optional[FIT_METHODS] = None,
     ) -> FitResult: ...
     
     @classmethod
@@ -29,7 +33,11 @@ class FitModel(metaclass=ModelMeta):
         cls, 
         x: np.ndarray, 
         y: np.ndarray, 
-        yerr: Optional[np.ndarray] = None
+        yerr: Optional[np.ndarray] = None,
+        *,
+        initial_guess: Optional[InitalParamGuess] = None,
+        ignore_warning_x_errors: bool = False,
+        ignore_warning_y_errors: bool = False,
     ) -> FitResult: ...
     
     @classmethod
@@ -38,7 +46,9 @@ class FitModel(metaclass=ModelMeta):
         x: np.ndarray, 
         y: np.ndarray, 
         xerr: Optional[np.ndarray] = None, 
-        yerr: Optional[np.ndarray] = None
+        yerr: Optional[np.ndarray] = None,
+        *,
+        initial_guess: Optional[InitalParamGuess] = None,
     ) -> FitResult: ...
     
     @classmethod
@@ -46,6 +56,9 @@ class FitModel(metaclass=ModelMeta):
         cls, 
         data: DataCluster, 
         x_index: str, 
-        y_index: str
+        y_index: str,
+        *,
+        initial_guess: Optional[InitalParamGuess] = None,
+        method: Optional[FIT_METHODS] = None,
     ) -> FitResult: ...
 

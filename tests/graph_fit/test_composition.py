@@ -7,11 +7,14 @@ import random
 def test_a():
     comp = Gaussian + Gaussian + Linear
     comp2 = Linear + Linear + Linear
+    comp3 = 3 * Gaussian
     print(comp)
     assert issubclass(comp, FitModel)
     assert issubclass(comp, CompositeFitModel)
     assert issubclass(comp2, FitModel)
     assert issubclass(comp2, CompositeFitModel)
+    assert issubclass(comp3, FitModel)
+    assert issubclass(comp3, CompositeFitModel)
 
     A = random.normalvariate(100, 5)
     s = random.normalvariate(10, 5)

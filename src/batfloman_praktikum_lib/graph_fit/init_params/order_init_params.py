@@ -2,9 +2,7 @@ from typing import Callable, List, Union, Any
 from collections.abc import Sequence, Mapping
 import inspect
 
-
 from ..models import FitModel
-from .parameterSlider import ParameterSlider
 from ._helper import get_model_fn
 
 def _extract_value(v):
@@ -16,13 +14,11 @@ def _extract_value(v):
         return v.get("slider_value", 1.0)
     return float(v)
 
+type InitalParamGuess = Union[Sequence[float], Mapping[str, Any]]
 
 def order_initial_params(
     model: Callable | FitModel,
-    initial_params: Union[
-        Sequence[float],
-        Mapping[str, Any]
-    ],
+    initial_params: InitalParamGuess,
 ) -> List[float]:
     model_fn = get_model_fn(model)
 

@@ -1,4 +1,4 @@
-from typing import Type, Callable, Union, Literal
+from typing import Optional, Type, Callable, Union, Literal
 from inspect import isclass
 import numpy as np
 import warnings, traceback
@@ -11,7 +11,7 @@ from ..graph.plotNScatter import filter_nan_values
 from .helper import extract_vals_and_errors
 from .fitResult import generate_fit_result, FitResult
 from .models.fitModel import FitModel
-from .init_params.order_init_params import order_initial_params
+from .init_params.order_init_params import InitalParamGuess, order_initial_params
 
 def _warn_user_no_errors(y_data, y_err, ignore_y_errors: bool, coord: Literal["x", "y"]):
     if ignore_y_errors or (y_err is not None):
@@ -42,7 +42,7 @@ def generic_fit(
     *,
     x_err=None, 
     y_err=None, 
-    initial_guess= None, 
+    initial_guess: Optional[InitalParamGuess] = None, 
     param_names =  None,
     ignore_warning_x_errors: bool = False,
     ignore_warning_y_errors: bool = False,
