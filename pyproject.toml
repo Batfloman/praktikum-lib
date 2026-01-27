@@ -10,8 +10,13 @@ dependencies = [
 	"scipy",
 	"matplotlib",
 	"pandas",
-	"openpyxl"
+	"openpyxl",
+	"pyqtgraph",
+	"PyQt6",
 ]
+
+[project.optional-dependencies]
+dev = ["pytest"]
 
 [build-system]
 requires = ["setuptools>=42", "wheel"]
