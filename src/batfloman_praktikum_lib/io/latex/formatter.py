@@ -26,7 +26,7 @@ def _format_unit(
     """
     if unit is None or unit == "":
         if exponent:
-            return rf"\ensuremath{{10^{exponent}}}"
+            return rf"\ensuremath{{10^{{{exponent}}}}}"
         else:
             return ""
 
@@ -39,7 +39,7 @@ def _format_unit(
         prefix = SI_PREFIX_MAP[exponent]
         return rf"\si{{{prefix}{unit_str}}}"
     else:
-        return rf"\ensuremath{{10^{exponent}}}\,\si{{{unit_str}}}"
+        return rf"\ensuremath{{10^{{{exponent}}}}}\,\si{{{unit_str}}}"
 
 
 def format_number_latex_str(
