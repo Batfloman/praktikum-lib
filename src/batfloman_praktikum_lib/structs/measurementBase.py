@@ -233,6 +233,9 @@ class MeasurementBase:
 
         # Handle specific ufuncs
         match ufunc:
+            # --------------------
+            # math operations
+
             case np.add:
                 val = values[0] + values[1]
                 d1 = errors[0]
@@ -243,6 +246,7 @@ class MeasurementBase:
                 d1 = errors[0]
                 d2 = -errors[1]
                 err = (d1**2 + d2**2)**.5
+
             case np.multiply:
                 val = values[0] * values[1]
                 d1 = (errors[0] * values[1])
@@ -253,15 +257,29 @@ class MeasurementBase:
                 d1 = errors[0] / values[1]
                 d2 = - values[0] * errors[1] / values[1]**2
                 err = (d1**2 + d2**2)**.5
+
             case np.sqrt:
                 val = np.sqrt(values[0]);
                 err = .5 * errors[0] / np.sqrt(values[0])
+            case np.power:
+                base = values[0]
+                exp  = values[1]   # als konstant angenommen
+                val = np.power(base, exp)
+                err = np.abs(exp * base**(exp - 1) * errors[0])
+
+            # --------------------
+            # trig
+
             case np.sin:
                 val = np.sin(values[0])
                 err = np.abs(np.cos(values[0]) * errors[0])
             case np.cos:
                 val = np.cos(values[0])
                 err = np.abs(np.sin(values[0]) * errors[0])
+            case np.tan:
+                val = np.tan(values[0])
+                err = errors[0] / np.cos(values[0])**2
+
             case np.arcsin:
                 val = np.arcsin(values[0])
                 err = errors[0] / (1 - values[0]**2)**0.5
@@ -271,9 +289,30 @@ class MeasurementBase:
             case np.arctan:
                 val = np.arctan(values[0])
                 err = errors[0] / (1 + values[0]**2)
-            case np.tan:
-                val = np.tan(values[0])
-                err = np.abs((1 / np.cos(values[0])**2) * errors[0])
+
+            case np.sinh:
+                val = np.sinh(values[0])
+                err = np.abs(np.cosh(values[0]) * errors[0])
+            case np.cosh:
+                val = np.cosh(values[0])
+                err = np.abs(np.sinh(values[0]) * errors[0])
+            case np.tanh:
+                val = np.tanh(values[0])
+                err = errors[0] / np.cosh(values[0])**2
+
+            case np.arcsinh:
+                val = np.arcsinh(values[0])
+                err = errors[0] / np.sqrt(1 + values[0]**2)
+            case np.arccosh:
+                val = np.arccosh(values[0])
+                err = errors[0] / np.sqrt(values[0] - 1) / np.sqrt(values[0] + 1)
+            case np.arctanh:
+                val = np.arctanh(values[0])
+                err = errors[0] / (1 - values[0]**2)
+
+            # --------------------
+            # exp,log
+
             case np.exp:
                 val = np.exp(values[0]);
                 err = np.exp(values[0]) * errors[0];
@@ -285,6 +324,10 @@ class MeasurementBase:
                 # Propagate the value and error for log(x)
                 val = np.log10(values[0])
                 err = errors[0] / values[0] / np.log(10) # Error propagation formula for n-log
+
+            # --------------------
+            # modifications
+
             case np.rad2deg:
                 val = np.rad2deg(values[0]);
                 err = np.rad2deg(errors[0]);
