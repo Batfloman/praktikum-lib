@@ -26,3 +26,8 @@ def round_sig_fixed(value: float, uncertainty: float, decimals: int) -> Tuple[fl
     val = util.round(value, decimals)
     err = util.ceil(uncertainty, decimals)
     return (val, err)
+
+def get_first_digit_position(val: float) -> int:
+    if val == 0:
+        raise ValueError("Zero has no leading digit!")
+    return int(np.floor(np.log10(abs(val))))

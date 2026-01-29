@@ -3,12 +3,7 @@ from typing import Literal, Union
 import re
 import numpy as np
 
-from .core import get_sig_digit_position, round_sig, round_sig_fixed
-
-def _get_first_digit_position(val: float) -> int:
-    if val == 0:
-        raise ValueError("Zero has no leading digit!")
-    return int(np.floor(np.log10(abs(val))))
+from .core import get_sig_digit_position, round_sig, round_sig_fixed, get_first_digit_position
 
 def _get_3n_exponent(uncertainty: float) -> int:
     exponent = np.log10(abs(uncertainty))

@@ -3,9 +3,10 @@ from typing import Union, Tuple, Sequence
 
 # ==================================================
 
-ConvertibleToFloat = Union[float, int, np.integer, np.floating]
+ConvertibleToFloat = int | float | np.integer | np.floating | str | np.str_
 
-def _parse_uncertainty_str(value: float, uncertainty: str) -> float:
+def _parse_uncertainty_str(value: float, uncertainty: ConvertibleToFloat) -> float:
+    uncertainty = str(uncertainty)
     uncertainty = uncertainty.replace("\"", "")
     if uncertainty.strip().endswith("%"):
         try:
@@ -38,7 +39,7 @@ def _get_value(other):
 # ==================================================
 
 class MeasurementBase:
-    def __init__(self, value: float, uncertainties: str | ConvertibleToFloat | Sequence[str | ConvertibleToFloat], min_error=0):
+    def __init__(self, value: float, uncertainties: ConvertibleToFloat | Sequence[ConvertibleToFloat], min_error=0):
         self.value = float(value)
 
         if not isinstance(uncertainties, (list, tuple)):

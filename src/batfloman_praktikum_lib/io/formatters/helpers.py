@@ -4,11 +4,16 @@ import re
 def get_first_digit_position(val: float) -> int | None:
     if val == 0:
         return None
-    #     raise ValueError("Zero has no leading digit!")
+    if np.isnan(val) or np.isinf(val):
+        return None 
+
     return int(np.floor(np.log10(abs(val))))
 
-def get_3n_exponent(uncertainty: float) -> int:
-    exponent = np.log10(abs(uncertainty))
+def get_3n_exponent(x: float) -> int:
+    if x == 0.0:
+        return 0
+
+    exponent = np.log10(abs(x))
     return int(np.floor(exponent / 3) * 3)
 
     # if exponent < 0 and (abs(exponent) % 3) < 1.7:

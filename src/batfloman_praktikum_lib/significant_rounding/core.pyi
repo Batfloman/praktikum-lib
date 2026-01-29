@@ -12,3 +12,6 @@ def round_sig(value: float, uncertainty: float) -> Tuple[float, float]:
 
 def round_sig_fixed(value: float, uncertainty: float, decimals: int) -> Tuple[float, float]:
     ...
+
+def get_first_digit_position(val: float) -> int:
+    ...

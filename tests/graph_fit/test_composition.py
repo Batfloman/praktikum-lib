@@ -42,7 +42,7 @@ def test_a():
         comp,
         x_data, y_data,
         cache_path=rel_path("./cache", __file__),
-        use_cache = True,
+        # use_cache = True,
     )
 
     fit = graph_fit.least_squares_fit(
