@@ -1,8 +1,8 @@
 from typing import Optional, Type, Callable, Union, Literal
 from inspect import isclass
 import numpy as np
-import warnings, traceback
-from scipy.odr import ODR, Model, RealData
+import traceback
+from odrpack import ODR, Model, RealData
 
 from batfloman_praktikum_lib.structs.measurementBase import MeasurementBase
 from batfloman_praktikum_lib.io.termColors import bcolors
@@ -40,9 +40,9 @@ def generic_fit(
     x_data, 
     y_data, 
     *,
-    x_err=None, 
-    y_err=None, 
-    initial_guess: Optional[InitalParamGuess] = None, 
+    x_err=None,
+    y_err=None,
+    initial_guess: Optional[InitalParamGuess] = None,
     param_names =  None,
     ignore_warning_x_errors: bool = False,
     ignore_warning_y_errors: bool = False,

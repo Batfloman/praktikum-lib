@@ -1,4 +1,4 @@
--e git+ssh://git@github.com/Batfloman/praktikum-lib@0edb344915ddcdac0bf652ab7badfa5c752ee940#egg=batfloman_praktikum_lib
+-e git+ssh://git@github.com/Batfloman/praktikum-lib@8546c1fb06ffc3b594f8ec7a76cc5613f4bf3d46#egg=batfloman_praktikum_lib
 colorama==0.4.6
 contourpy==1.3.3
 cycler==0.12.1
@@ -8,6 +8,7 @@ iniconfig==2.3.0
 kiwisolver==1.4.9
 matplotlib==3.10.8
 numpy==2.4.1
+odrpack==0.5.0
 openpyxl==3.1.5
 packaging==26.0
 pandas==3.0.0
