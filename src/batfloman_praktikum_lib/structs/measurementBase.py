@@ -1,9 +1,10 @@
 import numpy as np
-from typing import Union, Tuple, Sequence
+from typing import Literal, Sequence, Tuple, TypeAlias, Union
 
 # ==================================================
 
 ConvertibleToFloat = Union[float, int, np.integer, np.floating]
+ErrorCombinationMethod: TypeAlias = Literal["linear", "quadrature"]
 
 def _parse_uncertainty_str(value: float, uncertainty: str) -> float:
     uncertainty = uncertainty.replace("\"", "")
@@ -26,6 +27,18 @@ def _get_value_and_error(other) -> Tuple[float, float]:
         return (float(other), 0.0)
     raise TypeError(f"Unsupported type: {type(other)}")
 
+def _combine_errors(
+    errors: Sequence[float],
+    method: ErrorCombinationMethod = "linear",
+) -> float:
+    match method:
+        case "linear":
+            return sum(abs(error) for error in errors)
+        case "quadrature":
+            return float(np.sqrt(sum(error**2 for error in errors)))
+        case _:
+            raise ValueError(f"Unknown error combination method: {method}")
+
 def _get_value(other):
     if isinstance(other, MeasurementBase):
         return other.value
@@ -38,7 +51,13 @@ def _get_value(other):
 # ==================================================
 
 class MeasurementBase:
-    def __init__(self, value: float, uncertainties: str | ConvertibleToFloat | Sequence[str | ConvertibleToFloat], min_error=0):
+    def __init__(
+        self,
+        value: float,
+        uncertainties: str | ConvertibleToFloat | Sequence[str | ConvertibleToFloat],
+        min_error=0,
+        combine: ErrorCombinationMethod = "linear",
+    ):
         self.value = float(value)
 
         if not isinstance(uncertainties, (list, tuple)):
@@ -50,21 +69,25 @@ class MeasurementBase:
                 u = _parse_uncertainty_str(value, u)
             errors.append(float(u))
 
-# Fehler kombinieren
-        total_error = sum(e for e in errors)
+        # Combine individual uncertainty contributions according to the
+        # configured convention for this measurement.
+        total_error = _combine_errors(errors, method=combine)
         self.error = max(total_error, min_error)
-
-    # def __init__(self, value: ConvertibleToFloat, uncertainty: ConvertibleToFloat | str, min_error=0):
-    #     self.value = float(value)
-    #
-    #     if isinstance(uncertainty, str):
-    #         uncertainty = _parse_uncertainty_str(value, uncertainty);
-    #     uncertainty = max(float(uncertainty), min_error)
-    #     self.error = uncertainty
 
     @classmethod
     def from_value_error(cls, value, error):
         return cls(value, error)
+
+    def _parse_error_value(self, error: str | ConvertibleToFloat) -> float:
+        if isinstance(error, str):
+            error = _parse_uncertainty_str(self.value, error)
+        return float(error)
+
+    def _copy_with(self, *, value: float | None = None, error: float | None = None):
+        return self.__class__(
+            self.value if value is None else value,
+            self.error if error is None else error,
+        )
 
     # ==================================================
     #     Comparison operations
@@ -356,4 +379,3 @@ class MeasurementBase:
             return f"{self.value:{format_spec}} ± {self.error:{format_spec}}"
         except ValueError:
             return str(self)
-
