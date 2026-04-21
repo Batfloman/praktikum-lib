@@ -51,6 +51,8 @@ def _get_value(other):
 # ==================================================
 
 class MeasurementBase:
+    __array_priority__ = 10000
+
     def __init__(
         self,
         value: float,
@@ -78,6 +80,9 @@ class MeasurementBase:
     def from_value_error(cls, value, error):
         return cls(value, error)
 
+    def _from_value_error(self, value: float, error: float):
+        return self.__class__.from_value_error(value, error)
+
     def _parse_error_value(self, error: str | ConvertibleToFloat) -> float:
         if isinstance(error, str):
             error = _parse_uncertainty_str(self.value, error)
@@ -94,24 +99,19 @@ class MeasurementBase:
     # ==================================================
 
     def __lt__(self, other):
-        other_val = _get_value(other)
-        return NotImplemented if other_val is NotImplemented else (self.value < other_val)
+        return self.value < _get_value(other)
 
     def __le__(self, other):
-        other_val = _get_value(other)
-        return NotImplemented if other_val is NotImplemented else (self.value <= other_val)
+        return self.value <= _get_value(other)
 
     def __eq__(self, other):
-        other_val = _get_value(other)
-        return NotImplemented if other_val is NotImplemented else (self.value == other_val)
+        return self.value == _get_value(other)
 
     def __ge__(self, other):
-        other_val = _get_value(other)
-        return NotImplemented if other_val is NotImplemented else (self.value >= other_val)
+        return self.value >= _get_value(other)
 
     def __gt__(self, other):
-        other_val = _get_value(other)
-        return NotImplemented if other_val is NotImplemented else (self.value > other_val)
+        return self.value > _get_value(other)
 
     # ==================================================
     #     Math Operations
@@ -126,7 +126,7 @@ class MeasurementBase:
         new_value = self.value + other_val
         new_uncertainty = np.hypot(self.error, other_err)
 
-        return self.__class__.from_value_error(new_value, new_uncertainty)
+        return self._from_value_error(new_value, new_uncertainty)
 
     def __radd__(self, other):
         return self.__add__(other)
@@ -137,7 +137,7 @@ class MeasurementBase:
         new_value = self.value - other_val
         new_uncertainty = np.hypot(self.error, other_err)
 
-        return self.__class__.from_value_error(new_value, new_uncertainty)
+        return self._from_value_error(new_value, new_uncertainty)
 
     def __rsub__(self, other):
         return (-self).__add__(other)
@@ -155,8 +155,8 @@ class MeasurementBase:
         t1 = (self.value * other_err)**2
         t2 = (self.error * other_val)**2
         new_uncertainty = np.sqrt(t1 + t2)
-            
-        return self.__class__.from_value_error(new_value, new_uncertainty)
+
+        return self._from_value_error(new_value, new_uncertainty)
 
     def __rmul__(self, other):
         return self.__mul__(other)
@@ -169,7 +169,7 @@ class MeasurementBase:
         t2 = (self.value * other_err / (other_val**2))**2
         new_uncertainty = np.sqrt(t1 + t2)
 
-        return self.__class__.from_value_error(new_value, new_uncertainty)
+        return self._from_value_error(new_value, new_uncertainty)
 
     def __rtruediv__(self, other):
         other_val, other_err = _get_value_and_error(other)
@@ -179,21 +179,21 @@ class MeasurementBase:
         t2 = (other_val * self.error / (self.value)**2)**2
         new_uncertainty = np.sqrt(t1 + t2)
 
-        return self.__class__.from_value_error(new_value, new_uncertainty)
+        return self._from_value_error(new_value, new_uncertainty)
 
     # ==================================================
     # operators & advanced func
 
     def __neg__(self):
-        return self.__class__.from_value_error(-self.value, self.error)
+        return self._from_value_error(-self.value, self.error)
 
     def __abs__(self):
-        return self.__class__.from_value_error(abs(self.value), self.error)
+        return self._from_value_error(abs(self.value), self.error)
 
     def __mod__(self, other):
         val = self.value % other
         err = self.error
-        return self.__class__.from_value_error(val, err)
+        return self._from_value_error(val, err)
 
     def __pow__(self, other):
         other_val, other_err = _get_value_and_error(other)
@@ -210,8 +210,8 @@ class MeasurementBase:
 
         error = np.sqrt(t1**2 + t2**2)
 
-        return self.__class__.from_value_error(value, error)
-    
+        return self._from_value_error(value, error)
+
     def __rpow__(self, other):
         other_val, other_err = _get_value_and_error(other)
 
@@ -220,7 +220,7 @@ class MeasurementBase:
         t2 = value * np.log(other_val) * self.error
         error = np.sqrt(t1**2 + t2**2)
 
-        return self.__class__.from_value_error(value, error)
+        return self._from_value_error(value, error)
 
     # ==================================================
     # numpy compatibility
@@ -229,32 +229,26 @@ class MeasurementBase:
         val = np.sin(self.value)
         err = np.abs(np.cos(self.value) * self.error)
 
-        return self.__class__.from_value_error(val, err)
+        return self._from_value_error(val, err)
 
     def deg2rad(self):
         val = np.deg2rad(self.value)
         err = np.deg2rad(self.error)
-        return self.__class__.from_value_error(val, err)
+        return self._from_value_error(val, err)
 
     def rint(self):
-        return self.__class__.from_value_error(np.rint(self.value), np.ceil(self.error))
+        return self._from_value_error(np.rint(self.value), np.ceil(self.error))
 
     def __float__(self):
         return float(self.value)
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
-        """
-        Handle NumPy universal functions.
-        """
-        __array_priority__ = 10000
         if method != "__call__":
             return NotImplemented
-        
-        # Extract the input values and errors
+
         values = [_get_value(i) for i in inputs]
         errors = [i.error if isinstance(i, MeasurementBase) else 0 for i in inputs]
 
-        # Handle specific ufuncs
         match ufunc:
             # --------------------
             # math operations
@@ -282,11 +276,11 @@ class MeasurementBase:
                 err = (d1**2 + d2**2)**.5
 
             case np.sqrt:
-                val = np.sqrt(values[0]);
+                val = np.sqrt(values[0])
                 err = .5 * errors[0] / np.sqrt(values[0])
             case np.power:
                 base = values[0]
-                exp  = values[1]   # als konstant angenommen
+                exp = values[1]
                 val = np.power(base, exp)
                 err = np.abs(exp * base**(exp - 1) * errors[0])
 
@@ -337,26 +331,24 @@ class MeasurementBase:
             # exp,log
 
             case np.exp:
-                val = np.exp(values[0]);
-                err = np.exp(values[0]) * errors[0];
+                val = np.exp(values[0])
+                err = np.exp(values[0]) * errors[0]
             case np.log:
-                # Propagate the value and error for log(x)
                 val = np.log(values[0])
-                err = errors[0] / values[0]  # Error propagation formula for log
+                err = errors[0] / values[0]
             case np.log10:
-                # Propagate the value and error for log(x)
                 val = np.log10(values[0])
-                err = errors[0] / values[0] / np.log(10) # Error propagation formula for n-log
+                err = errors[0] / values[0] / np.log(10)
 
             # --------------------
             # modifications
 
             case np.rad2deg:
-                val = np.rad2deg(values[0]);
-                err = np.rad2deg(errors[0]);
+                val = np.rad2deg(values[0])
+                err = np.rad2deg(errors[0])
             case np.deg2rad:
-                val = np.deg2rad(values[0]);
-                err = np.deg2rad(errors[0]);
+                val = np.deg2rad(values[0])
+                err = np.deg2rad(errors[0])
             case np.abs:
                 val = np.abs(values[0])
                 err = errors[0]
@@ -364,12 +356,12 @@ class MeasurementBase:
                 return np.isnan(values[0])
             case _:
                 raise NotImplementedError(f"not handled function: {ufunc}")
-        return self.__class__.from_value_error(val, err)
+        return self._from_value_error(val, err)
 
     # ==================================================
 
     def __str__(self):
-        return fr"{self.value} \pm {self.error}";
+        return fr"{self.value} \pm {self.error}"
 
     def __repr__(self):
         return f"Measurement(value={self.value}, error={self.error})"

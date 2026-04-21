@@ -1,72 +1,70 @@
-import json
-import os
-from typing import Optional
-
-from .measurement import Measurement
-from ..tables.validation import ensure_extension
+from collections.abc import Iterable, Iterator, Mapping
 
 class Dataset:
-    def __init__(self, measurements: dict = None):
-        self.measurements = measurements or {};
+    def __init__(self, measurements: Mapping | None = None):
+        self.measurements = dict(measurements or {})
+
+    def copy(self) -> "Dataset":
+        return Dataset(self.measurements)
 
     def copy_remove_index(self, index):
-        if not index in self.measurements:
+        if index not in self.measurements:
             return Dataset(self.measurements)
         new_measurements = {k: v for k, v in self.measurements.items() if k != index}
         return Dataset(new_measurements)
 
-    def __getitem__(self, index) -> Measurement:
-        return self.measurements[index];
+    def without(self, *indices) -> "Dataset":
+        filtered = {k: v for k, v in self.measurements.items() if k not in indices}
+        return Dataset(filtered)
+
+    def select(self, *indices) -> "Dataset":
+        selected = {k: self.measurements[k] for k in indices if k in self.measurements}
+        return Dataset(selected)
+
+    def rename(self, **mapping) -> "Dataset":
+        renamed = {mapping.get(k, k): v for k, v in self.measurements.items()}
+        return Dataset(renamed)
+
+    def __getitem__(self, index):
+        return self.measurements[index]
 
     def __setitem__(self, index, value):
-        self.measurements[index] = value;
-    
+        self.measurements[index] = value
+
+    def __delitem__(self, index):
+        del self.measurements[index]
+
     def __contains__(self, key):
-        return key in self.measurements;
+        return key in self.measurements
 
     def __str__(self):
-        strings = [];
+        strings = []
         for key, value in self.measurements.items():
             strings.append(f"{key}: {value}")
         return f'{", ".join(strings)}'
 
-    def __iter__(self):
-        return iter(self.measurements.values())
+    def __repr__(self):
+        return f"Dataset({self.measurements!r})"
+
+    def __iter__(self) -> Iterator:
+        return iter(self.measurements)
+
+    def __len__(self) -> int:
+        return len(self.measurements)
 
     # ==================================================
 
-    def to_json(self, indent: Optional[int] = None) -> str:
-        data = {}
-        for key, value in self.measurements.items():
-            if isinstance(value, Measurement):
-                data[key] = value.to_dict()
-            else:
-                data[key] = {"value": value}
-        return json.dumps(data, indent=indent)
+    def keys(self):
+        return self.measurements.keys()
 
-    @staticmethod
-    def from_json(json_str: str):
-        raw = json.loads(json_str)
-        measurements = {}
+    def values(self):
+        return self.measurements.values()
 
-        for key, entry in raw.items():
-            if "error" in entry:
-                measurements[key] = Measurement.from_dict(entry)
-            else:
-                measurements[key] = entry["value"]
+    def items(self):
+        return self.measurements.items()
 
-        return Dataset(measurements)
+    def get(self, key, default=None):
+        return self.measurements.get(key, default)
 
-    def save_json(self, path: str, indent: Optional[int] = 3):
-        path = ensure_extension(path, ".json")
-
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(self.to_json(indent))
-
-    @staticmethod
-    def load_json(path: str):
-        path = ensure_extension(path, ".json")
-
-        with open(path, "r", encoding="utf-8") as f:
-            json_str = f.read()
-        return Dataset.from_json(json_str)
+    def update(self, other: Mapping | Iterable[tuple] = (), **kwargs) -> None:
+        self.measurements.update(other, **kwargs)

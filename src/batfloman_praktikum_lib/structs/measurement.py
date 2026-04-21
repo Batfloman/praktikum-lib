@@ -12,10 +12,10 @@ from .measurementBase import (
     _get_value_and_error,
 )
 
-class Abweichung(NamedTuple):
-    sigma: float;
-    percent: float;
-    ratio: float;
+class Deviation(NamedTuple):
+    sigma: float
+    percent: float
+    ratio: float
 
 class _MeasurementModifier:
     def __init__(self, measurement: "Measurement"):
@@ -26,27 +26,32 @@ class _MeasurementModifier:
         error: str | ConvertibleToFloat,
         method: ErrorCombinationMethod = "linear",
     ) -> "Measurement":
+        """In place: Add an uncertainty to the current measurement."""
         updated = self._measurement.add_error(error, method=method)
         self._measurement.error = updated.error
         return self._measurement
 
     def set_error(self, error: str | ConvertibleToFloat) -> "Measurement":
+        """In place: Replace the current uncertainty."""
         updated = self._measurement.with_error(error)
         self._measurement.error = updated.error
         return self._measurement
 
     def clear_error(self) -> "Measurement":
+        """In place: Remove the current uncertainty."""
         updated = self._measurement.without_error()
         self._measurement.error = updated.error
         return self._measurement
 
     def round_digit(self, digits=0) -> "Measurement":
+        """In place: Round value and uncertainty to a fixed decimal position."""
         updated = self._measurement.round_digit(digits)
         self._measurement.value = updated.value
         self._measurement.error = updated.error
         return self._measurement
 
     def round(self, additional_digits=0) -> "Measurement":
+        """In place: Round the measurement based on the uncertainty magnitude."""
         updated = self._measurement.round(additional_digits)
         self._measurement.value = updated.value
         self._measurement.error = updated.error
@@ -57,10 +62,10 @@ class Measurement(MeasurementBase):
         self,
         value: ConvertibleToFloat,
         uncertainty: ConvertibleToFloat | str | list[ConvertibleToFloat | str] | tuple[ConvertibleToFloat | str, ...],
-        # unit=ureg.Unit(""),
         min_error=0,
         combine: ErrorCombinationMethod = "linear",
     ):
+        """Create a measurement from a value and one or more uncertainty terms."""
         super().__init__(value, uncertainty, min_error=min_error, combine=combine)
 
     @property
@@ -74,6 +79,7 @@ class Measurement(MeasurementBase):
         error: str | ConvertibleToFloat,
         method: ErrorCombinationMethod = "linear",
     ) -> "Measurement":
+        """Return a new measurement with an additional uncertainty contribution."""
         parsed_error = self._parse_error_value(error)
         combined_error = _combine_errors(
             [self.error, parsed_error],
@@ -82,64 +88,58 @@ class Measurement(MeasurementBase):
         return self._copy_with(error=combined_error)
 
     def with_error(self, error: str | ConvertibleToFloat) -> "Measurement":
+        """Return a new measurement with its uncertainty replaced."""
         return self._copy_with(error=self._parse_error_value(error))
 
     def without_error(self) -> "Measurement":
+        """Return a new measurement without uncertainty."""
         return self._copy_with(error=0.0)
-
-    def clear_error(self) -> "Measurement":
-        return self.without_error()
 
     # ==================================================
 
-    def abweichung(self, base) -> Abweichung:
+    def deviation(self, base) -> Deviation:
+        """Compare this measurement to a reference value or measurement."""
         other_val, other_err = _get_value_and_error(base)
         if other_val == 0:
             raise ValueError("Cannot calculate Abweichung to 0")
 
         ratio = self.value / other_val
+
         combined_error = (self.error**2 + other_err**2)**0.5
         if combined_error == 0:
             sigma = 0.0 if self.value == other_val else np.inf
         else:
             sigma = abs(self.value - other_val) / combined_error
-        return Abweichung(
+
+        return Deviation(
             ratio=ratio,
             percent=(ratio - 1) * 100,
             sigma=sigma,
         )
 
-    deviation = abweichung
-
     # ==================================================
 
+    def round(self, additional_digits=0) -> "Measurement":
+        """Return a new measurement rounded relative to its uncertainty."""
+        exponent = util.get_exponent_significant(self.error)
+        return self.round_digit(-exponent + additional_digits)
+
     def round_digit(self, digits=0) -> "Measurement":
+        """Return a new measurement rounded to a fixed decimal position."""
         return self._copy_with(
             value=util.round(self.value, digits),
             error=util.ceil(self.error, digits),
         )
 
-    def round(self, additional_digits=0) -> "Measurement":
-        exponent = util.get_exponent_significant(self.error)
-        return self.round_digit(-exponent + additional_digits)
-
     def __round__(self, decimals=0):
         return self.round_digit(decimals)
 
     def rint(self):
-        return Measurement(np.rint(self.value), np.ceil(self.error))
-
-    # ==================================================
-
-    def to_dict(self) -> dict:
-        return {
-            "value": self.value,
-            "error": self.error
-        }
-
-    @staticmethod
-    def from_dict(d):
-        return Measurement(d["value"], d["error"])
+        """Return a new measurement rounded to integer values."""
+        return self._copy_with(
+            value=np.rint(self.value),
+            error=np.ceil(self.error),
+        )
 
     # ==================================================
 
