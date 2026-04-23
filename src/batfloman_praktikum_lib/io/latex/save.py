@@ -1,69 +1,63 @@
-from typing import Optional, Any, Iterable
 import numbers
-import pandas as pd
+from functools import singledispatch
 
-from ..table_metadata import TableColumnMetadata, TableMetadataManager
+from batfloman_praktikum_lib.structs.measurement import Measurement
+from batfloman_praktikum_lib.path_managment import create_dirs, dir_exist, ensure_extension, rel_path
+
+from ..termColors import bcolors
+from .optionTypes import LatexOptions, ValueOptions
+from .formatter import format_value
+
+@singledispatch
+def to_latex(obj, options: LatexOptions) -> str:
+    raise NotImplementedError(f"No LaTeX renderer for {type(obj)}")
+
+# ==================================================
+#  implemenations
+# ==================================================
+
+@to_latex.register
+def _(obj: numbers.Real, options: LatexOptions | ValueOptions) -> str:
+    value_options: ValueOptions = options.value if isinstance(options, LatexOptions) else options
+
+    return format_value(obj, None, options=value_options)
+
+@to_latex.register
+def _(obj: Measurement, options: LatexOptions | ValueOptions) -> str:
+    value_options: ValueOptions = options.value if isinstance(options, LatexOptions) else options
+
+    return format_value(obj.value, obj.error, options=value_options)
+
+# ==================================================
+#  save
+# ==================================================
 
 def save_latex(
-    obj: Any,
+    obj,
     path: str,
+    options: LatexOptions = LatexOptions(),
     *,
     print_success_msg: bool = True,
     auto_create_dirs: bool = False,
-    # tables
-    tableMetadata: Optional[TableMetadataManager | dict[str, TableColumnMetadata]] = None,
-    use_indices: Optional[list[str]] = None,
-    exclude_indices: Optional[Iterable[str]] = None,
-    # values
-    format_spec: str = "",
-    unit: Optional[str] = None,
-    use_si_prefix: bool = True,
-    fixed_exponent: Optional[int] = None,
-    with_error: bool = True,
 ) -> str:
-    from batfloman_praktikum_lib.structs.dataCluster import DataCluster
-    from batfloman_praktikum_lib.structs.measurement import Measurement
-    from .save_impl import save_numbers, save_Measurement, save_pd_dataframe, save_DataCluster
+    latex_str = to_latex(obj, options)
 
-    if isinstance(obj, numbers.Real):
-        return save_numbers(obj, path, 
-            print_success_msg= print_success_msg,
-            auto_create_dirs= auto_create_dirs,
-            # values
-            format_spec=format_spec,
-            unit = unit,
-            use_si_prefix = use_si_prefix,
-            fixed_exponent = fixed_exponent,
-        )
-    if isinstance(obj, Measurement):
-        return save_Measurement(obj, path,
-            print_success_msg= print_success_msg,
-            auto_create_dirs= auto_create_dirs,
-            # values
-            format_spec=format_spec,
-            unit = unit,
-            use_si_prefix = use_si_prefix,
-            fixed_exponent = fixed_exponent,
-            with_error = with_error,
-        )
-    if isinstance(obj, pd.DataFrame):
-        return save_pd_dataframe(obj, path,
-            print_success_msg= print_success_msg,
-            auto_create_dirs= auto_create_dirs,
-            # values
-            tableMetadata= tableMetadata,
-            use_indices = use_indices,
-            exclude_indices = exclude_indices,
-        )
-    if isinstance(obj, DataCluster):
-        return save_DataCluster(obj, path,
-            print_success_msg= print_success_msg,
-            auto_create_dirs= auto_create_dirs,
-            # values
-            tableMetadata= tableMetadata,
-            use_indices = use_indices,
-            exclude_indices = exclude_indices,
-        )
+    try:
+        path = rel_path(path)
+    except ValueError:
+        pass
 
-    raise NotImplementedError(f"LaTeX saving for type {type(obj).__name__} not implemented!")
+    path = ensure_extension(path, ".tex")
+    if auto_create_dirs and not dir_exist(path):
+        create_dirs(path)
+        print(f"{bcolors.CREATED}Created directory: {bcolors.ENDC}{path}")
 
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(latex_str)
+
+    if print_success_msg:
+        print(f"{bcolors.OKGREEN}Succesfully saved{bcolors.ENDC}",
+              f"{bcolors.OKBLUE}{type(obj).__name__}{bcolors.ENDC}")
+        print(f"\t{bcolors.DIM}to {path}{bcolors.ENDC}")
+
+    return latex_str

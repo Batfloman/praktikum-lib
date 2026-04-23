@@ -2,7 +2,6 @@ from typing import NamedTuple, Optional, Union, Literal
 import numpy as np;
 import json
 
-from batfloman_praktikum_lib.io.formatters.formatters import custom_format
 # import pint
 
 from .. import util
@@ -198,6 +197,7 @@ class Measurement(MeasurementBase):
     # ==================================================
 
     def __str__(self):
+        from batfloman_praktikum_lib.io.formatters.formatters import custom_format
         return custom_format(self)
         return format_measurement(self.value, self.error, mode="brk");
 
@@ -205,6 +205,7 @@ class Measurement(MeasurementBase):
         return f"Measurement(value={self.value}, error={self.error})"
 
     def __format__(self, format_spec):
+        from batfloman_praktikum_lib.io.formatters.formatters import custom_format
         return custom_format(self, format_spec=format_spec)
 
         # if format_spec in ("pm", "brk"):
