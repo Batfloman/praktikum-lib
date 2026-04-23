@@ -6,12 +6,9 @@ import copy
 from typing import List, Union, Callable, Optional, Iterable
 
 from batfloman_praktikum_lib.tables.latex_table import formatter as latex_formatter
-# from batfloman_praktikum_lib.tables.metadata import MetadataManager
-from batfloman_praktikum_lib.io.table_metadata import TableMetadataManager
 from batfloman_praktikum_lib.structs.measurement import Measurement
 from batfloman_praktikum_lib.structs.dataset import Dataset 
 
-from .. import tables
 from ..tables.validation import ensure_extension
 
 def _get_column_with_error_indicies(indicies: List[str]) -> dict:
@@ -74,6 +71,8 @@ class DataCluster:
     # ==================================================
 
     def __init__(self, datasets: Optional[Union[List, np.ndarray, pd.DataFrame]] = None):
+        from batfloman_praktikum_lib.io.table_metadata import TableMetadataManager
+
         if datasets is not None:
             if isinstance(datasets, pd.DataFrame):
                 datasets = _df_to_Dataset_arr(datasets)  # keep your existing conversion
@@ -270,57 +269,57 @@ class DataCluster:
 
     # ==================================================
 
-    def save_excel(self, filename: str) -> None:
-        raise NotImplementedError("save to excel not implemented!")
-
-    def save_csv(self, filename: str) -> None:
-        raise NotImplementedError("save to csv not implemented!")
-
-    def save_latex(self, filename: str, 
-        *, 
-        print_success_msg: bool = True,
-        auto_create_dirs: bool = False,
-        use_indices=None, 
-        exclude_indices=None
-    ) -> None:
-        from ..io.latex import save_latex
-
-        save_latex(self, filename,
-            print_success_msg=print_success_msg,
-            auto_create_dirs=auto_create_dirs,
-            tableMetadata=self.metadata_manager,
-            use_indices=use_indices,
-            exclude_indices=exclude_indices,
-        )
-        # df = self.to_dataframe(use_indicies=use_indices, exclude_indicies=exclude_indices)
-        # tables.export_as_latex_table(df, filename, metadata_manager=self.metadata_manager)
+    # def save_excel(self, filename: str) -> None:
+    #     raise NotImplementedError("save to excel not implemented!")
+    #
+    # def save_csv(self, filename: str) -> None:
+    #     raise NotImplementedError("save to csv not implemented!")
+    #
+    # def save_latex(self, filename: str, 
+    #     *, 
+    #     print_success_msg: bool = True,
+    #     auto_create_dirs: bool = False,
+    #     use_indices=None, 
+    #     exclude_indices=None
+    # ) -> None:
+    #     from ..io.latex import save_latex
+    #
+    #     save_latex(self, filename,
+    #         print_success_msg=print_success_msg,
+    #         auto_create_dirs=auto_create_dirs,
+    #         tableMetadata=self.metadata_manager,
+    #         use_indices=use_indices,
+    #         exclude_indices=exclude_indices,
+    #     )
+    #     # df = self.to_dataframe(use_indicies=use_indices, exclude_indicies=exclude_indices)
+    #     # tables.export_as_latex_table(df, filename, metadata_manager=self.metadata_manager)
     
     # ==================================================
     # json
 
-    def to_json(self, indent: Optional[int] = None) -> str:
-        data = [json.loads(ds.to_json()) for ds in self.data]
-        return json.dumps(data, indent=indent)
-
-    @staticmethod
-    def from_json(json_str: str):
-        raw_list = json.loads(json_str)
-        datasets = [Dataset.from_json(json.dumps(d)) for d in raw_list]
-        return DataCluster(datasets)
-
-    def save_json(self, path: str, indent: Optional[int] = 3):
-        path = ensure_extension(path, ".json")
-
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(self.to_json(indent=indent))
-
-    @staticmethod
-    def load_json(path: str) -> "DataCluster":
-        path = ensure_extension(path, ".json")
-
-        with open(path, "r", encoding="utf-8") as f:
-            json_str = f.read()
-        return DataCluster.from_json(json_str)
+    # def to_json(self, indent: Optional[int] = None) -> str:
+    #     data = [json.loads(ds.to_json()) for ds in self.data]
+    #     return json.dumps(data, indent=indent)
+    #
+    # @staticmethod
+    # def from_json(json_str: str):
+    #     raw_list = json.loads(json_str)
+    #     datasets = [Dataset.from_json(json.dumps(d)) for d in raw_list]
+    #     return DataCluster(datasets)
+    #
+    # def save_json(self, path: str, indent: Optional[int] = 3):
+    #     path = ensure_extension(path, ".json")
+    #
+    #     with open(path, "w", encoding="utf-8") as f:
+    #         f.write(self.to_json(indent=indent))
+    #
+    # @staticmethod
+    # def load_json(path: str) -> "DataCluster":
+    #     path = ensure_extension(path, ".json")
+    #
+    #     with open(path, "r", encoding="utf-8") as f:
+    #         json_str = f.read()
+    #     return DataCluster.from_json(json_str)
 
     # ==================================================
 

@@ -1,12 +1,13 @@
 import numbers
 from functools import singledispatch
 
-from batfloman_praktikum_lib.structs.measurement import Measurement
-from batfloman_praktikum_lib.path_managment import create_dirs, dir_exist, ensure_extension, rel_path
+import pandas as pd
 
-from ..termColors import bcolors
-from .optionTypes import LatexOptions, ValueOptions
-from .formatter import format_value
+from batfloman_praktikum_lib.path_managment import create_dirs, dir_exist, ensure_extension, rel_path
+from batfloman_praktikum_lib.io.termColors import bcolors
+from batfloman_praktikum_lib.io.latex.optionTypes import LatexOptions, ValueOptions, TableOptions
+
+from .formatter import format_dataframe, format_value
 
 @singledispatch
 def to_latex(obj, options: LatexOptions) -> str:
@@ -16,17 +17,36 @@ def to_latex(obj, options: LatexOptions) -> str:
 #  implemenations
 # ==================================================
 
-@to_latex.register
-def _(obj: numbers.Real, options: LatexOptions | ValueOptions) -> str:
-    value_options: ValueOptions = options.value if isinstance(options, LatexOptions) else options
+def register_impl(): 
+    # to avoid circular imports, we import inside of a function
+    from batfloman_praktikum_lib.structs.measurement import Measurement
+    from batfloman_praktikum_lib.structs.dataCluster import DataCluster
 
-    return format_value(obj, None, options=value_options)
+    @to_latex.register
+    def _(obj: numbers.Real, options: LatexOptions | ValueOptions) -> str:
+        value_options: ValueOptions = options.value if isinstance(options, LatexOptions) else options
 
-@to_latex.register
-def _(obj: Measurement, options: LatexOptions | ValueOptions) -> str:
-    value_options: ValueOptions = options.value if isinstance(options, LatexOptions) else options
+        return format_value(obj, None, options=value_options)
 
-    return format_value(obj.value, obj.error, options=value_options)
+    @to_latex.register
+    def _(obj: Measurement, options: LatexOptions | ValueOptions) -> str:
+        value_options: ValueOptions = options.value if isinstance(options, LatexOptions) else options
+
+        return format_value(obj.value, obj.error, options=value_options)
+
+    @to_latex.register
+    def _(obj: pd.DataFrame, options: LatexOptions | TableOptions) -> str:
+        table_options: TableOptions = options.table if isinstance(options, LatexOptions) else options
+
+        return format_dataframe(obj, options=table_options)
+
+    @to_latex.register
+    def _(obj: DataCluster, options: LatexOptions | TableOptions) -> str:
+        table_options: TableOptions = options.table if isinstance(options, LatexOptions) else options
+
+        return format_dataframe(obj.to_dataframe(), options=table_options)
+
+register_impl()
 
 # ==================================================
 #  save
@@ -35,11 +55,12 @@ def _(obj: Measurement, options: LatexOptions | ValueOptions) -> str:
 def save_latex(
     obj,
     path: str,
-    options: LatexOptions = LatexOptions(),
+    options: LatexOptions | None = None,
     *,
     print_success_msg: bool = True,
     auto_create_dirs: bool = False,
 ) -> str:
+    options = options or LatexOptions()
     latex_str = to_latex(obj, options)
 
     try:

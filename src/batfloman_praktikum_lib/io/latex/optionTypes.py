@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Optional, Iterable
 
-from batfloman_praktikum_lib.io.table_metadata import TableColumnMetadata
+from batfloman_praktikum_lib.io.table_metadata import TableColumnMetadata, TableMetadataManager
 
 @dataclass
 class ValueOptions:
@@ -13,9 +13,10 @@ class ValueOptions:
 
 @dataclass
 class TableOptions:
-    metadata: Optional[dict[str, TableColumnMetadata]] = None
+    metadata: Optional[TableMetadataManager | dict[str, TableColumnMetadata]] = None
     use_indices: Optional[list[str]] = None
     exclude_indices: Optional[Iterable[str]] = None
+    unit_separator: str = " in "
 
 @dataclass
 class LatexOptions:

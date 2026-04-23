@@ -1,8 +1,9 @@
 # bind singledispatch
-from .save import save_latex
+from .save import to_latex, save_latex
 from .optionTypes import LatexOptions, ValueOptions, TableOptions
 
 __all__ = [
+    "to_latex",
     "save_latex",
     "LatexOptions",
     "ValueOptions",

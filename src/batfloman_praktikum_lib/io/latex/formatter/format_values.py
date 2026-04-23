@@ -3,8 +3,8 @@ from typing import Optional
 import numbers
 
 from ..optionTypes import ValueOptions
-from ._helper import get_siunitx_unit
-from .format_maps import SI_PREFIX_MAP, SIUNITX_UNIT_MAP
+from ._number_helper import format_unit_body
+from .format_maps import SI_PREFIX_MAP
 from batfloman_praktikum_lib.io.formatters import custom_format
 
 def format_number_latex_str(
@@ -24,7 +24,7 @@ def format_number_latex_str(
         formatted = custom_format(val, format_spec)
         return rf"\num[scientific-notation=fixed, fixed-exponent={fixed_exponent}]{{{formatted}e{fixed_exponent}}}"
 
-    unit_str = get_siunitx_unit(unit, SIUNITX_UNIT_MAP) or unit
+    unit_str = format_unit_body(unit)
 
     if fixed_exponent is not None:
         val = value / 10**fixed_exponent
@@ -33,7 +33,7 @@ def format_number_latex_str(
             raise ValueError("Unexpected scientific notation in formatted value")
 
         if use_si_prefix and fixed_exponent in SI_PREFIX_MAP:
-            unit_text = f"{SI_PREFIX_MAP[fixed_exponent]}{unit_str}"
+            unit_text = format_unit_body(unit, exponent=fixed_exponent, use_si_prefix=use_si_prefix)
             return rf"\SI[scientific-notation=fixed]{{{formatted}}}{{{unit_text}}}"
 
         return rf"\SI[scientific-notation=fixed, fixed-exponent={fixed_exponent}]{{{formatted}e{fixed_exponent}}}{{{unit_str}}}"
@@ -49,7 +49,7 @@ def format_number_latex_str(
     formatted = custom_format(num_val)
 
     if use_si_prefix and exp_val in SI_PREFIX_MAP:
-        unit_text = f"{SI_PREFIX_MAP[exp_val]}{unit_str}"
+        unit_text = format_unit_body(unit, exponent=exp_val, use_si_prefix=use_si_prefix)
         return rf"\SI{{{formatted}}}{{{unit_text}}}"
 
     return rf"\SI{{{formatted}e{exp_val}}}{{{unit_str}}}"
