@@ -5,8 +5,9 @@ import pandas as pd
 import re
 
 from batfloman_praktikum_lib.io.table_metadata import TableColumnMetadata, normalize_metadata
+from batfloman_praktikum_lib.structs.measurement import Measurement
 
-from ..optionTypes import TableOptions, ValueOptions
+from ..optionTypes import TableOptions, normalize_table_options
 from ._dataframe_helper import (
     get_column_format,
     normalize_metadata_manager,
@@ -45,6 +46,8 @@ def format_table_header(
 
 
 def format_table_value(value, metadata: TableColumnMetadata) -> str:
+    metadata = normalize_metadata(metadata)
+
     if isinstance(value, (str, np.str_)):
         try:
             value = float(value)
@@ -58,12 +61,16 @@ def format_table_value(value, metadata: TableColumnMetadata) -> str:
     if display_exponent:
         value = value / 10**display_exponent
 
+    format_spec = metadata.format_spec or ""
+    if metadata.enforce_display_exponent and isinstance(value, Measurement) and "e" not in format_spec:
+        format_spec = "f"
+
     return format_value(
         value,
-        options=ValueOptions(
-            format_spec=(metadata.format_spec or ""),
-            with_error=True,
-        ),
+        options={
+            "format_spec": format_spec,
+            "with_error": True,
+        },
     )
 
 
@@ -91,8 +98,8 @@ def format_dataframe(
     *,
     options: Optional[TableOptions] = None,
 ) -> str:
-    options = options or TableOptions()
-    metadata = normalize_metadata_manager(options.metadata)
+    options = normalize_table_options(options)
+    metadata = normalize_metadata_manager(options["metadata"])
     indices = resolve_indices(df, options)
 
     column_format = get_column_format(indices, metadata)
@@ -100,7 +107,7 @@ def format_dataframe(
         format_table_header(
             col,
             metadata.get_metadata(col),
-            sep=options.unit_separator,
+            sep=options["unit_separator"],
         )
         for col in indices
     ]

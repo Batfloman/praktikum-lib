@@ -77,7 +77,7 @@ def format_unit_body(
 
     if use_si_prefix and exponent in SI_PREFIX_MAP:
         prefix = SI_PREFIX_MAP[exponent]
-        return f"{prefix}{unit_str}"
+        return f"{prefix} {unit_str}"
 
     return rf"\ensuremath{{10^{exponent}}}\,\si{{{unit_str}}}"
 

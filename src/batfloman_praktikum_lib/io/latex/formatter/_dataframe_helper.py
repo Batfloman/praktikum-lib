@@ -28,18 +28,21 @@ def normalize_metadata_manager(
 
 
 def resolve_indices(df: pd.DataFrame, options: TableOptions) -> list[str]:
-    if options.use_indices is not None:
-        missing = set(options.use_indices) - set(df.columns)
+    use_indices = options.get("use_indices")
+    exclude_indices = options.get("exclude_indices")
+
+    if use_indices is not None:
+        missing = set(use_indices) - set(df.columns)
         if missing:
             raise ValueError(f"{missing} not in {list(df.columns)}")
 
-    if options.exclude_indices is not None:
-        missing = set(options.exclude_indices) - set(df.columns)
+    if exclude_indices is not None:
+        missing = set(exclude_indices) - set(df.columns)
         if missing:
             raise ValueError(f"{missing} not in {list(df.columns)}")
 
-    indices = list(df.columns) if options.use_indices is None else options.use_indices
-    excluded = set(options.exclude_indices or [])
+    indices = list(df.columns) if use_indices is None else list(use_indices)
+    excluded = set(exclude_indices or [])
     return [index for index in indices if index not in excluded]
 def _get_single_column_format(
     index: str,

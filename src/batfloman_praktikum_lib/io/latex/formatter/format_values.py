@@ -2,7 +2,7 @@ from typing import Optional
 
 import numbers
 
-from ..optionTypes import ValueOptions
+from ..optionTypes import ValueOptions, normalize_value_options
 from ._number_helper import format_unit_body
 from .format_maps import SI_PREFIX_MAP
 from batfloman_praktikum_lib.io.formatters import custom_format
@@ -60,9 +60,9 @@ def format_value(
     *,
     options: Optional[ValueOptions] = None,
 ) -> str:
-    options = options or ValueOptions()
+    options = normalize_value_options(options)
 
-    if uncertainty is None or not options.with_error:
+    if uncertainty is None or not options["with_error"]:
         obj = value
     else:
         from batfloman_praktikum_lib.structs.measurement import Measurement
@@ -70,8 +70,8 @@ def format_value(
 
     return format_number_latex_str(
         obj,
-        unit=options.unit,
-        use_si_prefix=options.use_si_prefix,
-        fixed_exponent=options.fixed_exponent,
-        format_spec=options.format_spec,
+        unit=options["unit"],
+        use_si_prefix=options["use_si_prefix"],
+        fixed_exponent=options["fixed_exponent"],
+        format_spec=options["format_spec"],
     )

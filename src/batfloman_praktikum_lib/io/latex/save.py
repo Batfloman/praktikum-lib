@@ -1,16 +1,17 @@
 import numbers
 from functools import singledispatch
+from typing import cast
 
 import pandas as pd
 
 from batfloman_praktikum_lib.path_managment import create_dirs, dir_exist, ensure_extension, rel_path
 from batfloman_praktikum_lib.io.termColors import bcolors
-from batfloman_praktikum_lib.io.latex.optionTypes import LatexOptions, ValueOptions, TableOptions
+from batfloman_praktikum_lib.io.latex.optionTypes import TableOptions, ValueOptions
 
 from .formatter import format_dataframe, format_value
 
 @singledispatch
-def to_latex(obj, options: LatexOptions) -> str:
+def to_latex(obj, options: ValueOptions | TableOptions) -> str:
     raise NotImplementedError(f"No LaTeX renderer for {type(obj)}")
 
 # ==================================================
@@ -23,28 +24,20 @@ def register_impl():
     from batfloman_praktikum_lib.structs.dataCluster import DataCluster
 
     @to_latex.register
-    def _(obj: numbers.Real, options: LatexOptions | ValueOptions) -> str:
-        value_options: ValueOptions = options.value if isinstance(options, LatexOptions) else options
-
-        return format_value(obj, None, options=value_options)
+    def _(obj: numbers.Real, options: ValueOptions) -> str:
+        return format_value(obj, None, options=options)
 
     @to_latex.register
-    def _(obj: Measurement, options: LatexOptions | ValueOptions) -> str:
-        value_options: ValueOptions = options.value if isinstance(options, LatexOptions) else options
-
-        return format_value(obj.value, obj.error, options=value_options)
+    def _(obj: Measurement, options: ValueOptions) -> str:
+        return format_value(obj.value, obj.error, options=options)
 
     @to_latex.register
-    def _(obj: pd.DataFrame, options: LatexOptions | TableOptions) -> str:
-        table_options: TableOptions = options.table if isinstance(options, LatexOptions) else options
-
-        return format_dataframe(obj, options=table_options)
+    def _(obj: pd.DataFrame, options: TableOptions) -> str:
+        return format_dataframe(obj, options=options)
 
     @to_latex.register
-    def _(obj: DataCluster, options: LatexOptions | TableOptions) -> str:
-        table_options: TableOptions = options.table if isinstance(options, LatexOptions) else options
-
-        return format_dataframe(obj.to_dataframe(), options=table_options)
+    def _(obj: DataCluster, options: TableOptions) -> str:
+        return format_dataframe(obj.to_dataframe(), options=options)
 
 register_impl()
 
@@ -55,12 +48,12 @@ register_impl()
 def save_latex(
     obj,
     path: str,
-    options: LatexOptions | None = None,
+    options: ValueOptions | TableOptions | None = None,
     *,
     print_success_msg: bool = True,
     auto_create_dirs: bool = False,
 ) -> str:
-    options = options or LatexOptions()
+    options = normalize_options(obj, options)
     latex_str = to_latex(obj, options)
 
     try:
@@ -82,3 +75,12 @@ def save_latex(
         print(f"\t{bcolors.DIM}to {path}{bcolors.ENDC}")
 
     return latex_str
+
+
+def normalize_options(obj, options: ValueOptions | TableOptions | None) -> ValueOptions | TableOptions:
+    if options is None:
+        if isinstance(obj, (pd.DataFrame,)):
+            return {}
+        return {}
+
+    return cast(ValueOptions | TableOptions, options)
