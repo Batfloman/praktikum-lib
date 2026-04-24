@@ -1,4 +1,4 @@
-from .latex import to_latex, save_latex
+from .latex import to_latex, save_latex, LatexOptions, ValueOptions, TableOptions
 from .table_metadata import TableColumnMetadata, TableMetadataManager, TableColumnMetadataClass, TableColumnMetadataDict
 from .termColors import bcolors
 
@@ -13,6 +13,9 @@ __all__ = [
     "TableColumnMetadataDict",
 
     "to_latex",
+    "LatexOptions",
+    "ValueOptions",
+    "TableOptions",
     "save_latex",
     "load_cassy",
 ]
