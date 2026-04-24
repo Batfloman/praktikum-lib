@@ -27,13 +27,6 @@ class FitModel(metaclass=ModelMeta):
         *,
         method: Optional[FIT_METHODS] = None,
     ) -> FitResult:
-        # if all(hasattr(y, "value") and hasattr(y, "error") for y in y):
-        #     # Extract values and errors
-        #     yerr = np.array([y.error for y in y])
-        #     y = np.array([y.value for y in y])
-        #
-        # return cls.ls_fit(x, y, yerr=yerr);
-
         from batfloman_praktikum_lib.structs.measurementBase import MeasurementBase
         has_xerr = xerr is not None and xerr.size > 0;
         x_has_err = any(isinstance(val, MeasurementBase) and val.error is not None for val in x)

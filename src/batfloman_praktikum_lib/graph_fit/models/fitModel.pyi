@@ -2,7 +2,7 @@ from typing import List, Optional
 import numpy as np
 
 from batfloman_praktikum_lib.structs.dataCluster import DataCluster
-from ..fitResult import FitResult
+from ..fitResult import FIT_METHODS, FitResult
 from .modelMeta import ModelMeta
 
 class FitModel(metaclass=ModelMeta):
@@ -46,6 +46,8 @@ class FitModel(metaclass=ModelMeta):
         cls, 
         data: DataCluster, 
         x_index: str, 
-        y_index: str
+        y_index: str,
+        *,
+        method: Optional[FIT_METHODS] = None,
     ) -> FitResult: ...
 

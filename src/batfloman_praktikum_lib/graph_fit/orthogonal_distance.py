@@ -34,6 +34,20 @@ def _warn_user_no_errors(y_data, y_err, ignore_y_errors: bool, coord: Literal["x
         print(f"\tin {frame.filename}:{frame.lineno}:0")
         print(f"{bcolors.WARNING} - Call with `ignore_warning_{coord}_error = True` to surpress this warning!{bcolors.ENDC}")
 
+def numerical_jacobian(model, x, params, eps=1e-8):
+    params = np.array(params)
+    J = np.zeros((len(x), len(params)))
+
+    for j in range(len(params)):
+        dp = np.zeros_like(params)
+        dp[j] = eps
+
+        f1 = np.array([model(xi, *(params + dp)) for xi in x])
+        f2 = np.array([model(xi, *(params - dp)) for xi in x])
+
+        J[:, j] = (f1 - f2) / (2 * eps)
+
+    return J
 
 def generic_fit(
     model: Union[Callable, Type[FitModel]],
@@ -71,6 +85,18 @@ def generic_fit(
 
     # Run the fit
     out = odr.run()
+
+    if out.res_var < 1e-12 or not np.all(np.isfinite(out.sd_beta)) or np.all(out.sd_beta < 1e-14):
+    # Degenerate case
+        if y_err is not None:
+            print("Warning: Using error estimate fallback for fit")
+            J = numerical_jacobian(model, x_data, out.beta)
+
+            W = 1 / y_err**2
+            JT_W = J.T * W  # broadcasting
+            cov = np.linalg.inv(JT_W @ J)
+
+            out.sd_beta = np.sqrt(np.diag(cov))
 
     # return out.beta, out.sd_beta  # Best-fit parameters and uncertainties
     return generate_fit_result(model, out.beta, out.sd_beta, cov=out.cov_beta, param_names=param_names, quality=out.res_var, method="ODR");
