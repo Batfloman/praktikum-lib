@@ -1,4 +1,4 @@
-from typing import Union, Callable, Type
+from typing import Optional, Union, Callable, Type
 from inspect import isclass
 import numpy as np
 from scipy.optimize import curve_fit
@@ -8,7 +8,8 @@ from batfloman_praktikum_lib.structs.measurementBase import MeasurementBase
 from .helper import extract_vals_and_errors
 from ..graph.plotNScatter import filter_nan_values
 from .fitResult import generate_fit_result, FitResult
-from .find_initial_parameters import order_initial_params
+
+from .init_params.order_init_params import InitalParamGuess, order_initial_params
 
 from .user_warnings import warn_user_no_y_errors_least_squares, warn_user_x_errors_least_squares
 
@@ -17,8 +18,8 @@ def generic_fit(
     x_data,
     y_data,
     y_err=None,
-    initial_guess=None,
     *,
+    initial_guess: Optional[InitalParamGuess] = None,
     param_names = None,
     ignore_warning_x_errors: bool = False,
     ignore_warning_y_errors: bool = False,

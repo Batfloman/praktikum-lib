@@ -1,205 +1,149 @@
-from typing import NamedTuple, Optional, Union, Literal
-import numpy as np;
-import json
-
-# import pint
+from typing import NamedTuple
+import numpy as np
 
 from .. import util
-from .measurementBase import MeasurementBase, ConvertibleToFloat, _get_value_and_error
-# from structs.measurementBase import MeasurementBase, ConvertibleToFloat
-from ..significant_rounding.formatter import format_measurement, UncertaintyNotation
+from .measurementBase import (
+    MeasurementBase,
+    ConvertibleToFloat,
+    ErrorCombinationMethod,
+    _combine_errors,
+    _get_value_and_error,
+)
 
-# ureg = pint.UnitRegistry();
-# ureg.formatter.default_format = "~P"
+class Deviation(NamedTuple):
+    sigma: float
+    percent: float
+    ratio: float
 
-class Abweichung(NamedTuple):
-    sigma: float;
-    percent: float;
-    ratio: float;
+class _MeasurementModifier:
+    def __init__(self, measurement: "Measurement"):
+        self._measurement = measurement
+
+    def add_error(
+        self,
+        error: str | ConvertibleToFloat,
+        method: ErrorCombinationMethod = "linear",
+    ) -> "Measurement":
+        """In place: Add an uncertainty to the current measurement."""
+        updated = self._measurement.add_error(error, method=method)
+        self._measurement.error = updated.error
+        return self._measurement
+
+    def set_error(self, error: str | ConvertibleToFloat) -> "Measurement":
+        """In place: Replace the current uncertainty."""
+        updated = self._measurement.with_error(error)
+        self._measurement.error = updated.error
+        return self._measurement
+
+    def clear_error(self) -> "Measurement":
+        """In place: Remove the current uncertainty."""
+        updated = self._measurement.without_error()
+        self._measurement.error = updated.error
+        return self._measurement
+
+    def round_digit(self, digits=0) -> "Measurement":
+        """In place: Round value and uncertainty to a fixed decimal position."""
+        updated = self._measurement.round_digit(digits)
+        self._measurement.value = updated.value
+        self._measurement.error = updated.error
+        return self._measurement
+
+    def round(self, additional_digits=0) -> "Measurement":
+        """In place: Round the measurement based on the uncertainty magnitude."""
+        updated = self._measurement.round(additional_digits)
+        self._measurement.value = updated.value
+        self._measurement.error = updated.error
+        return self._measurement
 
 class Measurement(MeasurementBase):
-    def __init__(self, value: ConvertibleToFloat, uncertainty: ConvertibleToFloat,
-                 # unit=ureg.Unit(""),
-                 min_error=0):
-        super().__init__(value, uncertainty, min_error=min_error)
+    def __init__(
+        self,
+        value: ConvertibleToFloat,
+        uncertainty: ConvertibleToFloat | str | list[ConvertibleToFloat | str] | tuple[ConvertibleToFloat | str, ...],
+        min_error=0,
+        combine: ErrorCombinationMethod = "linear",
+    ):
+        """Create a measurement from a value and one or more uncertainty terms."""
+        super().__init__(value, uncertainty, min_error=min_error, combine=combine)
+
+    @property
+    def modify(self) -> _MeasurementModifier:
+        return _MeasurementModifier(self)
 
     # ==================================================
 
-    def abweichung(self, base) -> Abweichung:
+    def add_error(
+        self,
+        error: str | ConvertibleToFloat,
+        method: ErrorCombinationMethod = "linear",
+    ) -> "Measurement":
+        """Return a new measurement with an additional uncertainty contribution."""
+        parsed_error = self._parse_error_value(error)
+        combined_error = _combine_errors(
+            [self.error, parsed_error],
+            method=method,
+        )
+        return self._copy_with(error=combined_error)
+
+    def with_error(self, error: str | ConvertibleToFloat) -> "Measurement":
+        """Return a new measurement with its uncertainty replaced."""
+        return self._copy_with(error=self._parse_error_value(error))
+
+    def without_error(self) -> "Measurement":
+        """Return a new measurement without uncertainty."""
+        return self._copy_with(error=0.0)
+
+    # ==================================================
+
+    def deviation(self, base) -> Deviation:
+        """Compare this measurement to a reference value or measurement."""
         other_val, other_err = _get_value_and_error(base)
         if other_val == 0:
             raise ValueError("Cannot calculate Abweichung to 0")
 
         ratio = self.value / other_val
+
         combined_error = (self.error**2 + other_err**2)**0.5
-        return Abweichung(
+        if combined_error == 0:
+            sigma = 0.0 if self.value == other_val else np.inf
+        else:
+            sigma = abs(self.value - other_val) / combined_error
+
+        return Deviation(
             ratio=ratio,
             percent=(ratio - 1) * 100,
-            sigma=abs(self.value - other_val) / combined_error
+            sigma=sigma,
         )
 
     # ==================================================
 
-    def round_digit(self, digits = 0):
-        self.value = util.round(self.value, digits)
-        self.error = util.ceil(self.error, digits)
-        return self;
-
-    def round(self, additional_digits = 0):
+    def round(self, additional_digits=0) -> "Measurement":
+        """Return a new measurement rounded relative to its uncertainty."""
         exponent = util.get_exponent_significant(self.error)
         return self.round_digit(-exponent + additional_digits)
-    
-    def __round__(self, decimals = 0):
+
+    def round_digit(self, digits=0) -> "Measurement":
+        """Return a new measurement rounded to a fixed decimal position."""
+        return self._copy_with(
+            value=util.round(self.value, digits),
+            error=util.ceil(self.error, digits),
+        )
+
+    def __round__(self, decimals=0):
         return self.round_digit(decimals)
 
     def rint(self):
-        return Measurement(np.rint(self.value), np.ceil(self.error))
-    
-    def to(self, new_unit):
-        converted_value = (self.value * self.unit).to(new_unit)
-        converted_error = (self.error * self.unit).to(new_unit)
-        self.value = converted_value
-        self.error = converted_error
-        self.unit = new_unit
-    
-    # ==================================================
-    #    string operations
-    # ==================================================
-
-    @property
-    def _value_digit_position(self):
-        return util.get_exponent_significant(self.value)
-
-    @property
-    def _error_digit_position(self):
-        return util.get_exponent_significant(self.error)
-
-    @property
-    def _error_last_digit_position(self):
-        return util.get_exponent_significant(self.error) - self.additional_digits
-
-    @property
-    def _digit_length(self):
-        return self._value_digit_position - self._error_digit_position;
-    
-    def _display_number_as_exponent(self, value, exponent):
-        return value / (10 ** exponent);
-    
-    # def save_latex(self, path: str, unit: Optional[str] = None, use_si_prefix: bool = True, print_success_msg: bool = True) -> str:
-    #     from ..tables.latex_table.formatter import format_unit
-    #     from ..tables.validation import ensure_extension
-    #
-    #     string = f"{self}"
-    #     if "e" in string:
-    #         num_text = string.split("e")[0]
-    #         exp = int(string.split("e")[1])
-    #         unit_text = format_unit(unit, exponent=exp, use_si_prefix=use_si_prefix)
-    #     else:
-    #         num_text = string
-    #         unit_text = format_unit(unit, use_si_prefix=use_si_prefix)
-    #
-    #     latex_str = fr"\ensuremath{{{num_text}}}\,{unit_text}"
-    #
-    #     # In Datei schreiben
-    #     path = ensure_extension(path, ".tex")
-    #
-    #     with open(path, "w", encoding="utf-8") as f:
-    #         f.write(latex_str)
-    #     if print_success_msg:
-    #         print(f"{self} has been saved to {path}")
-    #
-    #     return latex_str
-
-    def save_latex(
-        self,
-        path: str,
-        unit: Optional[str] = None,
-        use_si_prefix: bool = True,
-        print_success_msg: bool = True,
-        mode: Union[UncertaintyNotation, Literal["pm", "brk"]] = UncertaintyNotation.Parentheses,
-        format_spec: str = "",
-        with_error: bool = True,
-    ) -> str:
-        """
-        Saves a LaTeX string representing the measurement with its uncertainty.
-        Supports both ± and bracket notation via `mode`.
-        """
-        from ..tables.latex_table.formatter import _format_unit as format_unit
-        from ..tables.validation import ensure_extension
-
-        # 🔹 Use the new formatter instead of str(self)
-        formatted = format_measurement(self.value, self.error, mode=mode, format_spec=format_spec)
-
-        # 🔹 Handle scientific notation (e.g. 1.23e-3)
-        if "e" in formatted:
-            num_text, exp_str = formatted.split("e")
-            exp = int(exp_str)
-            unit_text = format_unit(unit, exponent=exp, use_si_prefix=use_si_prefix)
-        else:
-            num_text = formatted
-            unit_text = format_unit(unit, use_si_prefix=use_si_prefix)
-
-        if not with_error:
-            if "±" in num_text:
-                num_text = num_text.split("±")[0]
-                if "(" in num_text:
-                    num_text = num_text.split("(")[1]
-            elif "(" in num_text:
-                num_text = num_text.split("(")[0]
-
-        latex_str = fr"\ensuremath{{{num_text}}}\,{unit_text}"
-
-        # 🔹 Write to file
-        path = ensure_extension(path, ".tex")
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(latex_str)
-
-        if print_success_msg:
-            print(f"Succesfully saved `{self}` to {path} as [{latex_str}]")
-
-        return latex_str
-
-    # ==================================================
-
-    def to_dict(self) -> dict:
-        return {
-            "value": self.value,
-            "error": self.error
-        }
-
-    @staticmethod
-    def from_dict(d):
-        return Measurement(d["value"], d["error"])
-
-    def to_json(self, indent: Optional[int] = None) -> str:
-        return json.dumps(self.to_dict(), indent=indent)
-
-    @staticmethod
-    def from_json(json_str: str):
-        return Measurement.from_dict(json.loads(json_str))
-
-    def save_json(self, path: str, indent: Optional[int] = 3):
-        from ..tables.validation import ensure_extension
-        path = ensure_extension(path, ".json")
-
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(self.to_json(indent=indent))
-
-    @staticmethod
-    def load_json(path: str):
-        from ..tables.validation import ensure_extension
-        path = ensure_extension(path, ".json")
-
-        with open(path, "r", encoding="utf-8") as f:
-            json_str = f.read()
-        return Measurement.from_json(json_str)
+        """Return a new measurement rounded to integer values."""
+        return self._copy_with(
+            value=np.rint(self.value),
+            error=np.ceil(self.error),
+        )
 
     # ==================================================
 
     def __str__(self):
         from batfloman_praktikum_lib.io.formatters.formatters import custom_format
         return custom_format(self)
-        return format_measurement(self.value, self.error, mode="brk");
 
     def __repr__(self):
         return f"Measurement(value={self.value}, error={self.error})"
@@ -207,9 +151,3 @@ class Measurement(MeasurementBase):
     def __format__(self, format_spec):
         from batfloman_praktikum_lib.io.formatters.formatters import custom_format
         return custom_format(self, format_spec=format_spec)
-
-        # if format_spec in ("pm", "brk"):
-        #     return format_measurement(self.value, self.error, mode=format_spec)
-        # # numeric formats like .2f, .3e, etc.
-        # return format_measurement(self.value, self.error, mode="brk", format_spec=format_spec)
-

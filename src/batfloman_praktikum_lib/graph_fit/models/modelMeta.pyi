@@ -20,3 +20,37 @@ class ModelMeta(type):
             - get_initial_guess(x, y)
         """
         ...
+
+    def __rmul__(cls, other: int) -> Type[CompositeFitModel]:
+        """
+        Repeat a FitModel class multiple times to create a composite model.
+
+        Example usage:
+            Repeated = 3 * Gaussian
+            result = Repeated.fit(x_data, y_data)
+
+        Args:
+            other (int): Number of repetitions of the model class.
+
+        Returns:
+            Type[CompositeFitModel]: A new composite model class with repeated components.
+        """
+        ...
+
+    def __mul__(cls, other: int) -> Type[CompositeFitModel]:
+        """
+        Allows multiplication from the left: `Gaussian * 3`.
+
+        Internally delegates to `__rmul__` to avoid code duplication.
+
+        Example usage:
+            Repeated = Gaussian * 3
+            result = Repeated.fit(x_data, y_data)
+
+        Args:
+            other (int): Number of repetitions of the model class.
+
+        Returns:
+            Type[CompositeFitModel]: A new composite model class with repeated components.
+        """
+        ...
