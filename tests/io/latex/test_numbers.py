@@ -1,7 +1,9 @@
 from typing import Optional, Any
 
-from batfloman_praktikum_lib.io import save_latex
+from batfloman_praktikum_lib.io.latex import save_latex
 from batfloman_praktikum_lib import rel_path, set_file
+from batfloman_praktikum_lib.io.latex.optionTypes import ValueOptions
+from batfloman_praktikum_lib.io.latex.formatter import format_value
 from batfloman_praktikum_lib.path_managment import create_dirs
 from batfloman_praktikum_lib.structs.measurement import Measurement
 
@@ -13,6 +15,7 @@ def _test(
     obj: Any,
     *,
     print_success_msg: bool = True,
+    auto_create_dirs: bool = False,
     # values
     unit: Optional[str] = None,
     use_si_prefix: bool = True,
@@ -26,14 +29,31 @@ def _test(
 
     path = rel_path(f"./output/{name}.tex", __file__)
     create_dirs(path)
-    save_latex(obj, path, 
-        print_success_msg = print_success_msg, 
-        unit = unit,
-        use_si_prefix = use_si_prefix,
-        fixed_exponent = fixed_exponent,
-        format_spec = format_spec,
-        with_error = with_error
+
+    options: ValueOptions = {
+        "unit": unit,
+        "use_si_prefix": use_si_prefix,
+        "fixed_exponent": fixed_exponent,
+        "format_spec": format_spec,
+        "with_error": with_error,
+    }
+
+    save_latex(
+        obj,
+        path,
+        options=options,
+        print_success_msg=print_success_msg,
+        auto_create_dirs=auto_create_dirs,
     )
+
+    # save_latex(obj, path, 
+    #     print_success_msg = print_success_msg, 
+    #     unit = unit,
+    #     use_si_prefix = use_si_prefix,
+    #     fixed_exponent = fixed_exponent,
+    #     format_spec = format_spec,
+    #     with_error = with_error
+    # )
 
     with open(path, "r", encoding="utf-8") as f:
         contents = f.read()
@@ -70,3 +90,45 @@ def test_measurements():
     assert _test(Measurement(1.23, 0.015)) == r"\num{1.230(15)}"
     assert _test(Measurement(1.23, 0.025)) == r"\num{1.230(25)}"
     assert _test(Measurement(1.23, 0.035)) == r"\num{1.23(4)}"
+
+def test_format_value():
+    options: ValueOptions = {"unit": "m", "format_spec": ".3e"}
+    assert format_value(1.23e3, options=options) == r"\SI{1.23}{\kilo\meter}"
+
+    options = {"with_error": True}
+    assert format_value(1.23, 0.03, options=options) == r"\num{1.23(3)}"
+
+    options = {"with_error": False}
+    assert format_value(1.23, 0.03, options=options) == r"\num{1.23}"
+
+def test_save_options(tmp_path, capsys):
+    path = tmp_path / "nested" / "value"
+
+    options: ValueOptions = {}
+    save_latex(
+        1.23,
+        str(path),
+        options=options,
+        print_success_msg=False,
+        auto_create_dirs=True,
+    )
+
+    captured = capsys.readouterr()
+    assert captured.out == f"\033[95;1mCreated directory: \033[0m{path.with_suffix('.tex')}\n"
+    assert path.with_suffix(".tex").read_text(encoding="utf-8") == r"\num{1.23}"
+
+def test_save_options_print_success(tmp_path, capsys):
+    path = tmp_path / "value"
+
+    options: ValueOptions = {}
+    save_latex(
+        1.23,
+        str(path),
+        options=options,
+        print_success_msg=True,
+        auto_create_dirs=False,
+    )
+
+    captured = capsys.readouterr()
+    assert "Succesfully saved" in captured.out
+    assert "float" in captured.out

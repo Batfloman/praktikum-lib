@@ -1,6 +1,7 @@
 from batfloman_praktikum_lib import DataCluster, Dataset, set_file
 from batfloman_praktikum_lib.io import save_latex, TableColumnMetadata
 from batfloman_praktikum_lib.path_managment import rel_path
+from batfloman_praktikum_lib.io.latex import TableOptions
 
 set_file(__file__)
 
@@ -24,9 +25,8 @@ def test_plain():
         "format_spec": ".1f",
     }
 
-    save_latex(data, rel_path("./output/test_datacluster_1"), tableMetadata={
-        "a": md_a,
-    })
+    options: TableOptions = {"metadata": {"a": md_a}}
+    save_latex(data, rel_path("./output/test_datacluster_1"), options=options)
 
-    data.metadata_manager.set_metadata("a", md_a)
-    data.save_latex(rel_path("./output/test_datacluster_2"))
+    # data.metadata_manager.set_metadata("a", md_a)
+    # data.save_latex(rel_path("./output/test_datacluster_2"))
