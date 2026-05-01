@@ -1,4 +1,6 @@
 import numpy as np
+from scipy.special import erf
+
 from typing import Literal, Sequence, Tuple, TypeAlias, Union
 
 # ==================================================
@@ -339,6 +341,13 @@ class MeasurementBase:
             case np.log10:
                 val = np.log10(values[0])
                 err = errors[0] / values[0] / np.log(10)
+
+            # --------------------
+            # speical boys 
+
+            case _ if ufunc is erf:
+                val = erf(values[0])
+                err = np.abs((2 / np.sqrt(np.pi)) * np.exp(-values[0]**2) * errors[0])
 
             # --------------------
             # modifications
