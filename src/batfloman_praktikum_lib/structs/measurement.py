@@ -1,8 +1,6 @@
 from typing import NamedTuple
 import numpy as np
 
-from batfloman_praktikum_lib.io.formatters.formatters import custom_format
-
 from .. import util
 from .measurementBase import (
     MeasurementBase,
@@ -144,10 +142,12 @@ class Measurement(MeasurementBase):
     # ==================================================
 
     def __str__(self):
+        from batfloman_praktikum_lib.io.formatters.formatters import custom_format
         return custom_format(self)
 
     def __repr__(self):
         return f"Measurement(value={self.value}, error={self.error})"
 
     def __format__(self, format_spec):
+        from batfloman_praktikum_lib.io.formatters.formatters import custom_format
         return custom_format(self, format_spec=format_spec)

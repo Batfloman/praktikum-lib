@@ -7,7 +7,7 @@ from . import io
 
 from .structs import DataCluster, Dataset, Measurement
 # from .saving import save_latex
-from .io import save_latex
+from .io import to_latex, save_latex
 from .path_managment import set_file, rel_path, ensure_extension, validate_filename
 from .flags import check_quiet
 
@@ -19,6 +19,7 @@ __all__ = [
     "graph_fit",
     "tables",
     "io",
+    "structs",
     # files 
     "graph_old",
     "util",
@@ -31,7 +32,10 @@ __all__ = [
     # helper
     "set_file",
     "rel_path",
+
+    "to_latex",
     "save_latex",
+
     "ensure_extension",
     "validate_filename",
     "check_quiet",
