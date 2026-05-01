@@ -1,6 +1,6 @@
 from typing import Optional
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 import pyqtgraph as pg
 import numpy as np
 
@@ -10,6 +10,7 @@ from .order_init_params import order_initial_params
 
 class GraphWindow(QWidget):
     param_win = None
+    line_sample_count = 1000
 
     def __init__(self,
         x_data, 
@@ -48,7 +49,7 @@ class GraphWindow(QWidget):
         self.plot_widget.addItem(self.scatter)
 
         # Line plot for model
-        self.x_line = np.linspace(np.min(self.x_data), np.max(self.x_data), 1000)
+        self.x_line = self._get_data_x_line()
         self.line_plot = self.plot_widget.plot(
             self.x_line,
             self.model(self.x_line, *list(params.values())),
@@ -57,6 +58,7 @@ class GraphWindow(QWidget):
 
         # Connect mouse movement to update coordinates
         self.plot_widget.scene().sigMouseMoved.connect(self.mouse_moved)
+        QTimer.singleShot(0, self._initialize_visible_curve)
 
     def mouse_moved(self, pos):
         """Update coordinate label with current mouse position"""
@@ -65,11 +67,29 @@ class GraphWindow(QWidget):
             mouse_point = vb.mapSceneToView(pos)
             self.coord_label.setText(f"x={smart_format(mouse_point.x())}, y={smart_format(mouse_point.y())}")
 
+    def _get_data_x_line(self):
+        return np.linspace(float(np.min(self.x_data)), float(np.max(self.x_data)), self.line_sample_count)
+
+    def _get_visible_x_line(self):
+        x_min, x_max = self.plot_widget.plotItem.vb.viewRange()[0]
+        if not np.isfinite(x_min) or not np.isfinite(x_max) or x_min == x_max:
+            return self._get_data_x_line()
+        return np.linspace(x_min, x_max, self.line_sample_count)
+
+    def _initialize_visible_curve(self):
+        self.update_visible_model_curve()
+        self.plot_widget.enableAutoRange(axis='x', enable=False)
+        self.plot_widget.plotItem.vb.sigXRangeChanged.connect(self.update_visible_model_curve)
+
+    def update_visible_model_curve(self, *_args):
+        self.x_line = self._get_visible_x_line()
+        y_line = self.model(self.x_line, *order_initial_params(self.model, self.params))
+        self.line_plot.setData(self.x_line, y_line)
+
     def update_params(self, new_params: dict[str, float]):
         """Update the line plot with new parameter values"""
         self.params = new_params
-        y_line = self.model(self.x_line, *order_initial_params(self.model, new_params))
-        self.line_plot.setData(self.x_line, y_line)
+        self.update_visible_model_curve()
 
     def keyPressEvent(self, a0) -> None:  # use base name 'a0' to satisfy checker
         if a0.key() == Qt.Key.Key_Q:
