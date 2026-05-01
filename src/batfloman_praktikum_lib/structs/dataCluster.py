@@ -107,7 +107,9 @@ class DataCluster:
         return len(self.data)
 
     def __getitem__(self, index):
-        return np.array(self.data)[index]
+        if isinstance(index, str):
+            return self.column(index)
+        return self.data[index]
 
     def __iter__(self):
         return iter(self.data)

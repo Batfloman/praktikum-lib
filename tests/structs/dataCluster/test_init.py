@@ -39,3 +39,16 @@ def test_init_accepts_mixture_and_casts_to_datasets():
     assert all(isinstance(dataset, Dataset) for dataset in datasets)
     assert datasets[0]["kanal"] == 0
     assert datasets[1]["time"] == 16
+
+
+def test_getitem_supports_row_and_column_access():
+    data = DataCluster([
+        {"kanal": 1, "time": 0},
+        {"kanal": 2, "time": 16},
+    ])
+
+    assert isinstance(data[0], Dataset)
+    assert data[0]["kanal"] == 1
+    assert list(data["time"]) == [0, 16]
+    assert isinstance(data[:1], list)
+    assert len(data[:1]) == 1
