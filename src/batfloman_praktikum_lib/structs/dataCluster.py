@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import re
 import copy
+from collections.abc import Mapping, Sequence
 from typing import List, Union, Callable, Optional, Iterable
 
 from batfloman_praktikum_lib.tables.latex_table import formatter as latex_formatter
@@ -70,18 +71,34 @@ class DataCluster:
 
     # ==================================================
 
-    def __init__(self, datasets: Optional[Union[List, np.ndarray, pd.DataFrame]] = None):
+    @staticmethod
+    def _normalize_datasets(
+        datasets: Optional[Union[Sequence[Dataset | Mapping], np.ndarray, pd.DataFrame]]
+    ) -> list[Dataset]:
+        if datasets is None:
+            return []
+
+        if isinstance(datasets, pd.DataFrame):
+            return _df_to_Dataset_arr(datasets)
+
+        if isinstance(datasets, np.ndarray):
+            datasets = datasets.tolist()
+
+        normalized = []
+        for item in datasets:
+            if isinstance(item, Dataset):
+                normalized.append(item)
+            elif isinstance(item, Mapping):
+                normalized.append(Dataset(item))
+            else:
+                raise ValueError("Data Objects should manage only datasets or mappings!")
+
+        return normalized
+
+    def __init__(self, datasets: Optional[Union[Sequence[Dataset | Mapping], np.ndarray, pd.DataFrame]] = None):
         from batfloman_praktikum_lib.io.table_metadata import TableMetadataManager
 
-        if datasets is not None:
-            if isinstance(datasets, pd.DataFrame):
-                datasets = _df_to_Dataset_arr(datasets)  # keep your existing conversion
-            elif isinstance(datasets, np.ndarray):
-                datasets = datasets.tolist()  # convert NumPy array to list
-            if not all(isinstance(obj, Dataset) for obj in datasets):
-                raise ValueError("Data Objects should manage only datasets!")
-
-        self.data = datasets or []
+        self.data = self._normalize_datasets(datasets)
         self.metadata_manager = TableMetadataManager()
 
     # ==================================================
