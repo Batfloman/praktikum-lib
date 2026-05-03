@@ -3,7 +3,7 @@ import numpy as np;
 import os
 
 # typing
-from typing import Any
+from typing import Any, Literal, overload
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 
@@ -13,8 +13,11 @@ from ..flags import check_quiet
 
 # ==================================================
 
+AxesArray = np.ndarray[Any, np.dtype[object]]
+SubplotsAxes = Axes | AxesArray
+
 def save_plot(
-        plot: tuple[Figure, Axes | np.ndarray],
+        plot: tuple[Figure, SubplotsAxes],
         path: str,
         *,
         print_successMsg: bool = True,
@@ -35,7 +38,14 @@ def save_plot(
 
 # --------------------
 
-def create_plot(**kwargs) -> tuple[Figure, Any]:
+@overload
+def create_plot(*, squeeze: Literal[False], **kwargs) -> tuple[Figure, AxesArray]: ...
+
+@overload
+def create_plot(*, squeeze: bool = True, **kwargs) -> tuple[Figure, SubplotsAxes]: ...
+
+def create_plot(*, squeeze: bool = True, **kwargs) -> tuple[Figure, SubplotsAxes]:
+    kwargs["squeeze"] = squeeze
     return plt.subplots(**kwargs);
 
 # --------------------
