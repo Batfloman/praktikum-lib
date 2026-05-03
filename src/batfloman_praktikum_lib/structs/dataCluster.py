@@ -111,6 +111,34 @@ class DataCluster:
             return self.column(index)
         return self.data[index]
 
+    def __setitem__(self, index, value):
+        if isinstance(index, str):
+            if len(self.data) == 0:
+                raise IndexError("Cannot assign a column on an empty DataCluster")
+
+            if isinstance(value, (str, bytes)) or not isinstance(value, Iterable):
+                values = [value] * len(self.data)
+            else:
+                values = list(value)
+                if len(values) != len(self.data):
+                    raise ValueError("Column length must match the number of datasets")
+
+            for dataset, item in zip(self.data, values):
+                dataset[index] = item
+            return
+
+        if isinstance(index, slice):
+            replacement = self._normalize_datasets(value)
+            self.data[index] = replacement
+            return
+
+        if isinstance(value, Dataset):
+            self.data[index] = value
+        elif isinstance(value, Mapping):
+            self.data[index] = Dataset(value)
+        else:
+            raise TypeError("Expected Dataset or mapping")
+
     def __iter__(self):
         return iter(self.data)
 
