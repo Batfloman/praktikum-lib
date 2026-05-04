@@ -25,6 +25,15 @@ def _parse_uncertainty_str(value: float, uncertainty: str) -> float:
 def _get_value_and_error(other) -> Tuple[float, float]:
     if isinstance(other, MeasurementBase):
         return (other.value, other.error)
+    elif isinstance(other, np.ndarray):
+        if other.dtype != object:
+            values = other.astype(float, copy=False)
+            errors = np.zeros_like(values, dtype=float)
+            return (values, errors)
+
+        values = np.vectorize(lambda item: _get_value_and_error(item)[0], otypes=[float])(other)
+        errors = np.vectorize(lambda item: _get_value_and_error(item)[1], otypes=[float])(other)
+        return (values, errors)
     elif isinstance(other, ConvertibleToFloat):
         return (float(other), 0.0)
     raise TypeError(f"Unsupported type: {type(other)}")
@@ -44,6 +53,8 @@ def _combine_errors(
 def _get_value(other):
     if isinstance(other, MeasurementBase):
         return other.value
+    elif isinstance(other, np.ndarray):
+        return _get_value_and_error(other)[0]
     elif isinstance(other, ConvertibleToFloat):
         return float(other)
     raise TypeError(f"Unsupported type: {type(other)}")
@@ -248,8 +259,12 @@ class MeasurementBase:
         if method != "__call__":
             return NotImplemented
 
-        values = [_get_value(i) for i in inputs]
-        errors = [i.error if isinstance(i, MeasurementBase) else 0 for i in inputs]
+        values = []
+        errors = []
+        for item in inputs:
+            value, error = _get_value_and_error(item)
+            values.append(value)
+            errors.append(error)
 
         match ufunc:
             # --------------------
@@ -365,7 +380,12 @@ class MeasurementBase:
                 return np.isnan(values[0])
             case _:
                 raise NotImplementedError(f"not handled function: {ufunc}")
-        return self._from_value_error(val, err)
+
+        if np.ndim(val) == 0 and np.ndim(err) == 0:
+            return self._from_value_error(float(val), float(err))
+
+        val, err = np.broadcast_arrays(val, err)
+        return np.vectorize(self._from_value_error, otypes=[object])(val, err)
 
     # ==================================================
 
