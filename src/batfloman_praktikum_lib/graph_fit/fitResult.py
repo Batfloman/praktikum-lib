@@ -60,7 +60,7 @@ def generate_fit_result(model, values, errors, cov,
 
     def func_no_err(x_val):
         if isinstance(x_val, (list, np.ndarray)):
-            return [model(x, *values) for x in x_val]
+            return np.asarray([model(x, *values) for x in x_val])
         return model(x_val, *values);
 
     def fit_func(x_val):
@@ -73,13 +73,13 @@ def generate_fit_result(model, values, errors, cov,
         results = fit_func(x_val);
         if isinstance(results, Measurement):
             return results.value - results.error
-        return [res.value - res.error for res in results]
+        return np.asarray([res.value - res.error for res in results])
 
     def max_1sigma(x_val):
         results = fit_func(x_val);
         if isinstance(results, Measurement):
             return results.value + results.error
-        return [res.value + res.error for res in results]
+        return np.asarray([res.value + res.error for res in results])
 
     return FitResult(
         func=fit_func,
