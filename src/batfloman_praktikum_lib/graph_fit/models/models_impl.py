@@ -128,7 +128,7 @@ class AmpTiefpass(FitModel):
 class Gaussian(FitModel):
     @staticmethod
     def model(x, A, sigma, x0):
-        return A * np.exp(- ( (x-x0)/sigma )**2 )
+        return A * np.exp(- (x-x0)**2 / (2*sigma**2) )
 
     @staticmethod
     def get_param_names():
