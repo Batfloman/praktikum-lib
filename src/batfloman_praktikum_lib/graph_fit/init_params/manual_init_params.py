@@ -2,8 +2,6 @@ from typing import Optional, Union, List, Callable, Type
 import numpy as np
 from pathlib import Path
 import inspect
-from inspect import isclass
-import json
 
 from PyQt6.QtWidgets import QApplication
 from .parameterWindow import ParameterWindow
@@ -12,6 +10,7 @@ from .parameterSlider import ParameterSlider, save_slider_settings, load_slider_
 from ..models import FitModel
 from ._helper import extract_default_values, get_model_fn
 from .order_init_params import order_initial_params
+from .render_parts import resolve_render_parts
 
 def manual_init_params(
     model: Union[Callable, Type[FitModel]],
@@ -20,6 +19,7 @@ def manual_init_params(
     *,
     cache_path="fitcache.json",
     default_values: Optional[Union[List[float], dict[str, float]]] = None,
+    render_parts = None,
     warn_filter_nan: bool = True,
     use_cache: bool = False,
 ) -> dict[str, float]:
@@ -30,6 +30,7 @@ def manual_init_params(
 
     # --------------------
     # Unpack model & data
+    model_info = model
     model = get_model_fn(model)
 
     from batfloman_praktikum_lib.graph.plotNScatter import filter_nan_values
@@ -57,6 +58,7 @@ def manual_init_params(
     # --------------------
     # Start Qt app
     app = QApplication.instance() or QApplication([])
+    resolved_render_parts = resolve_render_parts(model_info, render_parts)
 
     # --------------------
     # Create Graph Window
@@ -64,7 +66,8 @@ def manual_init_params(
         x_data=x_data,
         y_data=y_data,
         model=model,
-        params=dict(zip(param_names, starting_params))
+        params=dict(zip(param_names, starting_params)),
+        render_parts=resolved_render_parts,
     )
 
     # --------------------
@@ -84,13 +87,18 @@ def manual_init_params(
             name: ParameterSlider.from_cache(name, cached, default)
             for name, default in zip(param_names, starting_params)
         },
-        update_callback=update_graph
+        update_callback=update_graph,
+        model=model_info,
+        render_parts=resolved_render_parts,
+        render_part_toggle_callback=graph_win.set_render_part_visibility,
     )
 
     # --------------------
     # bind the windows, so user closes both at the same time
     graph_win.param_win = param_win
     param_win.graph_win = graph_win
+    for part in resolved_render_parts:
+        param_win.set_render_part_visibility(part.key, part.visible_by_default)
 
     graph_win.show()
     param_win.show()

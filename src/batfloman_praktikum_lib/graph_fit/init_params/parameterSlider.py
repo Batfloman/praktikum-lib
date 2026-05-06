@@ -11,6 +11,7 @@ class ParameterSlider(QWidget):
     def __init__(self,
         name: str,
         initial_value: float,
+        display_name: Optional[str] = None,
         *,
         center: Optional[float] = None,
         vmin: Optional[float] = None,
@@ -20,6 +21,7 @@ class ParameterSlider(QWidget):
         super().__init__()
 
         self.name = name
+        self.display_name = display_name or name
         self.update_callback = update_callback
 
         self.slider_value = initial_value
@@ -32,7 +34,7 @@ class ParameterSlider(QWidget):
         # ---------------- layout ----------------
         layout = QHBoxLayout(self)
 
-        self.label = QLabel(name)
+        self.label = QLabel(self.display_name)
         layout.addWidget(self.label)
 
         slider_container = QVBoxLayout()
@@ -157,7 +159,14 @@ class ParameterSlider(QWidget):
             self.update_callback()
 
     @classmethod
-    def from_cache(cls, name: str, cache: dict, default_value: float, update_callback=None):
+    def from_cache(
+        cls,
+        name: str,
+        cache: dict,
+        default_value: float,
+        update_callback=None,
+        display_name: Optional[str] = None,
+    ):
         """
         Create a ParameterSlider using cached settings if available.
         cache: dict from load_slider_settings, keyed by parameter name
@@ -170,6 +179,7 @@ class ParameterSlider(QWidget):
         vmax = settings.get("max", None)
         return cls(
             name=name,
+            display_name=display_name,
             initial_value=initial_value,
             center=center,
             vmin=vmin,
