@@ -4,6 +4,7 @@ from pathlib import Path
 import inspect
 
 from PyQt6.QtWidgets import QApplication
+from ...flags import check_quiet
 from .parameterWindow import ParameterWindow
 from .graphWindow import GraphWindow
 from .parameterSlider import ParameterSlider, save_slider_settings, load_slider_settings
@@ -22,6 +23,7 @@ def manual_init_params(
     render_parts = None,
     warn_filter_nan: bool = True,
     use_cache: bool = False,
+    require_cache: bool = False,
 ) -> dict[str, float]:
     # --------------------
     # cache
@@ -49,11 +51,18 @@ def manual_init_params(
         for p in param_names
         if p in cached and "slider_value" in cached[p]
     }
+    has_complete_cache = len(cached_values) == len(param_names)
+    resolved_params = {**default_dict, **cached_values}
 
-    starting_params = order_initial_params(model, {**default_dict, **cached_values})
+    starting_params = order_initial_params(model, resolved_params)
 
-    if use_cache:
-        return {**default_dict, **cached_values}
+    if require_cache and not has_complete_cache:
+        raise ValueError(
+            f"No complete cached manual init parameters found at '{filepath}'."
+        )
+
+    if use_cache or check_quiet():
+        return resolved_params
 
     # --------------------
     # Start Qt app

@@ -7,7 +7,7 @@ import numpy as np
 from batfloman_praktikum_lib.graph_fit.init_params._helper import smart_format
 
 from .order_init_params import order_initial_params
-from .render_parts import RenderPart
+from .render_parts import DEFAULT_RENDER_PART_COLORS, RenderPart
 
 class GraphWindow(QWidget):
     param_win = None
@@ -68,9 +68,8 @@ class GraphWindow(QWidget):
             name="Model",
         )
 
-        render_part_colors = ["b", "m", "c", "y", "w"]
         for idx, part in enumerate(self.render_parts):
-            pen = pg.mkPen(part.color or render_part_colors[idx % len(render_part_colors)], width=2, style=Qt.PenStyle.DashLine)
+            pen = pg.mkPen(part.color or DEFAULT_RENDER_PART_COLORS[idx % len(DEFAULT_RENDER_PART_COLORS)], width=2, style=Qt.PenStyle.DashLine)
             plot = self.plot_widget.plot([], [], pen=pen, name=part.label)
             plot.setVisible(part.visible_by_default)
             self.render_part_plots[part.key] = plot

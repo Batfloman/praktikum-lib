@@ -18,6 +18,9 @@ class RenderPart:
     group_key: str | None = None
 
 
+DEFAULT_RENDER_PART_COLORS = ["b", "m", "c", "y", "w"]
+
+
 def resolve_render_parts(
     model,
     render_parts: Mapping[str, Callable] | list[RenderPart] | None = None,
@@ -39,7 +42,7 @@ def _normalize_render_parts(
     render_parts: Mapping[str, Callable] | list[RenderPart],
 ) -> list[RenderPart]:
     if isinstance(render_parts, list):
-        return render_parts
+        return _with_default_colors(render_parts)
 
     normalized: list[RenderPart] = []
     for idx, (label, func) in enumerate(render_parts.items(), start=1):
@@ -51,7 +54,7 @@ def _normalize_render_parts(
             )
         )
 
-    return normalized
+    return _with_default_colors(normalized)
 
 
 def _wrap_part_callable(func: Callable) -> Callable[[Any, dict[str, float]], Any]:
@@ -84,4 +87,22 @@ def _composite_render_parts(components: list[type[FitModel]]) -> list[RenderPart
             )
         )
 
-    return parts
+    return _with_default_colors(parts)
+
+
+def _with_default_colors(parts: list[RenderPart]) -> list[RenderPart]:
+    normalized: list[RenderPart] = []
+
+    for idx, part in enumerate(parts):
+        normalized.append(
+            RenderPart(
+                key=part.key,
+                label=part.label,
+                evaluator=part.evaluator,
+                color=part.color or DEFAULT_RENDER_PART_COLORS[idx % len(DEFAULT_RENDER_PART_COLORS)],
+                visible_by_default=part.visible_by_default,
+                group_key=part.group_key,
+            )
+        )
+
+    return normalized

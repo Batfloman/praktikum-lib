@@ -78,6 +78,7 @@ class CollapsibleGroup(QWidget):
     def __init__(
         self,
         title: str,
+        render_part_color: str | None = None,
         render_part_key: str | None = None,
         render_part_visible: bool = False,
         render_part_toggle_callback=None,
@@ -91,13 +92,16 @@ class CollapsibleGroup(QWidget):
         header_layout = QHBoxLayout(header)
         header_layout.setContentsMargins(0, 0, 0, 0)
 
+        if render_part_color is not None:
+            header_layout.addWidget(_make_color_badge(render_part_color))
+
         self.toggle = QToolButton(text=title)
         self.toggle.setCheckable(True)
         self.toggle.setChecked(True)
         self.toggle.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.toggle.setArrowType(Qt.ArrowType.DownArrow)
         self.toggle.toggled.connect(self._set_expanded)
-        header_layout.addWidget(self.toggle, stretch=1)
+        header_layout.addWidget(self.toggle)
 
         self.controls_widget = None
         self.view_toggle = None
@@ -107,9 +111,9 @@ class CollapsibleGroup(QWidget):
             controls_layout.setContentsMargins(0, 0, 0, 0)
             controls_layout.setSpacing(6)
 
-            controls_layout.addWidget(QLabel("View:"))
+            controls_layout.addWidget(QLabel("View"))
 
-            self.view_toggle = QCheckBox("curve")
+            self.view_toggle = QCheckBox()
             self.view_toggle.setChecked(render_part_visible)
             self.view_toggle.toggled.connect(
                 lambda visible, key=render_part_key: render_part_toggle_callback(key, visible)
@@ -117,6 +121,8 @@ class CollapsibleGroup(QWidget):
             controls_layout.addWidget(self.view_toggle)
 
             header_layout.addWidget(self.controls_widget)
+
+        header_layout.addStretch(1)
 
         layout.addWidget(header)
 
@@ -155,6 +161,7 @@ class ParameterWindow(QWidget):
         self.render_part_defaults = {
             part.key: part.visible_by_default for part in self.render_parts
         }
+        self.render_parts_by_key = {part.key: part for part in self.render_parts}
 
         outer_layout = QVBoxLayout(self)
         scroll = QScrollArea()
@@ -190,6 +197,7 @@ class ParameterWindow(QWidget):
         for group in groups:
             group_widget = CollapsibleGroup(
                 group.title,
+                render_part_color=self._get_render_part_color(group.render_part_key),
                 render_part_key=group.render_part_key,
                 render_part_visible=self.render_part_defaults.get(group.render_part_key, False),
                 render_part_toggle_callback=self.render_part_toggle_callback,
@@ -206,13 +214,22 @@ class ParameterWindow(QWidget):
     def _build_render_part_layout(self):
         group_widget = CollapsibleGroup("View")
         for part in self.render_parts:
+            row = QWidget()
+            row_layout = QHBoxLayout(row)
+            row_layout.setContentsMargins(0, 0, 0, 0)
+            row_layout.setSpacing(6)
+
+            row_layout.addWidget(_make_color_badge(part.color))
+
             checkbox = QCheckBox(part.label)
             checkbox.setChecked(part.visible_by_default)
             self.render_part_checkboxes[part.key] = checkbox
             checkbox.toggled.connect(
                 lambda checked, key=part.key: self.render_part_toggle_callback(key, checked)
             )
-            group_widget.content_layout.addWidget(checkbox)
+            row_layout.addWidget(checkbox)
+            row_layout.addStretch(1)
+            group_widget.content_layout.addWidget(row)
 
         self.layout.addWidget(group_widget)
 
@@ -253,6 +270,14 @@ class ParameterWindow(QWidget):
         checkbox.setChecked(visible)
         checkbox.blockSignals(previous)
 
+    def _get_render_part_color(self, key: str | None) -> str | None:
+        if key is None:
+            return None
+        part = self.render_parts_by_key.get(key)
+        if part is None:
+            return None
+        return part.color
+
     def keyPressEvent(self, a0) -> None:  # use base name 'a0' to satisfy checker
         if a0.key() == Qt.Key.Key_Q:
             self.close()
@@ -260,3 +285,28 @@ class ParameterWindow(QWidget):
                 self.graph_win.close()
         else:
             super().keyPressEvent(a0)
+
+
+def _make_color_badge(color: str | None) -> QWidget:
+    css_color = _to_css_color(color)
+    badge = QLabel()
+    badge.setFixedSize(12, 12)
+    badge.setStyleSheet(
+        f"background-color: {css_color}; "
+        "border: 1px solid palette(mid);"
+    )
+    return badge
+
+
+def _to_css_color(color: str | None) -> str:
+    if color is None:
+        return "transparent"
+
+    aliases = {
+        "b": "#1f77b4",
+        "m": "#d627a5",
+        "c": "#17becf",
+        "y": "#bcbd22",
+        "w": "#ffffff",
+    }
+    return aliases.get(color, color)

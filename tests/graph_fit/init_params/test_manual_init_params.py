@@ -1,5 +1,6 @@
 import numpy as np
 import importlib
+import pytest
 
 from batfloman_praktikum_lib.graph_fit import Gaussian, Linear
 
@@ -176,3 +177,63 @@ def test_manual_init_params_passes_custom_render_parts(monkeypatch, tmp_path):
 
     assert [part.label for part in captured["graph_render_parts"]] == ["offset", "slope"]
     assert [part.label for part in captured["window_render_parts"]] == ["offset", "slope"]
+
+
+def test_manual_init_params_returns_cached_values_in_quiet_mode(monkeypatch, tmp_path):
+    cache_path = tmp_path / "fitcache.json"
+    cache_path.write_text(
+        """
+        {
+          "A": {"slider_value": 5.0},
+          "sigma": {"slider_value": 2.0},
+          "x0": {"slider_value": 1.0}
+        }
+        """.strip()
+    )
+
+    monkeypatch.setattr(manual_init_params_module, "check_quiet", lambda: True)
+
+    result = manual_init_params_module.manual_init_params(
+        Gaussian,
+        np.array([0.0, 1.0, 2.0]),
+        np.array([1.0, 2.0, 3.0]),
+        cache_path=cache_path,
+    )
+
+    assert result == {"A": 5.0, "sigma": 2.0, "x0": 1.0}
+
+
+def test_manual_init_params_returns_defaults_in_quiet_mode_without_cache(monkeypatch, tmp_path):
+    monkeypatch.setattr(manual_init_params_module, "check_quiet", lambda: True)
+
+    result = manual_init_params_module.manual_init_params(
+        Gaussian,
+        np.array([0.0, 1.0, 2.0]),
+        np.array([1.0, 2.0, 3.0]),
+        cache_path=tmp_path / "missing-cache.json",
+        default_values={"A": 4.0, "sigma": 1.5, "x0": 0.5},
+    )
+
+    assert result == {"A": 4.0, "sigma": 1.5, "x0": 0.5}
+
+
+def test_manual_init_params_require_cache_raises_without_complete_cache(monkeypatch, tmp_path):
+    cache_path = tmp_path / "fitcache.json"
+    cache_path.write_text(
+        """
+        {
+          "A": {"slider_value": 5.0}
+        }
+        """.strip()
+    )
+
+    monkeypatch.setattr(manual_init_params_module, "check_quiet", lambda: True)
+
+    with pytest.raises(ValueError, match="No complete cached manual init parameters"):
+        manual_init_params_module.manual_init_params(
+            Gaussian,
+            np.array([0.0, 1.0, 2.0]),
+            np.array([1.0, 2.0, 3.0]),
+            cache_path=cache_path,
+            require_cache=True,
+        )
