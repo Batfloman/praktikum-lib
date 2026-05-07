@@ -1,4 +1,4 @@
-import json
+from dataclasses import asdict
 import numpy as np
 import pandas as pd
 import re
@@ -407,3 +407,41 @@ class DataCluster:
 
     def print(self):
         print(self.__str__())
+
+    def to_dict(self) -> dict:
+        return {
+            "__type__": "DataCluster",
+            "data": [dataset.to_dict() for dataset in self.data],
+            "metadata": {
+                index: asdict(metadata)
+                for index, metadata in self.metadata_manager._metadata.items()
+            },
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "DataCluster":
+        datasets = [Dataset.from_dict(dataset) for dataset in data["data"]]
+        cluster = cls(datasets)
+
+        for index, metadata in data.get("metadata", {}).items():
+            cluster.metadata_manager.set_metadata(index, metadata)
+
+        return cluster
+
+    def to_json(self, *, indent: int | None = 2) -> str:
+        from batfloman_praktikum_lib.io.json import dumps_json
+        return dumps_json(self, indent=indent)
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "DataCluster":
+        from batfloman_praktikum_lib.io.json import loads_json
+        return loads_json(json_str)
+
+    def save_json(self, path: str, *, indent: int | None = 2) -> str:
+        from batfloman_praktikum_lib.io.json import save_json
+        return save_json(self, path, indent=indent)
+
+    @classmethod
+    def load_json(cls, path: str) -> "DataCluster":
+        from batfloman_praktikum_lib.io.json import load_json
+        return load_json(path)

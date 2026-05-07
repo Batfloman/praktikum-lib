@@ -68,3 +68,47 @@ class Dataset:
 
     def update(self, other: Mapping | Iterable[tuple] = (), **kwargs) -> None:
         self.measurements.update(other, **kwargs)
+
+    def to_dict(self) -> dict:
+        serialized = {}
+        for key, value in self.measurements.items():
+            if hasattr(value, "to_dict"):
+                serialized[key] = value.to_dict()
+            else:
+                serialized[key] = value
+
+        return {
+            "__type__": "Dataset",
+            "measurements": serialized,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Dataset":
+        from .measurement import Measurement
+
+        measurements = {}
+        for key, value in data["measurements"].items():
+            if isinstance(value, dict) and value.get("__type__") == "Measurement":
+                measurements[key] = Measurement.from_dict(value)
+            else:
+                measurements[key] = value
+
+        return cls(measurements)
+
+    def to_json(self, *, indent: int | None = 2) -> str:
+        from batfloman_praktikum_lib.io.json import dumps_json
+        return dumps_json(self, indent=indent)
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "Dataset":
+        from batfloman_praktikum_lib.io.json import loads_json
+        return loads_json(json_str)
+
+    def save_json(self, path: str, *, indent: int | None = 2) -> str:
+        from batfloman_praktikum_lib.io.json import save_json
+        return save_json(self, path, indent=indent)
+
+    @classmethod
+    def load_json(cls, path: str) -> "Dataset":
+        from batfloman_praktikum_lib.io.json import load_json
+        return load_json(path)

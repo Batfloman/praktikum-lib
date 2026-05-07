@@ -151,3 +151,32 @@ class Measurement(MeasurementBase):
     def __format__(self, format_spec):
         from batfloman_praktikum_lib.io.formatters.formatters import custom_format
         return custom_format(self, format_spec=format_spec)
+
+    def to_dict(self) -> dict:
+        return {
+            "__type__": "Measurement",
+            "value": self.value,
+            "error": self.error,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Measurement":
+        return cls(data["value"], data["error"])
+
+    def to_json(self, *, indent: int | None = 2) -> str:
+        from batfloman_praktikum_lib.io.json import dumps_json
+        return dumps_json(self, indent=indent)
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "Measurement":
+        from batfloman_praktikum_lib.io.json import loads_json
+        return loads_json(json_str)
+
+    def save_json(self, path: str, *, indent: int | None = 2) -> str:
+        from batfloman_praktikum_lib.io.json import save_json
+        return save_json(self, path, indent=indent)
+
+    @classmethod
+    def load_json(cls, path: str) -> "Measurement":
+        from batfloman_praktikum_lib.io.json import load_json
+        return load_json(path)
