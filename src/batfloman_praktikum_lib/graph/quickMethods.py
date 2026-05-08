@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt;
 import numpy as np;
 import os
+import weakref
+from collections import OrderedDict
 
 # typing
 from collections.abc import Iterable
@@ -19,6 +21,11 @@ AxesArray = np.ndarray[Any, np.dtype[object]]
 SubplotsAxes = Axes | AxesArray
 Plot: TypeAlias = tuple[Figure, SubplotsAxes]
 ShowArg: TypeAlias = Figure | Plot | Iterable["ShowArg"]
+
+_tracked_figures: weakref.WeakValueDictionary[int, Figure] = weakref.WeakValueDictionary()
+def _track_figure(fig: Figure) -> Figure:
+    _tracked_figures[fig.number] = fig
+    return fig
 
 def save_plot(
         plot: tuple[Figure, SubplotsAxes],
@@ -50,7 +57,9 @@ def create_plot(*, squeeze: bool = True, **kwargs) -> tuple[Figure, SubplotsAxes
 
 def create_plot(*, squeeze: bool = True, **kwargs) -> tuple[Figure, SubplotsAxes]:
     kwargs["squeeze"] = squeeze
-    return plt.subplots(**kwargs);
+    fig, axes = plt.subplots(**kwargs)
+    _track_figure(fig)
+    return fig, axes
 
 # --------------------
 
@@ -83,6 +92,8 @@ def _iter_figures(plots: Iterable[ShowArg]) -> Iterable[Figure]:
 
 
 def _ensure_registered(fig: Figure) -> None:
+    _track_figure(fig)
+
     if Gcf.get_fig_manager(fig.number) is not None:
         return
 
@@ -90,12 +101,38 @@ def _ensure_registered(fig: Figure) -> None:
     Gcf._set_new_active_manager(manager)
 
 
+def _show_registered(figures: Iterable[Figure]) -> None:
+    selected_numbers = {fig.number for fig in figures}
+    hidden_managers = OrderedDict(
+        (num, manager)
+        for num, manager in tuple(Gcf.figs.items())
+        if num not in selected_numbers
+    )
+
+    for num in hidden_managers:
+        Gcf.figs.pop(num, None)
+
+    try:
+        plt.show(block=True)
+    finally:
+        for num, manager in hidden_managers.items():
+            if Gcf.get_fig_manager(num) is None:
+                Gcf.figs[num] = manager
+
+
 def show(*plots: ShowArg, ignore_quiet: bool = False) -> None:
     if check_quiet() and not ignore_quiet:
         return
 
-    if plots:
-        for fig in _iter_figures(plots):
+    if not plots:
+        figures = tuple(_tracked_figures.values())
+        for fig in figures:
             _ensure_registered(fig)
 
-    return plt.show()
+        return plt.show(block=True)
+
+    figures = tuple(_iter_figures(plots))
+    for fig in figures:
+        _ensure_registered(fig)
+
+    _show_registered(figures)
