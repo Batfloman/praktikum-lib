@@ -4,8 +4,8 @@ from typing import Optional
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QCheckBox,
-    QLabel,
     QHBoxLayout,
+    QLabel,
     QScrollArea,
     QToolButton,
     QVBoxLayout,
@@ -280,9 +280,10 @@ class ParameterWindow(QWidget):
 
     def keyPressEvent(self, a0) -> None:  # use base name 'a0' to satisfy checker
         if a0.key() == Qt.Key.Key_Q:
-            self.close()
             if self.graph_win is not None:
-                self.graph_win.close()
+                self.graph_win.close_all_windows()
+            else:
+                self.close()
         else:
             super().keyPressEvent(a0)
 

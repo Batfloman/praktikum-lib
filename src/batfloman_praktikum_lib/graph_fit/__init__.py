@@ -1,7 +1,7 @@
 from .least_squares import generic_fit as least_squares_fit
 from .orthogonal_distance import generic_fit as orthogonal_distance_regression_fit
 
-from .init_params import manual_init_params
+from .init_params import ManualFitSetup, manual_fit_setup, manual_init_params
 from .fitResult import FitResult
 
 from .models import (
@@ -23,6 +23,8 @@ __all__ = [
     "orthogonal_distance_regression_fit",
     "FitResult",
 
+    "ManualFitSetup",
+    "manual_fit_setup",
     "manual_init_params",
 
     # models

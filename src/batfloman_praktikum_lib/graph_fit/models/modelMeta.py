@@ -1,6 +1,7 @@
 from typing import cast, List, Type
+from abc import ABCMeta, ABC
 
-class ModelMeta(type):
+class ModelMeta(ABCMeta):
     def __add__(cls, other):
         from .compositeFitModel import CompositeFitModel, make_static_model_full
 

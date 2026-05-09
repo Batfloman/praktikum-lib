@@ -1,7 +1,7 @@
 from .fitModel import FitModel
-from .modelMeta import ModelMeta
+# from .modelMeta import ModelMeta
 
-class CompositeFitModel(FitModel, metaclass=ModelMeta):
+class CompositeFitModel(FitModel):
     @staticmethod
     def model(x, **params):
         raise NotImplementedError("Subclasses must implement model(x, *params)")

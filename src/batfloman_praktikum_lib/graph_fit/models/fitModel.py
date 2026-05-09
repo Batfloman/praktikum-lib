@@ -3,22 +3,28 @@ from typing import List, Optional
 from batfloman_praktikum_lib.structs.dataCluster import DataCluster
 from ..fitResult import FitResult, FIT_METHODS
 from .modelMeta import ModelMeta
+from abc import ABC, abstractmethod
 
 import numpy as np
 
-class FitModel(metaclass=ModelMeta):
-
+class FitModel(ABC, metaclass=ModelMeta): # type: ignore[misc]
     @staticmethod
+    @abstractmethod
     def model(x, *args, **kwargs) -> float:
-        raise NotImplementedError("Subclasses must implement the model method.")
+        pass
+        # raise NotImplementedError("Subclasses must implement the model method.")
     
     @staticmethod
+    @abstractmethod
     def get_initial_guess(x, y) -> List[float]:
-        raise NotImplementedError("Subclasses must implement the model method.")
+        pass
+        # raise NotImplementedError("Subclasses must implement the model method.")
 
     @staticmethod
+    @abstractmethod
     def get_param_names() -> List[str]:
-        raise NotImplementedError("Subclasses must implement the model method.")
+        pass
+        # raise NotImplementedError("Subclasses must implement the model method.")
 
     @classmethod
     def fit(cls, x, y, xerr = None, yerr = None,

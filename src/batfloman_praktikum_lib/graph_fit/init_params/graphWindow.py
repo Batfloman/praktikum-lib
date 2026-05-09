@@ -11,6 +11,7 @@ from .render_parts import DEFAULT_RENDER_PART_COLORS, RenderPart
 
 class GraphWindow(QWidget):
     param_win = None
+    fit_selection_win = None
     line_sample_count = 1000
 
     def __init__(self,
@@ -19,6 +20,8 @@ class GraphWindow(QWidget):
         model, 
         params: dict[str, float],
         render_parts: Optional[list[RenderPart]] = None,
+        interval_indices: tuple[int, int] | None = None,
+        excluded_indices: tuple[int, ...] = (),
     ):
         super().__init__()
         self.setWindowTitle("Model Visualization")
@@ -39,6 +42,7 @@ class GraphWindow(QWidget):
         self.y_data = np.array(y_data, dtype=float)
         self.data_x_min = float(np.min(self.x_data))
         self.data_x_max = float(np.max(self.x_data))
+        self.point_count = len(self.x_data)
         self.model = model
         self.params = params
         self.render_parts = render_parts or []
@@ -46,18 +50,29 @@ class GraphWindow(QWidget):
         self.render_part_visibility: dict[str, bool] = {}
         self.plot_item_to_render_part_key: dict[pg.PlotDataItem, str] = {}
         self._update_scheduled = False
+        self._interval_indices = self._normalize_interval_indices(
+            interval_indices if interval_indices is not None else (0, self.point_count - 1)
+        )
+        self._excluded_indices: set[int] = set(excluded_indices)
 
         self.legend = self.plot_widget.addLegend()
 
-        # Scatter plot for data
-        self.scatter = pg.ScatterPlotItem(
-            x=self.x_data,
-            y=self.y_data,
+        self.inactive_scatter = pg.ScatterPlotItem(
             pen=pg.mkPen(None),
-            brush=pg.mkBrush(255, 0, 0, 150),
-            size=6
+            brush=pg.mkBrush(130, 130, 130, 110),
+            size=6,
         )
-        self.plot_widget.addItem(self.scatter)
+        self.active_scatter = pg.ScatterPlotItem(
+            pen=pg.mkPen(None),
+            brush=pg.mkBrush(220, 60, 60, 180),
+            size=7,
+        )
+        self.inactive_scatter.sigClicked.connect(self._handle_scatter_clicked)
+        self.active_scatter.sigClicked.connect(self._handle_scatter_clicked)
+        self.plot_widget.addItem(self.inactive_scatter)
+        self.plot_widget.addItem(self.active_scatter)
+        self.selection_label = QLabel("")
+        layout.addWidget(self.selection_label)
 
         # Line plot for model
         self.x_line = self._get_data_x_line()
@@ -106,6 +121,7 @@ class GraphWindow(QWidget):
 
     def _initialize_visible_curve(self):
         self.plot_widget.setXRange(self.data_x_min, self.data_x_max, padding=0.02)
+        self._refresh_scatter_points()
         self.update_visible_model_curve()
         self.plot_widget.plotItem.sigRangeChanged.connect(self.schedule_visible_model_curve_update)
         self.plot_widget.plotItem.sigRangeChangedManually.connect(self.schedule_visible_model_curve_update)
@@ -151,6 +167,106 @@ class GraphWindow(QWidget):
         if schedule_update:
             self.schedule_visible_model_curve_update()
 
+    def _normalize_interval_indices(
+        self,
+        interval_indices: tuple[int, int],
+    ) -> tuple[int, int]:
+        start_idx, end_idx = sorted(interval_indices)
+        start_idx = max(0, min(start_idx, self.point_count - 1))
+        end_idx = max(0, min(end_idx, self.point_count - 1))
+        return (start_idx, end_idx)
+
+    def get_interval_indices(self) -> tuple[int, int] | None:
+        return self._interval_indices
+
+    def get_excluded_indices(self) -> tuple[int, ...]:
+        return tuple(sorted(self._excluded_indices))
+
+    def close_all_windows(self):
+        self.close()
+        if self.param_win is not None:
+            self.param_win.close()
+        if self.fit_selection_win is not None:
+            self.fit_selection_win.close()
+
+    def get_active_mask(self) -> np.ndarray:
+        mask = np.ones(self.point_count, dtype=bool)
+        start_idx, end_idx = self._interval_indices
+        interval_mask = np.zeros(self.point_count, dtype=bool)
+        interval_mask[start_idx:end_idx + 1] = True
+        mask &= interval_mask
+        if self._excluded_indices:
+            excluded = np.array(sorted(self._excluded_indices), dtype=int)
+            valid = excluded[(excluded >= 0) & (excluded < self.point_count)]
+            mask[valid] = False
+        return mask
+
+    def _build_scatter_spots(self, indices: np.ndarray):
+        return [
+            {
+                "pos": (float(self.x_data[idx]), float(self.y_data[idx])),
+                "data": int(idx),
+            }
+            for idx in indices
+        ]
+
+    def _refresh_scatter_points(self):
+        active_mask = self.get_active_mask()
+        active_indices = np.flatnonzero(active_mask)
+        inactive_indices = np.flatnonzero(~active_mask)
+        self.active_scatter.setData(spots=self._build_scatter_spots(active_indices))
+        self.inactive_scatter.setData(spots=self._build_scatter_spots(inactive_indices))
+        self._update_selection_label()
+
+    def _update_selection_label(self):
+        active_count = int(np.count_nonzero(self.get_active_mask()))
+        total_count = self.point_count
+        interval_text = f"[{self._interval_indices[0]}, {self._interval_indices[1]}]"
+        self.selection_label.setText(
+            f"Active points: {active_count}/{total_count} | Interval: {interval_text} | Excluded: {len(self._excluded_indices)}"
+        )
+        if self.fit_selection_win is not None:
+            self.fit_selection_win.sync_fit_selection_controls(
+                interval_indices=self._interval_indices,
+            )
+            self.fit_selection_win.update_selection_summary(
+                active_count=active_count,
+                total_count=total_count,
+                interval_indices=self.get_interval_indices(),
+                excluded_count=len(self._excluded_indices),
+                excluded_indices=self.get_excluded_indices(),
+            )
+
+    def set_interval_indices(self, start_idx: int, end_idx: int):
+        self._interval_indices = self._normalize_interval_indices((start_idx, end_idx))
+        self._refresh_scatter_points()
+
+    def set_excluded_indices(self, excluded_indices: tuple[int, ...] | list[int] | set[int]):
+        self._excluded_indices = {
+            idx for idx in excluded_indices
+            if 0 <= idx < self.point_count
+        }
+        self._refresh_scatter_points()
+
+    def clear_excluded_indices(self):
+        self._excluded_indices.clear()
+        self._refresh_scatter_points()
+
+    def _handle_scatter_clicked(self, _plot, points):
+        changed = False
+        for point in points:
+            idx = point.data()
+            if idx is None:
+                continue
+            idx = int(idx)
+            if idx in self._excluded_indices:
+                self._excluded_indices.remove(idx)
+            else:
+                self._excluded_indices.add(idx)
+            changed = True
+        if changed:
+            self._refresh_scatter_points()
+
     def update_visible_model_curve(self, *_args):
         self.x_line = self._get_visible_x_line()
         y_line = self.model(self.x_line, *order_initial_params(self.model, self.params))
@@ -171,8 +287,6 @@ class GraphWindow(QWidget):
 
     def keyPressEvent(self, a0) -> None:  # use base name 'a0' to satisfy checker
         if a0.key() == Qt.Key.Key_Q:
-            self.close()
-            if self.param_win is not None:
-                self.param_win.close()
+            self.close_all_windows()
         else:
             super().keyPressEvent(a0)
