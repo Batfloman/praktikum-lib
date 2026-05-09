@@ -1,0 +1,18 @@
+- compositeModel.fit returns parmeters like x0_i, A_i, sigma_i;
+	allow alternative? Like Datacluster(x0, A, sigma)? Or just a way to quickly extract them?
+
+- FitModel.fit_data()?
+- FitModel.fit -> include ignore_warning parameters
+- ODR fit error line show still lives in the lib; Show user defined line!
+
+- manual_init_params, automatically move into cache folder by default?
+- manual_init_params, warn before overriding, e.g. waiting for user input if the file has been modified this run?
+- manual_init_params, show fitted?
+
+- FitResult.cov: better print?
+
+- FitResult, quick residuen?
+
+- FitModel + func
+
+- Custom units (e.g. 'Kanäle')
