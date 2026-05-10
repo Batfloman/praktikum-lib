@@ -77,6 +77,7 @@ class ClampedIndexSpinBox(QSpinBox):
 
 class FitSelectionWindow(QWidget):
     graph_win = None
+    on_close_callback = None
 
     def __init__(
         self,
@@ -275,3 +276,9 @@ class FitSelectionWindow(QWidget):
                 self.close()
         else:
             super().keyPressEvent(a0)
+
+    def closeEvent(self, a0) -> None:
+        callback = self.on_close_callback
+        super().closeEvent(a0)
+        if callable(callback):
+            callback()

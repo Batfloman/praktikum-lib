@@ -13,6 +13,7 @@ class GraphWindow(QWidget):
     param_win = None
     fit_selection_win = None
     line_sample_count = 1000
+    on_close_callback = None
 
     def __init__(self,
         x_data, 
@@ -290,3 +291,9 @@ class GraphWindow(QWidget):
             self.close_all_windows()
         else:
             super().keyPressEvent(a0)
+
+    def closeEvent(self, a0) -> None:
+        callback = self.on_close_callback
+        super().closeEvent(a0)
+        if callable(callback):
+            callback()

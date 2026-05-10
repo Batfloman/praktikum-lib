@@ -141,6 +141,7 @@ class CollapsibleGroup(QWidget):
 class ParameterWindow(QWidget):
     graph_win = None
     _copied_group_values: Optional[dict[str, float]] = None
+    on_close_callback = None
 
     def __init__(
         self,
@@ -286,6 +287,12 @@ class ParameterWindow(QWidget):
                 self.close()
         else:
             super().keyPressEvent(a0)
+
+    def closeEvent(self, a0) -> None:
+        callback = self.on_close_callback
+        super().closeEvent(a0)
+        if callable(callback):
+            callback()
 
 
 def _make_color_badge(color: str | None) -> QWidget:

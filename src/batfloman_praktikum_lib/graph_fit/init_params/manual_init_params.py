@@ -6,6 +6,7 @@ import numpy as np
 from pathlib import Path
 import inspect
 
+from PyQt6.QtCore import QObject, QEventLoop, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QApplication
 from ...flags import check_quiet
 from .parameterWindow import ParameterWindow
@@ -20,6 +21,75 @@ from ..fitResult import FIT_METHODS, FitResult
 from ...structs.measurementBase import MeasurementBase
 
 FIT_SELECTION_CACHE_KEY = "__fit_selection__"
+
+
+class ManualFitSetupController(QObject):
+    finished = pyqtSignal(object)
+
+    def __init__(
+        self,
+        *,
+        filepath: Path | None,
+        model_info,
+        x_data,
+        y_data,
+        xerr,
+        yerr,
+        param_win: ParameterWindow,
+        graph_win: GraphWindow,
+        fit_selection_win: FitSelectionWindow,
+    ):
+        super().__init__()
+        self.filepath = filepath
+        self.model_info = model_info
+        self.x_data = x_data
+        self.y_data = y_data
+        self.xerr = xerr
+        self.yerr = yerr
+        self.param_win = param_win
+        self.graph_win = graph_win
+        self.fit_selection_win = fit_selection_win
+        self.result: "ManualFitSetup | None" = None
+        self._finished = False
+
+        self.graph_win.on_close_callback = self._schedule_finalize_check
+        self.param_win.on_close_callback = self._schedule_finalize_check
+        self.fit_selection_win.on_close_callback = self._schedule_finalize_check
+
+    def _schedule_finalize_check(self):
+        QTimer.singleShot(0, self._finalize_if_closed)
+
+    def _finalize_if_closed(self):
+        if self._finished:
+            return
+        if any(
+            window.isVisible()
+            for window in (self.graph_win, self.param_win, self.fit_selection_win)
+        ):
+            return
+
+        if self.filepath is not None:
+            save_slider_settings(self.filepath, self.param_win.sliders)
+            cached = load_slider_settings(self.filepath)
+            _save_cached_fit_selection(
+                self.filepath,
+                cached,
+                interval_indices=self.graph_win.get_interval_indices(),
+                excluded_indices=self.graph_win.get_excluded_indices(),
+            )
+
+        self.result = ManualFitSetup(
+            model=self.model_info,
+            x=self.x_data,
+            y=self.y_data,
+            xerr=self.xerr,
+            yerr=self.yerr,
+            initial_guess=self.param_win.get_params(),
+            interval_indices=self.graph_win.get_interval_indices(),
+            excluded_indices=self.graph_win.get_excluded_indices(),
+        )
+        self._finished = True
+        self.finished.emit(self.result)
 
 
 @dataclass
@@ -241,8 +311,8 @@ def manual_fit_setup(
 
     # --------------------
     # cache
-    filepath = Path(cache_path).with_suffix(".json")
-    cached = load_slider_settings(filepath)
+    filepath = None if cache_path is None else Path(cache_path).with_suffix(".json")
+    cached = {} if filepath is None else load_slider_settings(filepath)
     cached_interval_indices, cached_excluded_indices = _load_cached_fit_selection(cached)
     if interval_indices is None:
         interval_indices = interval
@@ -301,7 +371,8 @@ def manual_fit_setup(
 
     # --------------------
     # Start Qt app
-    app = QApplication.instance() or QApplication([])
+    existing_app = QApplication.instance()
+    app = existing_app or QApplication([])
     resolved_render_parts = resolve_render_parts(model_info, render_parts)
 
     # --------------------
@@ -353,35 +424,36 @@ def manual_fit_setup(
         param_win.set_render_part_visibility(part.key, part.visible_by_default)
     graph_win._refresh_scatter_points()
 
+    controller = ManualFitSetupController(
+        filepath=filepath,
+        model_info=model_info,
+        x_data=filtered_x_data,
+        y_data=filtered_y_data,
+        xerr=filtered_xerr,
+        yerr=filtered_yerr,
+        param_win=param_win,
+        graph_win=graph_win,
+        fit_selection_win=fit_selection_win,
+    )
+
     graph_win.show()
     param_win.show()
     fit_selection_win.show()
 
     # --------------------
     # Execute Qt loop
-    app.exec()
+    if existing_app is None:
+        app.exec()
+    else:
+        loop = QEventLoop()
+        controller.finished.connect(loop.quit)
+        loop.exec()
 
-    # --------------------
-    # Save final slider settings
-    save_slider_settings(filepath, param_win.sliders)
-    cached = load_slider_settings(filepath)
-    _save_cached_fit_selection(
-        filepath,
-        cached,
-        interval_indices=graph_win.get_interval_indices(),
-        excluded_indices=graph_win.get_excluded_indices(),
-    )
-
-    return ManualFitSetup(
-        model=model_info,
-        x=filtered_x_data,
-        y=filtered_y_data,
-        xerr=filtered_xerr,
-        yerr=filtered_yerr,
-        initial_guess=param_win.get_params(),
-        interval_indices=graph_win.get_interval_indices(),
-        excluded_indices=graph_win.get_excluded_indices(),
-    )
+    if controller.result is None:
+        controller._finalize_if_closed()
+    if controller.result is None:
+        raise RuntimeError("Manual fit setup did not produce a result.")
+    return controller.result
 
 def manual_init_params(
     model: Union[Callable, Type[FitModel]],

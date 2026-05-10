@@ -3,6 +3,18 @@ from .orthogonal_distance import generic_fit as orthogonal_distance_regression_f
 
 from .init_params import ManualFitSetup, manual_fit_setup, manual_init_params
 from .fitResult import FitResult
+from .fit_session import (
+    CompositionComponent,
+    FitAnalysis,
+    FitSession,
+    FitSessionModelsWindow,
+    FitSessionVisualizationWindow,
+    IntervalKind,
+    ModelInstance,
+    SessionModel,
+    manual_fit_session,
+    open_fit_session_windows,
+)
 
 from .models import (
     ConstFunc,
@@ -22,6 +34,16 @@ __all__ = [
     "least_squares_fit",
     "orthogonal_distance_regression_fit",
     "FitResult",
+    "FitAnalysis",
+    "CompositionComponent",
+    "FitSession",
+    "FitSessionModelsWindow",
+    "FitSessionVisualizationWindow",
+    "IntervalKind",
+    "ModelInstance",
+    "SessionModel",
+    "manual_fit_session",
+    "open_fit_session_windows",
 
     "ManualFitSetup",
     "manual_fit_setup",
