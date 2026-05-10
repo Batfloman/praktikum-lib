@@ -6,7 +6,7 @@ from PyQt6.QtCore import QEventLoop, Qt
 from PyQt6.QtWidgets import QApplication
 
 from ...graph.adapter_measurement import extract_value_error
-from .session import FitSession
+from .session import AvailableModels, FitSession
 from .windows import open_fit_session_windows
 
 
@@ -27,7 +27,7 @@ def manual_fit_session(
     yerr=None,
     cache_dir: str | Path = "fit_session_cache",
     default_model=None,
-    available_models: dict[str, Any] | None = None,
+    available_models: AvailableModels | None = None,
     visualization_title: str = "Fit Session Visualization",
     models_title: str = "Fit Session Models",
 ) -> FitSession:
@@ -40,6 +40,7 @@ def manual_fit_session(
         xerr=resolved_xerr,
         yerr=resolved_yerr,
         cache_dir=cache_dir,
+        available_models=available_models,
     )
     session.original_x = np.asarray(x, dtype=object)
     session.original_y = np.asarray(y, dtype=object)

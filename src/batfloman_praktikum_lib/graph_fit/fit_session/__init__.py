@@ -1,5 +1,13 @@
 from .analysis import FitAnalysis
-from .session import CompositionComponent, FitSession, IntervalKind, ModelInstance, SessionModel
+from .session import (
+    AvailableModels,
+    CompositionComponent,
+    FitSession,
+    FitSessionModelType,
+    IntervalKind,
+    ModelInstance,
+    SessionModel,
+)
 from .interactive import manual_fit_session
 from .windows import (
     FitSessionModelsWindow,
@@ -10,6 +18,8 @@ from .windows import (
 __all__ = [
     "FitSession",
     "IntervalKind",
+    "FitSessionModelType",
+    "AvailableModels",
     "FitAnalysis",
     "CompositionComponent",
     "SessionModel",

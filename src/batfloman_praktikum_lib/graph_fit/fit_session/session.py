@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 import json
 from pathlib import Path
+from collections.abc import Callable, Mapping
+import inspect
 from typing import Any, Literal, Optional
 
 import numpy as np
@@ -10,14 +12,17 @@ from ..fitResult import FIT_METHODS, FitResult
 from ..init_params import ManualFitSetup, manual_fit_setup
 
 IntervalKind = Literal["index", "x"]
+type FitSessionModelType = Callable[..., Any] | type[Any]
+type AvailableModels = Mapping[str, FitSessionModelType]
 
 
 @dataclass
 class CompositionComponent:
     id: str
-    model_type: Any
+    model_type: FitSessionModelType
     enabled: bool = True
     name: Optional[str] = None
+    registry_key: Optional[str] = None
 
     @property
     def display_name(self) -> str:
@@ -29,6 +34,7 @@ class CompositionComponent:
 @dataclass
 class SessionModel:
     id: str
+    color_index: int = 0
     interval: tuple[float, float] | tuple[int, int] | None = None
     interval_kind: IntervalKind | None = None
     name: Optional[str] = None
@@ -68,6 +74,7 @@ class FitSession:
         xerr=None,
         yerr=None,
         cache_dir: str | Path = "fit_session_cache",
+        available_models: AvailableModels | None = None,
     ):
         self.original_x = np.asarray(x, dtype=object)
         self.original_y = np.asarray(y, dtype=object)
@@ -79,13 +86,15 @@ class FitSession:
         self.yerr = None if yerr is None else np.asarray(yerr, dtype=object)
         self.cache_dir = Path(cache_dir)
         self.state_path = self.cache_dir / "session.json"
+        self.available_models: dict[str, FitSessionModelType] = dict(available_models or {})
         self.models: list[SessionModel] = []
         self._next_model_id = 1
+        self._next_color_index = 0
         self.load_state()
 
     def add_model(
         self,
-        model=None,
+        model: FitSessionModelType | None = None,
         *,
         interval: tuple[float, float] | tuple[int, int] | None = None,
         interval_kind: IntervalKind | None = None,
@@ -93,7 +102,7 @@ class FitSession:
         name: Optional[str] = None,
         visible: bool = True,
         cache_path: Optional[str] = None,
-        components: Optional[list[Any]] = None,
+        components: Optional[list[FitSessionModelType]] = None,
     ) -> str:
         resolved_id = model_id or f"model_{self._next_model_id}"
         if any(instance.id == resolved_id for instance in self.models):
@@ -102,12 +111,14 @@ class FitSession:
         self._next_model_id += 1
         session_model = SessionModel(
             id=resolved_id,
+            color_index=self._next_color_index,
             interval=interval,
             interval_kind=interval_kind,
             name=name or getattr(model, "__name__", None),
             visible=visible,
             cache_path=cache_path,
         )
+        self._next_color_index += 1
         self.models.append(session_model)
 
         initial_components = list(components or [])
@@ -134,10 +145,21 @@ class FitSession:
         self.save_state()
         return instance
 
+    def move_model(self, model_id: str, direction: Literal[-1, 1]) -> None:
+        current_index = self._find_model_index(model_id)
+        new_index = current_index + direction
+        if new_index < 0 or new_index >= len(self.models):
+            return
+        self.models[current_index], self.models[new_index] = (
+            self.models[new_index],
+            self.models[current_index],
+        )
+        self.save_state()
+
     def add_component(
         self,
         model_id: str,
-        model_type,
+        model_type: FitSessionModelType,
         *,
         component_id: Optional[str] = None,
         enabled: bool = True,
@@ -154,6 +176,7 @@ class FitSession:
                 model_type=model_type,
                 enabled=enabled,
                 name=name,
+                registry_key=name or getattr(model_type, "__name__", None),
             )
         )
         self.invalidate_model(model_id)
@@ -184,6 +207,29 @@ class FitSession:
     def set_component_enabled(self, model_id: str, component_id: str, enabled: bool) -> None:
         component = self.get_component(model_id, component_id)
         component.enabled = enabled
+        self.invalidate_model(model_id)
+        self.save_state()
+
+    def move_component(
+        self,
+        model_id: str,
+        component_id: str,
+        direction: Literal[-1, 1],
+    ) -> None:
+        session_model = self.get_model(model_id)
+        old_components = list(session_model.components)
+        current_index = self._find_component_index(session_model, component_id)
+        new_index = current_index + direction
+        if new_index < 0 or new_index >= len(session_model.components):
+            return
+        session_model.components[current_index], session_model.components[new_index] = (
+            session_model.components[new_index],
+            session_model.components[current_index],
+        )
+        session_model.initial_guess = self._remap_initial_guess_for_component_order(
+            session_model,
+            old_components=old_components,
+        )
         self.invalidate_model(model_id)
         self.save_state()
 
@@ -503,7 +549,11 @@ class FitSession:
             return dict(instance.setup.initial_guess)
         return None
 
-    def _resolve_model_type(self, model_name: str):
+    def _resolve_model_type(self, model_name: str | None):
+        if model_name is None:
+            raise KeyError("Saved model type is missing.")
+        if model_name in self.available_models:
+            return self.available_models[model_name]
         from .. import models as models_module
 
         if not hasattr(models_module, model_name):
@@ -515,6 +565,7 @@ class FitSession:
             "models": [
                 {
                     "id": instance.id,
+                    "color_index": instance.color_index,
                     "name": instance.name,
                     "visible": instance.visible,
                     "interval": list(instance.interval) if instance.interval is not None else None,
@@ -524,6 +575,7 @@ class FitSession:
                         {
                             "id": component.id,
                             "name": component.name,
+                            "registry_key": component.registry_key,
                             "enabled": component.enabled,
                             "model_type": getattr(component.model_type, "__name__", str(component.model_type)),
                         }
@@ -552,6 +604,7 @@ class FitSession:
             interval = None if interval_data is None else (interval_data[0], interval_data[1])
             instance = SessionModel(
                 id=model_id,
+                color_index=int(model_data.get("color_index", max_model_number)),
                 interval=interval,
                 interval_kind=model_data.get("interval_kind"),
                 name=model_data.get("name"),
@@ -561,9 +614,12 @@ class FitSession:
                 components=[
                     CompositionComponent(
                         id=str(component_data["id"]),
-                        model_type=self._resolve_model_type(component_data["model_type"]),
+                        model_type=self._resolve_model_type(
+                            component_data.get("registry_key") or component_data.get("model_type")
+                        ),
                         enabled=bool(component_data.get("enabled", True)),
                         name=component_data.get("name"),
+                        registry_key=component_data.get("registry_key") or component_data.get("model_type"),
                     )
                     for component_data in model_data.get("components", [])
                 ],
@@ -594,3 +650,76 @@ class FitSession:
                     max_model_number = max(max_model_number, int(suffix))
 
         self._next_model_id = max_model_number + 1 if max_model_number > 0 else 1
+        self._next_color_index = (
+            max((instance.color_index for instance in self.models), default=-1) + 1
+        )
+
+    def _find_model_index(self, model_id: str) -> int:
+        for idx, instance in enumerate(self.models):
+            if instance.id == model_id:
+                return idx
+        raise KeyError(f"Unknown model id: '{model_id}'.")
+
+    def _find_component_index(self, session_model: SessionModel, component_id: str) -> int:
+        for idx, component in enumerate(session_model.components):
+            if component.id == component_id:
+                return idx
+        raise KeyError(f"Unknown component id '{component_id}' in model '{session_model.id}'.")
+
+    def _component_param_names(self, model_type: FitSessionModelType) -> list[str]:
+        if hasattr(model_type, "get_param_names"):
+            return list(model_type.get_param_names())  # type: ignore[call-arg]
+        params = list(inspect.signature(model_type).parameters.keys())[1:]
+        return params
+
+    def _active_component_blocks(
+        self,
+        components: list[CompositionComponent],
+    ) -> list[tuple[str, list[str]]]:
+        return [
+            (component.id, self._component_param_names(component.model_type))
+            for component in components
+            if component.enabled
+        ]
+
+    def _flat_param_names_for_blocks(
+        self,
+        blocks: list[tuple[str, list[str]]],
+    ) -> list[tuple[str, str, str]]:
+        flat_names: list[tuple[str, str, str]] = []
+        component_number = 1
+        for component_id, param_names in blocks:
+            for param_name in param_names:
+                flat_names.append((component_id, param_name, f"{param_name}_{component_number}"))
+            component_number += 1
+        return flat_names
+
+    def _remap_initial_guess_for_component_order(
+        self,
+        session_model: SessionModel,
+        *,
+        old_components: list[CompositionComponent],
+    ) -> dict[str, float] | None:
+        if session_model.initial_guess is None:
+            return None
+
+        old_blocks = self._active_component_blocks(old_components)
+        new_blocks = self._active_component_blocks(session_model.components)
+        old_flat_names = self._flat_param_names_for_blocks(old_blocks)
+        new_flat_names = self._flat_param_names_for_blocks(new_blocks)
+
+        component_param_values: dict[tuple[str, str], float] = {}
+        for component_id, param_name, flat_name in old_flat_names:
+            if flat_name in session_model.initial_guess:
+                component_param_values[(component_id, param_name)] = session_model.initial_guess[flat_name]
+
+        remapped_guess = dict(session_model.initial_guess)
+        for _, _, flat_name in old_flat_names:
+            remapped_guess.pop(flat_name, None)
+
+        for component_id, param_name, flat_name in new_flat_names:
+            key = (component_id, param_name)
+            if key in component_param_values:
+                remapped_guess[flat_name] = component_param_values[key]
+
+        return remapped_guess

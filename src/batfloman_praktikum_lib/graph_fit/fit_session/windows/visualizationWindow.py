@@ -6,6 +6,7 @@ import numpy as np
 import pyqtgraph as pg
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QKeyEvent
+from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 from ...init_params._helper import smart_format
@@ -23,6 +24,9 @@ class FitSessionVisualizationWindow(QWidget):
         self._has_initialized_view = False
         self._interval_items: list[pg.LinearRegionItem] = []
         self._curve_items: list[pg.PlotDataItem] = []
+        self._close_shortcut = QShortcut(QKeySequence("Q"), self)
+        self._close_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self._close_shortcut.activated.connect(self.close_all_windows)
 
         self.setWindowTitle(window_title)
         self.resize(1100, 800)
@@ -88,11 +92,11 @@ class FitSessionVisualizationWindow(QWidget):
         self.data_scatter.setData(spots=spots)
 
     def _refresh_models(self):
-        for idx, instance in enumerate(self.session.models):
+        for instance in self.session.models:
             if not instance.visible:
                 continue
 
-            color = pg.intColor(idx, hues=max(1, len(self.session.models)))
+            color = pg.intColor(instance.color_index, hues=max(1, len(self.session.models)))
             interval = self.session._resolve_x_interval(instance)
             region = pg.LinearRegionItem(
                 values=interval,

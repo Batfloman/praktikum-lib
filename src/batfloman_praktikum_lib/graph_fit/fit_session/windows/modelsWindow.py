@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 import numpy as np
+import pyqtgraph as pg
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QBrush, QColor, QIcon, QPainter, QPixmap
 from PyQt6.QtGui import QKeyEvent
+from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtGui import QValidator
 from PyQt6.QtWidgets import (
     QCheckBox,
@@ -22,7 +25,7 @@ from PyQt6.QtWidgets import (
     QSpinBox,
 )
 
-from ..session import CompositionComponent, FitSession, SessionModel
+from ..session import AvailableModels, CompositionComponent, FitSession, SessionModel
 
 
 class ClampedIndexSpinBox(QSpinBox):
@@ -97,14 +100,17 @@ class FitSessionModelsWindow(QWidget):
         session: FitSession,
         *,
         default_model=None,
-        available_models: dict[str, Any] | None = None,
+        available_models: AvailableModels | None = None,
         window_title: str = "Fit Session Models",
     ):
         super().__init__()
         self.session = session
         self.visualization_window = None
         self.default_model = default_model
-        self.available_models = available_models or self._default_available_models(default_model)
+        self.available_models = self._resolve_available_models(
+            default_model=default_model,
+            available_models=available_models,
+        )
         self._updating_tree = False
         self._updating_interval_controls = False
         self._is_closing_all = False
@@ -113,6 +119,9 @@ class FitSessionModelsWindow(QWidget):
         self._autofit_timer.setSingleShot(True)
         self._autofit_timer.setInterval(250)
         self._autofit_timer.timeout.connect(self._run_pending_autofit)
+        self._close_shortcut = QShortcut(QKeySequence("Q"), self)
+        self._close_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self._close_shortcut.activated.connect(self.close_all_windows)
 
         self.setWindowTitle(window_title)
         self.resize(620, 920)
@@ -123,6 +132,12 @@ class FitSessionModelsWindow(QWidget):
         self.add_model_button = QPushButton("Add Model")
         self.add_model_button.clicked.connect(self._handle_add_model)
         add_model_row.addWidget(self.add_model_button)
+        self.move_up_button = QPushButton("Move Up")
+        self.move_up_button.clicked.connect(self._handle_move_up)
+        add_model_row.addWidget(self.move_up_button)
+        self.move_down_button = QPushButton("Move Down")
+        self.move_down_button.clicked.connect(self._handle_move_down)
+        add_model_row.addWidget(self.move_down_button)
         self.remove_selected_button = QPushButton("Remove Selected")
         self.remove_selected_button.clicked.connect(self._handle_remove_selected)
         add_model_row.addWidget(self.remove_selected_button)
@@ -237,6 +252,17 @@ class FitSessionModelsWindow(QWidget):
             models = {default_model.__name__: default_model, **models}
         return models
 
+    def _resolve_available_models(
+        self,
+        *,
+        default_model,
+        available_models: AvailableModels | None,
+    ) -> dict[str, Any]:
+        models = self._default_available_models(default_model)
+        if available_models is None:
+            return models
+        return {**models, **available_models}
+
     def _handle_add_model(self):
         model_id = self.session.add_model(
             interval=(0, len(self.session.x) - 1),
@@ -269,6 +295,12 @@ class FitSessionModelsWindow(QWidget):
         component_model = self.available_models[component_name]
         self.session.add_component(selected_model.id, component_model, name=component_name)
         self.refresh(select_model_id=selected_model.id)
+
+    def _handle_move_up(self):
+        self._move_selected(-1)
+
+    def _handle_move_down(self):
+        self._move_selected(1)
 
     def _handle_fit_all(self):
         if not self.session.models:
@@ -370,6 +402,8 @@ class FitSessionModelsWindow(QWidget):
         has_component = selected_component is not None
 
         self.remove_selected_button.setEnabled(has_model)
+        self.move_up_button.setEnabled(has_model)
+        self.move_down_button.setEnabled(has_model)
         self.add_component_button.setEnabled(has_model)
         self.edit_parameters_button.setEnabled(has_model)
         self.refit_selected_button.setEnabled(has_model)
@@ -441,6 +475,7 @@ class FitSessionModelsWindow(QWidget):
         self.model_tree.clear()
 
         for instance in self.session.models:
+            model_color = self._model_color(instance)
             model_item = QTreeWidgetItem(
                 [
                     instance.display_name,
@@ -457,6 +492,8 @@ class FitSessionModelsWindow(QWidget):
                 | Qt.ItemFlag.ItemIsEnabled
             )
             model_item.setCheckState(0, Qt.CheckState.Checked if instance.visible else Qt.CheckState.Unchecked)
+            model_item.setIcon(0, self._color_icon(model_color))
+            self._apply_model_item_styling(model_item, model_color)
             self.model_tree.addTopLevelItem(model_item)
 
             interval_item = QTreeWidgetItem(
@@ -468,6 +505,7 @@ class FitSessionModelsWindow(QWidget):
                 ]
             )
             interval_item.setData(0, Qt.ItemDataRole.UserRole, ("interval", instance.id))
+            self._apply_model_item_styling(interval_item, model_color, child=True)
             model_item.addChild(interval_item)
 
             composition_item = QTreeWidgetItem(
@@ -479,6 +517,7 @@ class FitSessionModelsWindow(QWidget):
                 ]
             )
             composition_item.setData(0, Qt.ItemDataRole.UserRole, ("composition", instance.id))
+            self._apply_model_item_styling(composition_item, model_color, child=True)
             model_item.addChild(composition_item)
 
             for component in instance.components:
@@ -502,6 +541,7 @@ class FitSessionModelsWindow(QWidget):
                     | Qt.ItemFlag.ItemIsEnabled
                 )
                 component_item.setCheckState(0, Qt.CheckState.Checked if component.enabled else Qt.CheckState.Unchecked)
+                self._apply_model_item_styling(component_item, model_color, child=True)
                 composition_item.addChild(component_item)
 
             model_item.setExpanded(True)
@@ -529,6 +569,15 @@ class FitSessionModelsWindow(QWidget):
         if item_type[0] == "component":
             return item_type[1]
         return None
+
+    def _selected_component_id(self) -> Optional[str]:
+        item = self.model_tree.currentItem()
+        if item is None:
+            return None
+        item_type = item.data(0, Qt.ItemDataRole.UserRole)
+        if item_type is None or item_type[0] != "component":
+            return None
+        return str(item_type[2])
 
     def _selected_model(self) -> SessionModel | None:
         model_id = self._selected_model_id()
@@ -583,6 +632,66 @@ class FitSessionModelsWindow(QWidget):
 
     def _show_error(self, title: str, exc: Exception):
         QMessageBox.critical(self, title, f"{type(exc).__name__}: {exc}")
+
+    def _model_color(self, instance: SessionModel) -> QColor:
+        return pg.intColor(instance.color_index, hues=max(1, len(self.session.models)))
+
+    def _apply_model_item_styling(self, item: QTreeWidgetItem, color: QColor, *, child: bool = False):
+        background = QColor(color)
+        background.setAlpha(18 if child else 28)
+
+        for column in range(self.model_tree.columnCount()):
+            item.setBackground(column, QBrush(background))
+
+    def _color_icon(self, color: QColor) -> QIcon:
+        pixmap = QPixmap(12, 12)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        tint = QColor(color)
+        tint.setAlpha(230)
+        painter = QPainter(pixmap)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(tint)
+        painter.drawRect(2, 2, 8, 8)
+        painter.end()
+        return QIcon(pixmap)
+
+    def _move_selected(self, direction: Literal[-1, 1]):
+        selected_model = self._selected_model()
+        if selected_model is None:
+            return
+
+        selected_component = self._selected_component()
+        if selected_component is not None:
+            self.session.move_component(selected_model.id, selected_component.id, direction)
+            self.refresh(select_model_id=selected_model.id)
+            self._select_component(selected_model.id, selected_component.id)
+            return
+
+        self.session.move_model(selected_model.id, direction)
+        self.refresh(select_model_id=selected_model.id)
+
+    def _select_component(self, model_id: str, component_id: str):
+        for i in range(self.model_tree.topLevelItemCount()):
+            model_item = self.model_tree.topLevelItem(i)
+            item_type = model_item.data(0, Qt.ItemDataRole.UserRole)
+            if item_type is None or item_type[0] != "model" or item_type[1] != model_id:
+                continue
+            for child_idx in range(model_item.childCount()):
+                child = model_item.child(child_idx)
+                child_type = child.data(0, Qt.ItemDataRole.UserRole)
+                if child_type is None or child_type[0] != "composition":
+                    continue
+                for component_idx in range(child.childCount()):
+                    component_item = child.child(component_idx)
+                    component_type = component_item.data(0, Qt.ItemDataRole.UserRole)
+                    if (
+                        component_type is not None
+                        and component_type[0] == "component"
+                        and component_type[1] == model_id
+                        and component_type[2] == component_id
+                    ):
+                        self.model_tree.setCurrentItem(component_item)
+                        return
 
     def _selected_interval_kind(self) -> str:
         return str(self.interval_kind_selector.currentData())
