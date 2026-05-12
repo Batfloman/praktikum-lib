@@ -2,7 +2,7 @@ import numpy as np;
 import warnings
 
 # typing
-from typing import Any, Callable, List, Optional, Sequence, Tuple, Union, NamedTuple
+from typing import Any, Callable, List, Literal, Optional, Sequence, Tuple, Union, NamedTuple
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 
@@ -12,6 +12,49 @@ from ..graph_fit.fitResult import FitResult
 from .adapter_measurement import extract_value_error
 
 from .types import SupportedValues, ScatterResult, PlotResult
+
+type ErrorBandMode = Union[bool, Literal["auto"]]
+
+def _fit_quality_label(
+    fit_result: FitResult,
+    *,
+    decimals: int = 4,
+    decimal_comma: bool = False,
+) -> str:
+    quality = f"{fit_result.quality:.{decimals}f}"
+    if decimal_comma:
+        quality = quality.replace(".", r"{,}")
+
+    if fit_result.method == "ODR":
+        return fr"$\chi^2_{{\mathrm{{red, ODR}}}} = {quality}$"
+    return fr"$\chi^2_\mathrm{{red}} = {quality}$"
+
+def _auto_show_fit_error_band(
+    y_smooth: Sequence[SupportedValues],
+    ax: Axes,
+    *,
+    min_error_band_fraction: float = 0.005,
+) -> bool:
+    y_values, y_err = extract_value_error(y_smooth)
+    band_width = 2 * np.asarray(y_err, dtype=float)
+
+    if not np.any(band_width > 0):
+        return False
+
+    y_values = np.asarray(y_values, dtype=float)
+    finite_y = y_values[np.isfinite(y_values)]
+    if finite_y.size == 0:
+        return False
+
+    line_span = np.nanmax(finite_y) - np.nanmin(finite_y)
+    axis_ymin, axis_ymax = ax.get_ylim()
+    axis_span = axis_ymax - axis_ymin if ax.has_data() else np.nan
+    y_span = axis_span if np.isfinite(axis_span) and axis_span > 0 else line_span
+
+    if not np.isfinite(y_span) or y_span <= 0:
+        return True
+
+    return np.nanpercentile(band_width, 95) >= min_error_band_fraction * y_span
 
 def filter_nan_values(
     x: Union[Sequence[SupportedValues], np.ndarray],
@@ -116,11 +159,20 @@ def plot_func(
     plot: Tuple[Figure, Any],
     interval: Optional[Tuple[float, float]] = None,
     change_viewport: bool =True,
-    with_error: bool = True,
+    with_error: ErrorBandMode = "auto",
     log_scale: bool = False,
+    min_error_band_fraction: float = 0.05,
+    show_fit_quality_label: bool = True,
+    fit_quality_label_decimal_comma: bool = True,
+    fit_quality_label_decimals: int = 4,
     **kwargs
 ) -> PlotResult:
     _, ax = plot;
+    if min_error_band_fraction < 0:
+        raise ValueError("min_error_band_fraction must be non-negative.")
+    if with_error != "auto" and not isinstance(with_error, bool):
+        raise ValueError('with_error must be True, False, or "auto".')
+
     xmin, xmax = ax.get_xlim() if not interval else interval;
 
     if log_scale:
@@ -135,6 +187,28 @@ def plot_func(
 
     func = fit_func.func if isinstance(fit_func, FitResult) else fit_func
     y_smooth = [func(x) for x in x_smooth]
+
+    if with_error == "auto":
+        with_error = (
+            _auto_show_fit_error_band(
+                y_smooth,
+                ax,
+                min_error_band_fraction=min_error_band_fraction,
+            )
+            if isinstance(fit_func, FitResult)
+            else True
+        )
+
+    if (
+        isinstance(fit_func, FitResult)
+        and show_fit_quality_label
+        and "label" not in kwargs
+    ):
+        kwargs["label"] = _fit_quality_label(
+            fit_func,
+            decimals=fit_quality_label_decimals,
+            decimal_comma=fit_quality_label_decimal_comma,
+        )
 
     return plot_xy(x_smooth, y_smooth, plot=plot, change_viewport=change_viewport, with_error=with_error, **kwargs)
 

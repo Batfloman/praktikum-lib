@@ -1,4 +1,4 @@
-from typing import Sequence, Tuple, Union, List, Any, Optional, Callable
+from typing import Sequence, Tuple, Union, List, Any, Optional, Callable, Literal
 import numpy as np
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
@@ -6,6 +6,8 @@ from matplotlib.axes import Axes
 from ..graph_fit.fitResult import FitResult
 from batfloman_praktikum_lib.structs.dataCluster import DataCluster
 from .types import SupportedValues, ScatterResult, PlotResult
+
+type ErrorBandMode = Union[bool, Literal["auto"]]
 
 def filter_nan_values(
     x: Union[Sequence[SupportedValues], np.ndarray],
@@ -62,8 +64,12 @@ def plot_func(
     plot: Tuple[Figure, Any],
     interval: Optional[Tuple[float, float]] = None,
     change_viewport: bool =True,
-    with_error: bool = True,
+    with_error: ErrorBandMode = "auto",
     log_scale: bool = False,
+    min_error_band_fraction: float = 0.05,
+    show_fit_quality_label: bool = True,
+    fit_quality_label_decimal_comma: bool = True,
+    fit_quality_label_decimals: int = 4,
     **kwargs
 ) -> PlotResult:
     """
@@ -72,6 +78,11 @@ def plot_func(
     Parameters:
     fit_func (callable): The fitted model function with specific parameters.
     plot (tuple): Tuple containing the figure and axis objects for plotting.
+    with_error (bool | "auto"): Whether to draw the error band. "auto" draws FitResult bands only when they are visibly large enough.
+    min_error_band_fraction (float): Minimum 95th-percentile band width relative to the y-span for auto error-band display.
+    show_fit_quality_label (bool): If True, FitResult inputs receive a default fit-quality label when no label is passed.
+    fit_quality_label_decimal_comma (bool): If True, use a comma as decimal separator in the default fit-quality label.
+    fit_quality_label_decimals (int): Number of decimals for the default fit-quality label.
     """
     ...
 
@@ -165,4 +176,3 @@ def scatter_data(
         Object containing scatter and optional errorbar.
     """
     ...
-
