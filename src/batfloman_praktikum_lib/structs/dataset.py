@@ -40,7 +40,10 @@ class Dataset:
     def __str__(self):
         strings = []
         for key, value in self.measurements.items():
-            strings.append(f"{key}: {value}")
+            try:
+                strings.append(f"{key}: {value}")
+            except Exception:
+                strings.append(f"{key}: {value!r}")
         return f'{", ".join(strings)}'
 
     def __repr__(self):

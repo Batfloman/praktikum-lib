@@ -30,6 +30,12 @@ def _get_column_with_error_indicies(indicies: List[str]) -> dict:
             property_has_error[index] = False
     return property_has_error
 
+def _is_missing_scalar(value) -> bool:
+    try:
+        return bool(pd.isna(value))
+    except TypeError:
+        return False
+
 def _df_to_Dataset_arr(df: pd.DataFrame):
     arr = []
 
@@ -48,16 +54,26 @@ def _df_to_Dataset_arr(df: pd.DataFrame):
                 print("Warning! Multiple Columns have the same name. Taking first value")
                 error = error.iat[0]
 
-            try:
-                error = float(error)
-                if error == 0:
-                    error = None
-            except:
-                pass
-            try:
-                value = float(value)
-            except:
-                pass 
+            if _is_missing_scalar(error):
+                error = None
+            else:
+                try:
+                    error = float(error)
+                    if not np.isfinite(error) or error == 0:
+                        error = None
+                except Exception:
+                    pass
+
+            if _is_missing_scalar(value):
+                value = None
+            else:
+                try:
+                    value = float(value)
+                    if not np.isfinite(value):
+                        value = None
+                except Exception:
+                    pass
+
             dataset[index] = Measurement(value, error) if error else value
         arr.append(dataset)
 
@@ -115,13 +131,15 @@ class DataCluster:
 
     def __setitem__(self, index, value):
         if isinstance(index, str):
-            if len(self.data) == 0:
-                raise IndexError("Cannot assign a column on an empty DataCluster")
-
             if isinstance(value, (str, bytes)) or not isinstance(value, Iterable):
+                if len(self.data) == 0:
+                    raise IndexError("Cannot assign a scalar column on an empty DataCluster")
                 values = [value] * len(self.data)
             else:
                 values = list(value)
+                if len(self.data) == 0:
+                    self.data = [Dataset({index: item}) for item in values]
+                    return
                 if len(values) != len(self.data):
                     raise ValueError("Column length must match the number of datasets")
 
@@ -384,9 +402,12 @@ class DataCluster:
                 return value is None or (isinstance(value, str) and value.strip() == "")
 
             def to_str(value) -> str:
-                if isinstance(value, Measurement):
-                    return f"{value}";
-                return str(value)
+                try:
+                    if isinstance(value, Measurement):
+                        return f"{value}"
+                    return str(value)
+                except Exception:
+                    return repr(value)
 
 
             arr = [("-" if is_empty_or_none(x) else to_str(x)) for x in arr]

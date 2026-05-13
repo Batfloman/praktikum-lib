@@ -4,8 +4,8 @@ from typing import Tuple
 from .. import util 
 
 def get_sig_digit_position(uncertainty: float) -> int:
-    if uncertainty <= 0:
-        raise ValueError("Uncertainty must be positive.")
+    if not np.isfinite(uncertainty) or uncertainty <= 0:
+        raise ValueError("Uncertainty must be finite and positive.")
 
     exponent = int(np.floor(np.log10(uncertainty)))
     leading_digit = int((uncertainty / (10 ** exponent) + 1e-12))

@@ -1,5 +1,6 @@
 from typing import Literal
 from enum import Enum
+import numpy as np
 
 from batfloman_praktikum_lib.structs.measurementBase import MeasurementBase
 from batfloman_praktikum_lib.significant_rounding import get_sig_digit_position, round_sig_fixed
@@ -10,6 +11,9 @@ class UncertaintyNotation(Enum):
     Parentheses = "brk" # für Klammer-Notation, z.B. 1.23(1)
 
 def custom_format_measurement(value: MeasurementBase, format_spec: str) -> str:
+    if not np.isfinite(value.error) or value.error <= 0:
+        return format(value.value, format_spec)
+
     notation = UncertaintyNotation.Parentheses
 
     if UncertaintyNotation.PlusMinus.value in format_spec:
@@ -140,4 +144,3 @@ def _display_parenthesis(val: float, err: float, format_spec: str = "") -> str:
         return _display_parenthesis_float(val, err, decimals)
     else:
         return _display_parenthesis_exponent(val, err, exponent, offset + decimals);
-
