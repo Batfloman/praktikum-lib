@@ -109,6 +109,8 @@ class DataCluster:
     def __getitem__(self, index):
         if isinstance(index, str):
             return self.column(index)
+        if isinstance(index, slice):
+            return DataCluster(self.data[index])
         return self.data[index]
 
     def __setitem__(self, index, value):
