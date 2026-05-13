@@ -4,7 +4,7 @@ from typing import Any, Literal, Optional
 
 import numpy as np
 import pyqtgraph as pg
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QSignalBlocker, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QIcon, QPainter, QPixmap
 from PyQt6.QtGui import QKeyEvent
 from PyQt6.QtGui import QKeySequence, QShortcut
@@ -468,10 +468,11 @@ class FitSessionModelsWindow(QWidget):
             component = self.session.get_component(model_id, component_id)
             if component.enabled != enabled:
                 self.session.set_component_enabled(model_id, component_id, enabled)
-                self.refresh(select_model_id=model_id)
+                QTimer.singleShot(0, lambda model_id=model_id: self.refresh(select_model_id=model_id))
 
     def _refresh_model_list(self, *, select_model_id: Optional[str] = None):
         self._updating_tree = True
+        blocker = QSignalBlocker(self.model_tree)
         self.model_tree.clear()
 
         for instance in self.session.models:
@@ -553,6 +554,7 @@ class FitSessionModelsWindow(QWidget):
             self.model_tree.resizeColumnToContents(column)
 
         self._updating_tree = False
+        del blocker
         if self.model_tree.currentItem() is None and self.model_tree.topLevelItemCount() > 0:
             self.model_tree.setCurrentItem(self.model_tree.topLevelItem(0))
         self._handle_selection_changed()
