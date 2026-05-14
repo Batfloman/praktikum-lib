@@ -50,8 +50,10 @@ def test_getitem_supports_row_and_column_access():
     assert isinstance(data[0], Dataset)
     assert data[0]["kanal"] == 1
     assert list(data["time"]) == [0, 16]
-    assert isinstance(data[:1], list)
+    assert isinstance(data[:1], DataCluster)
     assert len(data[:1]) == 1
+    assert isinstance(data[:1][0], Dataset)
+    assert data[:1][0]["kanal"] == 1
 
 
 def test_setitem_supports_column_assignment_from_iterable():
@@ -77,3 +79,14 @@ def test_setitem_supports_column_assignment_from_scalar():
     data["group"] = "A"
 
     assert list(data["group"]) == ["A", "A"]
+
+
+def test_setitem_on_empty_cluster_creates_rows_from_iterable():
+    data = DataCluster()
+
+    data["x"] = [1, 2, 3]
+
+    assert len(data) == 3
+    assert list(data["x"]) == [1, 2, 3]
+    assert data[0]["x"] == 1
+    assert data[2]["x"] == 3

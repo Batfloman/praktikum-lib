@@ -3,6 +3,7 @@ import importlib
 import pytest
 
 from batfloman_praktikum_lib.graph_fit import Gaussian, Linear
+from batfloman_praktikum_lib.structs.measurement import Measurement
 
 manual_init_params_module = importlib.import_module(
     "batfloman_praktikum_lib.graph_fit.init_params.manual_init_params"
@@ -237,3 +238,79 @@ def test_manual_init_params_require_cache_raises_without_complete_cache(monkeypa
             cache_path=cache_path,
             require_cache=True,
         )
+
+
+def test_manual_fit_setup_returns_bound_setup_in_quiet_mode(monkeypatch, tmp_path):
+    monkeypatch.setattr(manual_init_params_module, "check_quiet", lambda: True)
+
+    setup = manual_init_params_module.manual_fit_setup(
+        Gaussian,
+        np.array([0.0, 1.0, 2.0]),
+        np.array([1.0, 2.0, 3.0]),
+        xerr=np.array([0.1, 0.1, 0.1]),
+        yerr=np.array([0.2, 0.2, 0.2]),
+        cache_path=tmp_path / "missing-cache.json",
+        default_values={"A": 4.0, "sigma": 1.5, "x0": 0.5},
+    )
+
+    assert setup.model is Gaussian
+    assert np.allclose(np.asarray(setup.x, dtype=float), np.array([0.0, 1.0, 2.0]))
+    assert np.allclose(np.asarray(setup.y, dtype=float), np.array([1.0, 2.0, 3.0]))
+    assert np.allclose(np.asarray(setup.xerr, dtype=float), np.array([0.1, 0.1, 0.1]))
+    assert np.allclose(np.asarray(setup.yerr, dtype=float), np.array([0.2, 0.2, 0.2]))
+    assert setup.initial_guess == {"A": 4.0, "sigma": 1.5, "x0": 0.5}
+
+
+def test_manual_fit_setup_fit_filters_bound_data_and_uses_odr_for_x_measurement_errors(monkeypatch, tmp_path):
+    monkeypatch.setattr(manual_init_params_module, "check_quiet", lambda: True)
+    captured = {}
+
+    def fake_odr(model, x_data, y_data, *, x_err=None, y_err=None, initial_guess=None, param_names=None, ignore_warning_x_errors=False, ignore_warning_y_errors=False):
+        captured["model"] = model
+        captured["x_data"] = x_data
+        captured["y_data"] = y_data
+        captured["x_err"] = x_err
+        captured["y_err"] = y_err
+        captured["initial_guess"] = initial_guess
+        return "odr-result"
+
+    def fail_ls(*args, **kwargs):
+        raise AssertionError("least squares should not be used when x-errors are present in measurements")
+
+    monkeypatch.setattr(manual_init_params_module, "orthogonal_distance_regression_fit", fake_odr)
+    monkeypatch.setattr(manual_init_params_module, "least_squares_fit", fail_ls)
+
+    x = np.array([
+        Measurement(0.0, 0.1),
+        Measurement(1.0, 0.1),
+        Measurement(2.0, 0.1),
+        Measurement(3.0, 0.1),
+    ], dtype=object)
+    y = np.array([
+        Measurement(10.0, 0.5),
+        Measurement(11.0, 0.5),
+        Measurement(12.0, 0.5),
+        Measurement(13.0, 0.5),
+    ], dtype=object)
+
+    def model(x_val, a, b):
+        return a * x_val + b
+
+    setup = manual_init_params_module.manual_fit_setup(
+        model,
+        x,
+        y,
+        cache_path=tmp_path / "missing-cache.json",
+        default_values={"a": 2.0, "b": 1.0},
+        interval_indices=(1, 2),
+        excluded_indices=(1,),
+    )
+
+    result = setup.fit()
+
+    assert result == "odr-result"
+    assert captured["initial_guess"] == {"a": 2.0, "b": 1.0}
+    assert np.allclose(np.asarray(captured["x_data"], dtype=float), np.array([2.0]))
+    assert np.allclose(np.asarray(captured["y_data"], dtype=float), np.array([12.0]))
+    assert captured["x_err"] is None
+    assert captured["y_err"] is None

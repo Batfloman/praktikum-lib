@@ -23,3 +23,10 @@ def test_setitem_rejects_column_length_mismatch():
 
     with pytest.raises(ValueError):
         data["y"] = [1]
+
+
+def test_setitem_rejects_scalar_assignment_on_empty_cluster():
+    data = DataCluster()
+
+    with pytest.raises(IndexError):
+        data["y"] = 1

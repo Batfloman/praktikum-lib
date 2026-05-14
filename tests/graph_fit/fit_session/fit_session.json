@@ -1,0 +1,48 @@
+{
+  "models": [
+    {
+      "id": "model_1",
+      "color_index": 0,
+      "name": "First",
+      "visible": true,
+      "interval": [
+        1,
+        3
+      ],
+      "interval_kind": null,
+      "excluded_indices": [],
+      "components": [
+        {
+          "id": "model_1_component_1",
+          "name": null,
+          "registry_key": null,
+          "enabled": true,
+          "model_type": "<object object at 0x7e36e44d26e0>"
+        }
+      ],
+      "initial_guess": null
+    },
+    {
+      "id": "model_2",
+      "color_index": 1,
+      "name": null,
+      "visible": false,
+      "interval": [
+        4.0,
+        6.0
+      ],
+      "interval_kind": "x",
+      "excluded_indices": [],
+      "components": [
+        {
+          "id": "model_2_component_1",
+          "name": null,
+          "registry_key": null,
+          "enabled": true,
+          "model_type": "<object object at 0x7e36e44d26d0>"
+        }
+      ],
+      "initial_guess": null
+    }
+  ]
+}
