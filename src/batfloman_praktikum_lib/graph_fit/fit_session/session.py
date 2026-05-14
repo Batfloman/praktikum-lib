@@ -73,7 +73,7 @@ class FitSession:
         *,
         xerr=None,
         yerr=None,
-        cache_dir: str | Path = "fit_session_cache",
+        cache_path: str | Path = "fit_session.json",
         available_models: AvailableModels | None = None,
     ):
         self.original_x = np.asarray(x, dtype=object)
@@ -84,8 +84,7 @@ class FitSession:
         self.y = np.asarray(y, dtype=object)
         self.xerr = None if xerr is None else np.asarray(xerr, dtype=object)
         self.yerr = None if yerr is None else np.asarray(yerr, dtype=object)
-        self.cache_dir = Path(cache_dir)
-        self.state_path = self.cache_dir / "session.json"
+        self.cache_path = Path(cache_path)
         self.available_models: dict[str, FitSessionModelType] = dict(available_models or {})
         self.models: list[SessionModel] = []
         self._next_model_id = 1
@@ -588,13 +587,13 @@ class FitSession:
         }
 
     def save_state(self) -> None:
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self.state_path.write_text(json.dumps(self._serialize_state(), indent=2))
+        self.cache_path.parent.mkdir(parents=True, exist_ok=True)
+        self.cache_path.write_text(json.dumps(self._serialize_state(), indent=2))
 
     def load_state(self) -> None:
-        if not self.state_path.exists():
+        if not self.cache_path.exists():
             return
-        state = json.loads(self.state_path.read_text())
+        state = json.loads(self.cache_path.read_text())
         self.models = []
         max_model_number = 0
 

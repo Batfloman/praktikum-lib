@@ -25,7 +25,7 @@ def manual_fit_session(
     *,
     xerr=None,
     yerr=None,
-    cache_dir: str | Path = "fit_session_cache",
+    cache_path: str | Path = "fit_session.json",
     default_model=None,
     available_models: AvailableModels | None = None,
     visualization_title: str = "Fit Session Visualization",
@@ -39,7 +39,7 @@ def manual_fit_session(
         y_values,
         xerr=resolved_xerr,
         yerr=resolved_yerr,
-        cache_dir=cache_dir,
+        cache_path=cache_path,
         available_models=available_models,
     )
     session.original_x = np.asarray(x, dtype=object)
