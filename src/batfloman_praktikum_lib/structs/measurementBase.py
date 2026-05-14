@@ -59,6 +59,11 @@ def _get_value(other):
         return float(other)
     raise TypeError(f"Unsupported type: {type(other)}")
 
+
+def _safe_power(base, exp):
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        return np.power(base, exp)
+
 # ==================================================
 #    Class
 # ==================================================
@@ -211,27 +216,35 @@ class MeasurementBase:
     def __pow__(self, other):
         other_val, other_err = _get_value_and_error(other)
 
-        value = self.value ** other_val
-        t1 = other_val * self.value ** (other_val - 1) * self.error
+        value = _safe_power(self.value, other_val)
+        t1 = other_val * _safe_power(self.value, other_val - 1) * self.error
 
-        t2 = 0
+        t2 = 0.0
         if other_err != 0:
             if self.value > 0:
                 t2 = other_err * value * np.log(self.value)
             else:
-                raise NotImplementedError("Error propagation for x^y with x <= 0 not implemented")
+                t2 = np.nan
 
-        error = np.sqrt(t1**2 + t2**2)
+        with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+            error = np.sqrt(t1**2 + t2**2)
 
         return self._from_value_error(value, error)
 
     def __rpow__(self, other):
         other_val, other_err = _get_value_and_error(other)
 
-        value = other_val ** self.value
-        t1 = self.value * other_val**(self.value - 1) * other_err
-        t2 = value * np.log(other_val) * self.error
-        error = np.sqrt(t1**2 + t2**2)
+        value = _safe_power(other_val, self.value)
+        t1 = self.value * _safe_power(other_val, self.value - 1) * other_err
+
+        t2 = np.nan
+        if self.error == 0:
+            t2 = 0.0
+        elif other_val > 0:
+            t2 = value * np.log(other_val) * self.error
+
+        with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+            error = np.sqrt(t1**2 + t2**2)
 
         return self._from_value_error(value, error)
 
@@ -242,6 +255,11 @@ class MeasurementBase:
         val = np.sin(self.value)
         err = np.abs(np.cos(self.value) * self.error)
 
+        return self._from_value_error(val, err)
+
+    def sqrt(self):
+        val = np.sqrt(self.value)
+        err = 0.5 * self.error / val
         return self._from_value_error(val, err)
 
     def deg2rad(self):
@@ -298,8 +316,20 @@ class MeasurementBase:
             case np.power:
                 base = values[0]
                 exp = values[1]
-                val = np.power(base, exp)
-                err = np.abs(exp * base**(exp - 1) * errors[0])
+                val = _safe_power(base, exp)
+                d_base = exp * _safe_power(base, exp - 1) * errors[0]
+
+                d_exp = 0.0
+                if np.any(np.asarray(errors[1]) != 0):
+                    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+                        d_exp = np.where(
+                            base > 0,
+                            val * np.log(base) * errors[1],
+                            np.nan,
+                        )
+
+                with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+                    err = np.sqrt(d_base**2 + d_exp**2)
 
             # --------------------
             # trig
