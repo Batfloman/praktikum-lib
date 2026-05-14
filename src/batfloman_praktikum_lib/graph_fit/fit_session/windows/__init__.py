@@ -13,6 +13,7 @@ def open_fit_session_windows(
     models_title: str = "Fit Session Models",
 ):
     QApplication.instance() or QApplication([])
+    session.try_fit_models()
     visualization_window = FitSessionVisualizationWindow(
         session,
         window_title=visualization_title,

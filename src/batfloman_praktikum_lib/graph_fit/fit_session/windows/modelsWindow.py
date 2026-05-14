@@ -459,6 +459,13 @@ class FitSessionModelsWindow(QWidget):
                 self.session.set_visible(model_id, visible)
                 if self.visualization_window is not None:
                     self.visualization_window.refresh()
+            renamed_value = item.text(0)
+            if renamed_value != instance.display_name:
+                try:
+                    self.session.rename_model(model_id, renamed_value)
+                except ValueError as exc:
+                    self._show_error("Rename failed", exc)
+                QTimer.singleShot(0, lambda model_id=model_id: self.refresh(select_model_id=model_id))
             return
 
         if item_type[0] == "component":
@@ -489,6 +496,7 @@ class FitSessionModelsWindow(QWidget):
             model_item.setFlags(
                 model_item.flags()
                 | Qt.ItemFlag.ItemIsUserCheckable
+                | Qt.ItemFlag.ItemIsEditable
                 | Qt.ItemFlag.ItemIsSelectable
                 | Qt.ItemFlag.ItemIsEnabled
             )

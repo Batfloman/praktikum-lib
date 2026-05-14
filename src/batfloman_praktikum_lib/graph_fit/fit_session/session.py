@@ -91,6 +91,16 @@ class FitSession:
         self._next_color_index = 0
         self.load_state()
 
+    def get_model_by_name(self, model_name: str) -> SessionModel:
+        normalized_name = self._normalize_model_name(model_name)
+        for instance in self.models:
+            if instance.name == normalized_name:
+                return instance
+        raise KeyError(f"Unknown model name: '{normalized_name}'.")
+
+    def get_named_model(self, model_name: str) -> SessionModel:
+        return self.get_model_by_name(model_name)
+
     def add_model(
         self,
         model: FitSessionModelType | None = None,
@@ -108,12 +118,13 @@ class FitSession:
             raise ValueError(f"Duplicate model id: '{resolved_id}'.")
 
         self._next_model_id += 1
+        resolved_name = self._deduplicate_model_name(name or getattr(model, "__name__", None))
         session_model = SessionModel(
             id=resolved_id,
             color_index=self._next_color_index,
             interval=interval,
             interval_kind=interval_kind,
-            name=name or getattr(model, "__name__", None),
+            name=resolved_name,
             visible=visible,
             cache_path=cache_path,
         )
@@ -136,6 +147,17 @@ class FitSession:
 
     def set_visible(self, model_id: str, visible: bool) -> None:
         self.get_model(model_id).visible = visible
+        self.save_state()
+
+    def rename_model(self, model_id: str, new_name: str) -> None:
+        instance = self.get_model(model_id)
+        normalized_name = self._normalize_model_name(new_name)
+        if any(
+            other.id != model_id and other.name == normalized_name
+            for other in self.models
+        ):
+            raise ValueError(f"Duplicate model name: '{normalized_name}'.")
+        instance.name = normalized_name
         self.save_state()
 
     def remove_model(self, model_id: str) -> SessionModel:
@@ -315,15 +337,15 @@ class FitSession:
 
     def analyze(
         self,
-        model_id: str,
+        model_ref: str | int,
         *,
         auto_fit: bool = True,
         method: Optional[FIT_METHODS] = None,
         **fit_kwargs,
     ) -> FitAnalysis:
-        instance = self.get_model(model_id)
+        instance = self._resolve_analysis_model(model_ref)
         if instance.result is None and auto_fit:
-            self.fit_model(model_id, method=method, **fit_kwargs)
+            self.fit_model(instance.id, method=method, **fit_kwargs)
         if instance.result is None:
             raise ValueError(f"Model '{instance.display_name}' has no fit result.")
         return FitAnalysis(
@@ -353,6 +375,21 @@ class FitSession:
                 instance.last_error = f"{type(exc).__name__}: {exc}"
                 raise
 
+        return results
+
+    def try_fit_models(
+        self,
+        *,
+        method: Optional[FIT_METHODS] = None,
+        model_ids: Optional[list[str]] = None,
+        **kwargs,
+    ) -> dict[str, FitResult]:
+        results: dict[str, FitResult] = {}
+        for instance in self._resolve_instances(model_ids):
+            try:
+                results[instance.id] = self.fit_model(instance.id, method=method, **kwargs)
+            except Exception:
+                continue
         return results
 
     def plot(
@@ -559,6 +596,42 @@ class FitSession:
             raise KeyError(f"Unknown saved model type '{model_name}'.")
         return getattr(models_module, model_name)
 
+    def _resolve_analysis_model(self, model_ref: str | int) -> SessionModel:
+        if isinstance(model_ref, (int, np.integer)):
+            return self.get_model(f"model_{int(model_ref)}")
+        return self.get_model_by_name(model_ref)
+
+    def _normalize_model_name(self, model_name: str) -> str:
+        normalized_name = str(model_name).strip()
+        if normalized_name == "":
+            raise ValueError("Model name must not be empty.")
+        return normalized_name
+
+    def _deduplicate_model_name(self, model_name: str | None) -> str | None:
+        if model_name is None:
+            return None
+        normalized_name = self._normalize_model_name(model_name)
+        if not any(instance.name == normalized_name for instance in self.models):
+            return normalized_name
+
+        suffix = 2
+        while True:
+            candidate = f"{normalized_name} {suffix}"
+            if not any(instance.name == candidate for instance in self.models):
+                return candidate
+            suffix += 1
+
+    def _validate_unique_model_names(self) -> None:
+        seen_names: set[str] = set()
+        for instance in self.models:
+            if instance.name is None:
+                continue
+            normalized_name = self._normalize_model_name(instance.name)
+            if normalized_name in seen_names:
+                raise ValueError(f"Duplicate saved model name: '{normalized_name}'.")
+            instance.name = normalized_name
+            seen_names.add(normalized_name)
+
     def _serialize_state(self) -> dict:
         return {
             "models": [
@@ -652,6 +725,7 @@ class FitSession:
         self._next_color_index = (
             max((instance.color_index for instance in self.models), default=-1) + 1
         )
+        self._validate_unique_model_names()
 
     def _find_model_index(self, model_id: str) -> int:
         for idx, instance in enumerate(self.models):
