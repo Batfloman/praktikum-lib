@@ -11,7 +11,7 @@ from ..fitResult import FitResult
 class FitAnalysis:
     fit_result: FitResult
     interval: tuple[float, float]
-    model_id: str
+    model_id: int
     model_name: str
 
     @property

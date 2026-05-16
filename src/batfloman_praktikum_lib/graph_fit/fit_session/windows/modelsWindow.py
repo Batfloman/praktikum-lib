@@ -114,7 +114,7 @@ class FitSessionModelsWindow(QWidget):
         self._updating_tree = False
         self._updating_interval_controls = False
         self._is_closing_all = False
-        self._pending_autofit_model_id: str | None = None
+        self._pending_autofit_model_id: int | None = None
         self._autofit_timer = QTimer(self)
         self._autofit_timer.setSingleShot(True)
         self._autofit_timer.setInterval(250)
@@ -226,7 +226,7 @@ class FitSessionModelsWindow(QWidget):
         self._sync_interval_input_visibility("index")
         self.refresh()
 
-    def refresh(self, *, select_model_id: Optional[str] = None):
+    def refresh(self, *, select_model_id: Optional[int] = None):
         self._refresh_model_list(select_model_id=select_model_id)
         if self.visualization_window is not None:
             self.visualization_window.refresh()
@@ -477,7 +477,7 @@ class FitSessionModelsWindow(QWidget):
                 self.session.set_component_enabled(model_id, component_id, enabled)
                 QTimer.singleShot(0, lambda model_id=model_id: self.refresh(select_model_id=model_id))
 
-    def _refresh_model_list(self, *, select_model_id: Optional[str] = None):
+    def _refresh_model_list(self, *, select_model_id: Optional[int] = None):
         self._updating_tree = True
         blocker = QSignalBlocker(self.model_tree)
         self.model_tree.clear()
@@ -567,7 +567,7 @@ class FitSessionModelsWindow(QWidget):
             self.model_tree.setCurrentItem(self.model_tree.topLevelItem(0))
         self._handle_selection_changed()
 
-    def _selected_model_id(self) -> Optional[str]:
+    def _selected_model_id(self) -> Optional[int]:
         item = self.model_tree.currentItem()
         if item is None:
             return None
@@ -580,14 +580,14 @@ class FitSessionModelsWindow(QWidget):
             return item_type[1]
         return None
 
-    def _selected_component_id(self) -> Optional[str]:
+    def _selected_component_id(self) -> Optional[int]:
         item = self.model_tree.currentItem()
         if item is None:
             return None
         item_type = item.data(0, Qt.ItemDataRole.UserRole)
         if item_type is None or item_type[0] != "component":
             return None
-        return str(item_type[2])
+        return int(item_type[2])
 
     def _selected_model(self) -> SessionModel | None:
         model_id = self._selected_model_id()
@@ -680,7 +680,7 @@ class FitSessionModelsWindow(QWidget):
         self.session.move_model(selected_model.id, direction)
         self.refresh(select_model_id=selected_model.id)
 
-    def _select_component(self, model_id: str, component_id: str):
+    def _select_component(self, model_id: int, component_id: int):
         for i in range(self.model_tree.topLevelItemCount()):
             model_item = self.model_tree.topLevelItem(i)
             item_type = model_item.data(0, Qt.ItemDataRole.UserRole)
@@ -765,7 +765,7 @@ class FitSessionModelsWindow(QWidget):
         end_idx = int(np.argmin(np.abs(x_values - end_x)))
         return tuple(sorted((start_idx, end_idx)))
 
-    def _schedule_autofit(self, model_id: str):
+    def _schedule_autofit(self, model_id: int):
         self._pending_autofit_model_id = model_id
         self._autofit_timer.start()
 

@@ -1,7 +1,7 @@
 {
   "models": [
     {
-      "id": "model_1",
+      "id": 1,
       "color_index": 0,
       "name": "First",
       "visible": true,
@@ -13,7 +13,7 @@
       "excluded_indices": [],
       "components": [
         {
-          "id": "model_1_component_1",
+          "id": 1,
           "name": null,
           "registry_key": null,
           "enabled": true,
@@ -23,7 +23,7 @@
       "initial_guess": null
     },
     {
-      "id": "model_2",
+      "id": 2,
       "color_index": 1,
       "name": null,
       "visible": false,
@@ -35,7 +35,7 @@
       "excluded_indices": [],
       "components": [
         {
-          "id": "model_2_component_1",
+          "id": 1,
           "name": null,
           "registry_key": null,
           "enabled": true,

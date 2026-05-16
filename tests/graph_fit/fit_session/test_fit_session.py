@@ -47,6 +47,7 @@ def test_fit_session_add_model_and_fit_uses_cached_setup(monkeypatch, tmp_path):
         cache_path=tmp_path / "cache" / "session.json",
     )
     model_id = session.add_model(DummyModel, interval=(2, 5))
+    assert model_id == 1
 
     results = session.fit(method="least squares")
 
@@ -203,8 +204,8 @@ def test_fit_session_rejects_duplicate_saved_model_names(tmp_path):
         """
 {
   "models": [
-    {"id": "model_1", "name": "662keV", "components": []},
-    {"id": "model_2", "name": "662keV", "components": []}
+    {"id": 1, "name": "662keV", "components": []},
+    {"id": 2, "name": "662keV", "components": []}
   ]
 }
 """.strip()
@@ -254,6 +255,70 @@ def test_fit_session_analyze_treats_strings_as_names_only(tmp_path):
 
     with pytest.raises(KeyError, match="Unknown model name"):
         session.analyze("model_1", auto_fit=False)
+
+
+def test_fit_session_component_ids_are_per_model_integers(tmp_path):
+    session = workspace_module.FitSession(
+        np.arange(4),
+        np.arange(4),
+        cache_path=tmp_path / "cache" / "session.json",
+    )
+    first_model_id = session.add_model()
+    second_model_id = session.add_model()
+
+    first_component_id = session.add_component(first_model_id, object())
+    second_component_id = session.add_component(second_model_id, object())
+    third_component_id = session.add_component(first_model_id, object())
+
+    assert first_component_id == 1
+    assert second_component_id == 1
+    assert third_component_id == 2
+    assert session.get_component(first_model_id, 1).id == 1
+    assert session.get_component(first_model_id, 2).id == 2
+    assert session.get_component(second_model_id, 1).id == 1
+
+
+def test_fit_session_load_state_migrates_legacy_string_ids(tmp_path):
+    cache_path = tmp_path / "cache" / "session.json"
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    cache_path.write_text(
+        """
+{
+  "models": [
+    {
+      "id": "model_3",
+      "name": "legacy",
+      "components": [
+        {"id": "model_3_component_2", "enabled": true, "model_type": "Linear"}
+      ]
+    }
+  ]
+}
+""".strip()
+    )
+
+    session = workspace_module.FitSession(
+        np.arange(4),
+        np.arange(4),
+        cache_path=cache_path,
+    )
+
+    assert session.get_model_by_name("legacy").id == 3
+    assert session.get_component(3, 2).id == 2
+    assert session.add_model() == 4
+
+
+def test_fit_session_cache_path_adds_json_suffix(tmp_path):
+    session = workspace_module.FitSession(
+        np.arange(4),
+        np.arange(4),
+        cache_path=tmp_path / "voraufgabe",
+    )
+
+    session.add_model()
+
+    assert session.cache_path.name == "voraufgabe.json"
+    assert session.cache_path.exists()
 
 
 def test_fit_session_try_fit_models_continues_after_failures(tmp_path):
