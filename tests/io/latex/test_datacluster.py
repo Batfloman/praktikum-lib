@@ -30,3 +30,26 @@ def test_plain():
 
     # data.metadata_manager.set_metadata("a", md_a)
     # data.save_latex(rel_path("./output/test_datacluster_2"))
+
+
+def test_custom_text_unit_metadata_is_used_for_headers_and_values(tmp_path):
+    data = DataCluster([{"a": 1.23}])
+    options: TableOptions = {
+        "metadata": {
+            "a": {
+                "name": "A",
+                "unit": "pixels",
+                "unit_mode": "text",
+            }
+        }
+    }
+
+    latex = save_latex(
+        data,
+        str(tmp_path / "datacluster_text_unit"),
+        options=options,
+        print_success_msg=False,
+    )
+
+    assert "A in \\text{pixels}" in latex
+    assert "\\num{1.23}\\,\\text{pixels}" in latex

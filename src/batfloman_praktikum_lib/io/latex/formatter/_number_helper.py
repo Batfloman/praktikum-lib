@@ -115,8 +115,20 @@ def format_unit_latex(
     unit: Optional[str],
     *,
     exponent: Optional[int] = None,
+    unit_mode: Literal["auto", "siunitx", "text"] = "auto",
     use_si_prefix: bool = True,
 ) -> str:
+    resolved_unit_mode = resolve_unit_mode(unit, unit_mode)
+
+    if resolved_unit_mode == "text":
+        if exponent and use_si_prefix and exponent in SI_PREFIX_MAP:
+            raise ValueError("SI prefixes are not supported for text-mode units.")
+
+        unit_suffix = format_text_unit_suffix(unit)
+        if exponent:
+            return rf"\ensuremath{{10^{exponent}}}\,{unit_suffix}"
+        return unit_suffix
+
     unit_body = format_unit_body(
         unit,
         exponent=exponent,

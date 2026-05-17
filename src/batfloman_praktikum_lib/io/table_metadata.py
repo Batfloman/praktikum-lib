@@ -2,6 +2,7 @@ from dataclasses import dataclass, asdict
 from typing import Optional, Literal, Union, TypedDict, NotRequired
 
 type ALIGNMENT = Literal["l", "c", "r"]
+type UNIT_MODE = Literal["auto", "siunitx", "text"]
 ALIGNMENT_VALUES = ["l", "c", "r"]
 DEFAULT_ALIGNMENT: ALIGNMENT = "c"
 
@@ -10,6 +11,7 @@ class TableColumnMetadataClass:
     # header
     name: Optional[str] = None
     unit: Optional[str] = None
+    unit_mode: UNIT_MODE = "auto"
     display_exponent: int = 0
     enforce_display_exponent: bool = False
     use_si_prefix: bool = True
@@ -32,6 +34,7 @@ class TableColumnMetadataDict(TypedDict):
     # header
     name: NotRequired[str]
     unit: NotRequired[str]
+    unit_mode: NotRequired[UNIT_MODE]
     display_exponent: NotRequired[int]
     enforce_display_exponent: NotRequired[bool]
     use_si_prefix: NotRequired[bool]
