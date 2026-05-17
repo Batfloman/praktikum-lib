@@ -3,6 +3,7 @@ from .compositeFitModel import CompositeFitModel
 from .models_impl import (
     ConstFunc,
     Linear, 
+    Quadratic,
     InverseSquare, 
     Exponential, 
     LimitedGrowth, 
@@ -18,6 +19,7 @@ __all__ = [
     # models
     "ConstFunc",
     "Linear",
+    "Quadratic",
     "Gaussian",
     "InverseSquare",
     "Exponential",

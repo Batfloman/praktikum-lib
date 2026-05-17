@@ -23,6 +23,7 @@ from .models import (
     FitModel, 
     CompositeFitModel, 
     Linear,
+    Quadratic,
     Gaussian,
     Exponential,
     InverseSquare,
@@ -54,10 +55,11 @@ __all__ = [
     "manual_init_params",
 
     # models
-    "ConstFunc",
     "FitModel",
     "CompositeFitModel",
+    "ConstFunc",
     "Linear",
+    "Quadratic",
     "Gaussian",
     "InverseSquare",
     "Exponential",

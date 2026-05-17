@@ -35,6 +35,23 @@ class Linear(FitModel):
         n = y[start_idx] - m * x[start_idx]
         return [m, n]
 
+class Quadratic(FitModel):
+    @staticmethod
+    def model(x, a, b, c):
+        return a * x**2 + b * x + c
+
+    @staticmethod
+    def get_param_names():
+        return ["a", "b", "c"]
+
+    @staticmethod
+    def get_initial_guess(x, y):
+        x = np.asarray(x, dtype=float)
+        y = np.asarray(y, dtype=float)
+        # Fit a quadratic directly to get a reasonable initial guess
+        a, b, c = np.polyfit(x, y, 2)
+        return [a, b, c]
+
 class Exponential(FitModel):
     @staticmethod
     def model(x, a, b, x0):
