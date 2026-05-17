@@ -26,6 +26,8 @@ def open_fit_session_windows(
     )
     visualization_window.models_window = models_window
     models_window.visualization_window = visualization_window
+    models_window.refresh()
+    visualization_window.refresh(preserve_view=False)
     visualization_window.show()
     models_window.show()
     return visualization_window, models_window

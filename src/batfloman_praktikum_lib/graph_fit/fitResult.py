@@ -7,6 +7,27 @@ from batfloman_praktikum_lib.structs.dataset import Dataset
 
 type FIT_METHODS = Literal["least squares", "ODR", "idk"]
 
+
+def format_fit_quality(
+    fit_result,
+    *,
+    decimals: int = 4,
+    decimal_comma: bool = False,
+    latex: bool = False,
+) -> str:
+    quality = f"{fit_result.quality:.{decimals}f}"
+    if decimal_comma:
+        quality = quality.replace(".", "{,}" if latex else ",")
+
+    if latex:
+        if fit_result.method == "ODR":
+            return fr"$\chi^2_{{\mathrm{{red, ODR}}}} = {quality}$"
+        return fr"$\chi^2_\mathrm{{red}} = {quality}$"
+
+    if fit_result.method == "ODR":
+        return f"chi^2_red (ODR) = {quality}"
+    return f"chi^2_red = {quality}"
+
 def _get_quality_statement(quality):
     if quality > 2:
         return  "(Residuen zu groß / Modell passt schlecht)"

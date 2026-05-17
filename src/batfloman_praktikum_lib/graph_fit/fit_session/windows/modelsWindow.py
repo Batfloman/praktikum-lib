@@ -25,7 +25,14 @@ from PyQt6.QtWidgets import (
     QSpinBox,
 )
 
-from ..session import AvailableModels, CompositionComponent, FitSession, SessionModel
+from ...fitResult import format_fit_quality
+from ..session import (
+    AvailableModels,
+    CompositionComponent,
+    FitSession,
+    IntervalDisplayMode,
+    SessionModel,
+)
 
 
 class ClampedIndexSpinBox(QSpinBox):
@@ -231,6 +238,24 @@ class FitSessionModelsWindow(QWidget):
         if self.visualization_window is not None:
             self.visualization_window.refresh()
 
+    def _create_interval_mode_combo(
+        self,
+        model_id: int,
+        current_mode: IntervalDisplayMode,
+    ) -> QComboBox:
+        combo = QComboBox(self.model_tree)
+        combo.addItem("off", userData="off")
+        combo.addItem("selected-only", userData="selected-only")
+        combo.addItem("always", userData="always")
+        combo.setCurrentIndex(combo.findData(current_mode))
+        combo.currentIndexChanged.connect(
+            lambda _index, model_id=model_id, combo=combo: self._handle_interval_mode_changed(
+                model_id,
+                combo,
+            )
+        )
+        return combo
+
     def close_all_windows(self):
         if self._is_closing_all:
             return
@@ -433,6 +458,9 @@ class FitSessionModelsWindow(QWidget):
             self.status_label.setText(
                 f"Selected component: {selected_component.display_name} in {selected_model.display_name}"
             )
+            self._update_interval_render_statuses(selected_model_id=selected_model.id)
+            if self.visualization_window is not None:
+                self.visualization_window.refresh()
             return
 
         self.status_label.setText(
@@ -442,9 +470,12 @@ class FitSessionModelsWindow(QWidget):
             self.status_label.setText(
                 f"Selected: {selected_model.display_name} | Failed: {selected_model.last_error}"
             )
+        self._update_interval_render_statuses(selected_model_id=selected_model.id)
+        if self.visualization_window is not None:
+            self.visualization_window.refresh()
 
     def _handle_item_changed(self, item: QTreeWidgetItem, column: int):
-        if self._updating_tree or column != 0:
+        if self._updating_tree:
             return
 
         item_type = item.data(0, Qt.ItemDataRole.UserRole)
@@ -452,6 +483,8 @@ class FitSessionModelsWindow(QWidget):
             return
 
         if item_type[0] == "model":
+            if column != 0:
+                return
             model_id = item_type[1]
             visible = item.checkState(0) == Qt.CheckState.Checked
             instance = self.session.get_model(model_id)
@@ -468,7 +501,20 @@ class FitSessionModelsWindow(QWidget):
                 QTimer.singleShot(0, lambda model_id=model_id: self.refresh(select_model_id=model_id))
             return
 
+        if item_type[0] == "fit_quality":
+            if column != 2:
+                return
+            model_id = item_type[1]
+            enabled = item.checkState(2) == Qt.CheckState.Checked
+            instance = self.session.get_model(model_id)
+            if instance.show_1sigma_band != enabled:
+                self.session.set_show_1sigma_band(model_id, enabled)
+                QTimer.singleShot(0, lambda model_id=model_id: self.refresh(select_model_id=model_id))
+            return
+
         if item_type[0] == "component":
+            if column != 0:
+                return
             model_id = item_type[1]
             component_id = item_type[2]
             enabled = item.checkState(0) == Qt.CheckState.Checked
@@ -478,6 +524,12 @@ class FitSessionModelsWindow(QWidget):
                 QTimer.singleShot(0, lambda model_id=model_id: self.refresh(select_model_id=model_id))
 
     def _refresh_model_list(self, *, select_model_id: Optional[int] = None):
+        active_selected_model_id = select_model_id
+        if active_selected_model_id is None:
+            active_selected_model_id = self._selected_model_id()
+        if active_selected_model_id is None and self.session.models:
+            active_selected_model_id = self.session.models[0].id
+
         self._updating_tree = True
         blocker = QSignalBlocker(self.model_tree)
         self.model_tree.clear()
@@ -505,17 +557,52 @@ class FitSessionModelsWindow(QWidget):
             self._apply_model_item_styling(model_item, model_color)
             self.model_tree.addTopLevelItem(model_item)
 
+            fit_quality_item = QTreeWidgetItem(
+                [
+                    "Fit Quality",
+                    self._fit_quality_summary(instance),
+                    "show band",
+                    self._fit_quality_status(instance),
+                ]
+            )
+            fit_quality_item.setData(0, Qt.ItemDataRole.UserRole, ("fit_quality", instance.id))
+            fit_quality_item.setFlags(
+                fit_quality_item.flags()
+                | Qt.ItemFlag.ItemIsUserCheckable
+                | Qt.ItemFlag.ItemIsSelectable
+                | Qt.ItemFlag.ItemIsEnabled
+            )
+            fit_quality_item.setCheckState(
+                2,
+                Qt.CheckState.Checked if instance.show_1sigma_band else Qt.CheckState.Unchecked,
+            )
+            self._apply_model_item_styling(fit_quality_item, model_color, child=True)
+            model_item.addChild(fit_quality_item)
+
             interval_item = QTreeWidgetItem(
                 [
                     "Interval",
-                    "",
                     self._interval_summary(instance),
                     "",
+                    self._interval_render_status(
+                        instance,
+                        selected_model_id=active_selected_model_id,
+                    ),
                 ]
             )
             interval_item.setData(0, Qt.ItemDataRole.UserRole, ("interval", instance.id))
+            interval_item.setFlags(
+                interval_item.flags()
+                | Qt.ItemFlag.ItemIsSelectable
+                | Qt.ItemFlag.ItemIsEnabled
+            )
             self._apply_model_item_styling(interval_item, model_color, child=True)
             model_item.addChild(interval_item)
+            self.model_tree.setItemWidget(
+                interval_item,
+                2,
+                self._create_interval_mode_combo(instance.id, instance.interval_display_mode),
+            )
 
             composition_item = QTreeWidgetItem(
                 [
@@ -574,7 +661,7 @@ class FitSessionModelsWindow(QWidget):
         item_type = item.data(0, Qt.ItemDataRole.UserRole)
         if item_type is None:
             return None
-        if item_type[0] in {"model", "interval", "composition"}:
+        if item_type[0] in {"model", "fit_quality", "interval", "composition"}:
             return item_type[1]
         if item_type[0] == "component":
             return item_type[1]
@@ -624,6 +711,72 @@ class FitSessionModelsWindow(QWidget):
             return f"x=[{xmin:.3g}, {xmax:.3g}]"
         start_idx, end_idx = self._effective_index_interval(instance)
         return f"idx=[{start_idx}, {end_idx}]"
+
+    def _interval_render_status(
+        self,
+        instance: SessionModel,
+        *,
+        selected_model_id: int | None,
+    ) -> str:
+        if instance.interval_display_mode == "off":
+            return "hidden"
+        if instance.interval_display_mode == "always":
+            return "shown"
+        if instance.id == selected_model_id:
+            return "shown"
+        return "hidden"
+
+    def _handle_interval_mode_changed(self, model_id: int, combo: QComboBox) -> None:
+        mode = combo.currentData()
+        if mode not in {"off", "selected-only", "always"}:
+            return
+        instance = self.session.get_model(model_id)
+        if instance.interval_display_mode == mode:
+            return
+        self.session.set_interval_display_mode(model_id, mode)
+        QTimer.singleShot(0, lambda model_id=model_id: self.refresh(select_model_id=model_id))
+
+    def _update_interval_render_statuses(self, *, selected_model_id: int | None) -> None:
+        self._updating_tree = True
+        try:
+            for row in range(self.model_tree.topLevelItemCount()):
+                model_item = self.model_tree.topLevelItem(row)
+                model_type = model_item.data(0, Qt.ItemDataRole.UserRole)
+                if model_type is None or model_type[0] != "model":
+                    continue
+
+                instance = self.session.get_model(model_type[1])
+                for child_idx in range(model_item.childCount()):
+                    child = model_item.child(child_idx)
+                    child_type = child.data(0, Qt.ItemDataRole.UserRole)
+                    if child_type is None or child_type[0] != "interval":
+                        continue
+                    child.setText(
+                        3,
+                        self._interval_render_status(
+                            instance,
+                            selected_model_id=selected_model_id,
+                        ),
+                    )
+                    break
+        finally:
+            self._updating_tree = False
+
+    def _fit_quality_summary(self, instance: SessionModel) -> str:
+        if not instance.components:
+            return "empty"
+        if instance.last_error is not None:
+            return "fit failed"
+        if instance.result is None:
+            return "not fitted"
+        return format_fit_quality(instance.result, decimals=3, latex=False)
+
+    def _fit_quality_status(self, instance: SessionModel) -> str:
+        if instance.last_error is not None:
+            return "failed"
+        if instance.result is None:
+            return "pending"
+        return "ok"
 
     def _composition_summary(self, instance: SessionModel) -> str:
         if not instance.components:
@@ -702,6 +855,15 @@ class FitSessionModelsWindow(QWidget):
                     ):
                         self.model_tree.setCurrentItem(component_item)
                         return
+
+    def select_model(self, model_id: int) -> None:
+        for i in range(self.model_tree.topLevelItemCount()):
+            model_item = self.model_tree.topLevelItem(i)
+            item_type = model_item.data(0, Qt.ItemDataRole.UserRole)
+            if item_type is None or item_type[0] != "model" or item_type[1] != model_id:
+                continue
+            self.model_tree.setCurrentItem(model_item)
+            return
 
     def _selected_interval_kind(self) -> str:
         return str(self.interval_kind_selector.currentData())

@@ -14,6 +14,7 @@ from ..fitResult import FIT_METHODS, FitResult
 from ..init_params import ManualFitSetup, manual_fit_setup
 
 IntervalKind = Literal["index", "x"]
+IntervalDisplayMode = Literal["off", "selected-only", "always"]
 type FitSessionModelType = Callable[..., Any] | type[Any]
 type AvailableModels = Mapping[str, FitSessionModelType]
 
@@ -48,6 +49,8 @@ class SessionModel:
     setup: ManualFitSetup | None = None
     result: FitResult | None = None
     last_error: str | None = None
+    show_1sigma_band: bool = True
+    interval_display_mode: IntervalDisplayMode = "selected-only"
 
     @property
     def display_name(self) -> str:
@@ -149,6 +152,18 @@ class FitSession:
 
     def set_visible(self, model_id: int, visible: bool) -> None:
         self.get_model(model_id).visible = visible
+        self.save_state()
+
+    def set_show_1sigma_band(self, model_id: int, enabled: bool) -> None:
+        self.get_model(model_id).show_1sigma_band = enabled
+        self.save_state()
+
+    def set_interval_display_mode(
+        self,
+        model_id: int,
+        mode: IntervalDisplayMode,
+    ) -> None:
+        self.get_model(model_id).interval_display_mode = mode
         self.save_state()
 
     def rename_model(self, model_id: int, new_name: str) -> None:
@@ -689,6 +704,8 @@ class FitSession:
                         for component in instance.components
                     ],
                     "initial_guess": None if instance.initial_guess is None else dict(instance.initial_guess),
+                    "show_1sigma_band": instance.show_1sigma_band,
+                    "interval_display_mode": instance.interval_display_mode,
                 }
                 for instance in self.models
             ]
@@ -717,6 +734,8 @@ class FitSession:
                 name=model_data.get("name"),
                 visible=bool(model_data.get("visible", True)),
                 excluded_indices=tuple(int(idx) for idx in model_data.get("excluded_indices", [])),
+                show_1sigma_band=bool(model_data.get("show_1sigma_band", True)),
+                interval_display_mode=self._load_interval_display_mode(model_data),
                 initial_guess=None,
                 components=[
                     CompositionComponent(
@@ -758,6 +777,16 @@ class FitSession:
             max((instance.color_index for instance in self.models), default=-1) + 1
         )
         self._validate_unique_model_names()
+
+    def _load_interval_display_mode(self, model_data: dict[str, Any]) -> IntervalDisplayMode:
+        saved_mode = model_data.get("interval_display_mode")
+        if saved_mode in {"off", "selected-only", "always"}:
+            return saved_mode
+
+        legacy_highlight = model_data.get("highlight_interval")
+        if legacy_highlight is False:
+            return "off"
+        return "selected-only"
 
     def _find_model_index(self, model_id: int) -> int:
         for idx, instance in enumerate(self.models):

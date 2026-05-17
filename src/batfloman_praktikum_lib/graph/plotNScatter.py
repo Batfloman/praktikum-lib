@@ -7,7 +7,7 @@ from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 
 from batfloman_praktikum_lib.structs.dataCluster import DataCluster
-from ..graph_fit.fitResult import FitResult
+from ..graph_fit.fitResult import FitResult, format_fit_quality
 
 from .adapter_measurement import extract_value_error
 
@@ -21,13 +21,12 @@ def _fit_quality_label(
     decimals: int = 4,
     decimal_comma: bool = False,
 ) -> str:
-    quality = f"{fit_result.quality:.{decimals}f}"
-    if decimal_comma:
-        quality = quality.replace(".", r"{,}")
-
-    if fit_result.method == "ODR":
-        return fr"$\chi^2_{{\mathrm{{red, ODR}}}} = {quality}$"
-    return fr"$\chi^2_\mathrm{{red}} = {quality}$"
+    return format_fit_quality(
+        fit_result,
+        decimals=decimals,
+        decimal_comma=decimal_comma,
+        latex=True,
+    )
 
 def _auto_show_fit_error_band(
     y_smooth: Sequence[SupportedValues],
