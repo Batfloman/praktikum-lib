@@ -1,4 +1,4 @@
-from typing import Optional, Sequence, TypedDict
+from typing import Literal, Optional, Sequence, TypedDict
 
 from batfloman_praktikum_lib.io.termColors import bcolors
 from batfloman_praktikum_lib.io.table_metadata import TableColumnMetadata, TableMetadataManager
@@ -7,6 +7,7 @@ from batfloman_praktikum_lib.io.table_metadata import TableColumnMetadata, Table
 class ValueOptions(TypedDict, total=False):
     format_spec: str
     unit: Optional[str]
+    unit_mode: Literal["auto", "siunitx", "text"]
     use_si_prefix: bool
     fixed_exponent: Optional[int]
     with_error: bool
@@ -22,6 +23,7 @@ class TableOptions(TypedDict, total=False):
 DEFAULT_VALUE_OPTIONS: ValueOptions = {
     "format_spec": "",
     "unit": None,
+    "unit_mode": "auto",
     "use_si_prefix": True,
     "fixed_exponent": None,
     "with_error": True,

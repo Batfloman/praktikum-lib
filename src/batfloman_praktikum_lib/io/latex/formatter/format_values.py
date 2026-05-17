@@ -1,9 +1,10 @@
 from typing import Optional
+from typing import Literal
 
 import numbers
 
 from ..optionTypes import ValueOptions, normalize_value_options
-from ._number_helper import format_unit_body
+from ._number_helper import format_text_unit_suffix, format_unit_body, resolve_unit_mode
 from .format_maps import SI_PREFIX_MAP
 from batfloman_praktikum_lib.io.formatters import custom_format
 
@@ -11,6 +12,7 @@ def format_number_latex_str(
     value,
     *,
     unit: Optional[str] = None,
+    unit_mode: Literal["auto", "siunitx", "text"] = "auto",
     use_si_prefix: bool = True,
     fixed_exponent: Optional[int] = None,
     format_spec: str = "",
@@ -23,6 +25,20 @@ def format_number_latex_str(
         val = value / 10**fixed_exponent
         formatted = custom_format(val, format_spec)
         return rf"\num[scientific-notation=fixed, fixed-exponent={fixed_exponent}]{{{formatted}e{fixed_exponent}}}"
+
+    resolved_unit_mode = resolve_unit_mode(unit, unit_mode)
+
+    if resolved_unit_mode == "text":
+        if fixed_exponent is not None and use_si_prefix and fixed_exponent in SI_PREFIX_MAP:
+            raise ValueError("SI prefixes are not supported for text-mode units.")
+
+        if fixed_exponent is None:
+            formatted = custom_format(value, format_spec)
+            return rf"\num{{{formatted}}}\,{format_text_unit_suffix(unit)}"
+
+        val = value / 10**fixed_exponent
+        formatted = custom_format(val, format_spec)
+        return rf"\num[scientific-notation=fixed, fixed-exponent={fixed_exponent}]{{{formatted}e{fixed_exponent}}}\,{format_text_unit_suffix(unit)}"
 
     unit_str = format_unit_body(unit)
 
@@ -71,6 +87,7 @@ def format_value(
     return format_number_latex_str(
         obj,
         unit=options["unit"],
+        unit_mode=options["unit_mode"],
         use_si_prefix=options["use_si_prefix"],
         fixed_exponent=options["fixed_exponent"],
         format_spec=options["format_spec"],

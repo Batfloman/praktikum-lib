@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import Literal, Optional, Tuple
 
 import math
 
@@ -59,6 +59,25 @@ def get_siunitx_unit(
     return unit
 
 
+def resolve_unit_mode(
+    unit: Optional[str],
+    unit_mode: Literal["auto", "siunitx", "text"] = "auto",
+) -> Literal["siunitx", "text"]:
+    if unit_mode != "auto":
+        return unit_mode
+
+    if unit is None or unit == "":
+        return "siunitx"
+
+    if unit in SIUNITX_UNIT_MAP:
+        return "siunitx"
+
+    if unit.startswith("\\") and not unit.startswith(("\\mathrm", "\\text")):
+        return "siunitx"
+
+    return "text"
+
+
 def format_unit_body(
     unit: Optional[str],
     *,
@@ -77,9 +96,19 @@ def format_unit_body(
 
     if use_si_prefix and exponent in SI_PREFIX_MAP:
         prefix = SI_PREFIX_MAP[exponent]
-        return f"{prefix} {unit_str}"
+        return f"{prefix}{unit_str}"
 
     return rf"\ensuremath{{10^{exponent}}}\,\si{{{unit_str}}}"
+
+
+def format_text_unit_suffix(unit: Optional[str]) -> str:
+    if unit is None or unit == "":
+        return ""
+
+    if unit.startswith("\\"):
+        return unit
+
+    return rf"\text{{{unit}}}"
 
 
 def format_unit_latex(

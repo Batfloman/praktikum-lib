@@ -101,6 +101,14 @@ def test_format_value():
     options = {"with_error": False}
     assert format_value(1.23, 0.03, options=options) == r"\num{1.23}"
 
+
+def test_custom_text_units_do_not_use_si():
+    options: ValueOptions = {"unit": "pixels"}
+    assert format_value(1.23, options=options) == r"\num{1.23}\,\text{pixels}"
+
+    options = {"unit": r"\mathrm{foo}", "unit_mode": "text"}
+    assert format_value(1.23, options=options) == r"\num{1.23}\,\mathrm{foo}"
+
 def test_save_options(tmp_path, capsys):
     path = tmp_path / "nested" / "value"
 
