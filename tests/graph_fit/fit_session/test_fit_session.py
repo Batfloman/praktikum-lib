@@ -63,7 +63,6 @@ def test_fit_session_open_parameter_editor_stores_setup(monkeypatch, tmp_path):
     captured = {}
 
     dummy_setup = SimpleNamespace(
-        fit=lambda **kwargs: "result",
         interval_indices=(0, 1),
         excluded_indices=(),
         initial_guess=None,
@@ -76,6 +75,22 @@ def test_fit_session_open_parameter_editor_stores_setup(monkeypatch, tmp_path):
         return dummy_setup
 
     monkeypatch.setattr(workspace_module, "manual_fit_setup", fake_manual_fit_setup)
+
+    class DummyRuntimeSetup:
+        def __init__(self, **kwargs):
+            self.model = kwargs["model"]
+            self.x = kwargs["x"]
+            self.y = kwargs["y"]
+            self.xerr = kwargs["xerr"]
+            self.yerr = kwargs["yerr"]
+            self.initial_guess = kwargs["initial_guess"]
+            self.interval_indices = kwargs["interval_indices"]
+            self.excluded_indices = kwargs["excluded_indices"]
+
+        def fit(self, **kwargs):
+            return "fit-result"
+
+    monkeypatch.setattr(workspace_module, "ManualFitSetup", DummyRuntimeSetup)
 
     class DummyModel:
         __name__ = "DummyModel"
@@ -92,8 +107,84 @@ def test_fit_session_open_parameter_editor_stores_setup(monkeypatch, tmp_path):
     assert setup is session.get_model(model_id).setup
     assert setup.model is DummyModel
     assert setup.interval_indices == (2, 3)
+    assert session.get_model(model_id).result == "fit-result"
     assert captured["use_cache"] is False
     assert np.allclose(captured["x"], np.array([2.0, 3.0]))
+
+
+def test_fit_session_open_parameter_editor_uses_model_initial_guess_by_default(monkeypatch, tmp_path):
+    captured = {}
+
+    dummy_setup = SimpleNamespace(
+        fit=lambda **kwargs: "result",
+        interval_indices=(0, 1),
+        excluded_indices=(),
+        initial_guess={"a": 9.0, "b": 4.0},
+    )
+
+    def fake_manual_fit_setup(model, x, y, *, default_values=None, **kwargs):
+        captured["default_values"] = default_values
+        return dummy_setup
+
+    monkeypatch.setattr(workspace_module, "manual_fit_setup", fake_manual_fit_setup)
+
+    class DummyRuntimeSetup:
+        def __init__(self, **kwargs):
+            self.model = kwargs["model"]
+            self.x = kwargs["x"]
+            self.y = kwargs["y"]
+            self.xerr = kwargs["xerr"]
+            self.yerr = kwargs["yerr"]
+            self.initial_guess = kwargs["initial_guess"]
+            self.interval_indices = kwargs["interval_indices"]
+            self.excluded_indices = kwargs["excluded_indices"]
+
+        def fit(self, **kwargs):
+            return "fit-result"
+
+    monkeypatch.setattr(workspace_module, "ManualFitSetup", DummyRuntimeSetup)
+
+    class DummyModel:
+        @staticmethod
+        def get_param_names():
+            return ["a", "b"]
+
+        @staticmethod
+        def get_initial_guess(x, y):
+            return [2.5, 7.5]
+
+    session = workspace_module.FitSession(
+        np.arange(6),
+        np.arange(6),
+        cache_path=tmp_path / "cache" / "session.json",
+    )
+    model_id = session.add_model(DummyModel)
+
+    session.open_parameter_editor(model_id)
+
+    assert captured["default_values"] == {"a": 2.5, "b": 7.5}
+    assert session.get_model(model_id).initial_guess == {"a": 9.0, "b": 4.0}
+
+
+def test_fit_session_default_values_merge_model_defaults_with_session_values(tmp_path):
+    models_module = importlib.import_module("batfloman_praktikum_lib.graph_fit.models")
+    Linear = models_module.Linear
+    ConstFunc = models_module.ConstFunc
+
+    session = workspace_module.FitSession(
+        np.arange(5),
+        np.arange(5),
+        cache_path=tmp_path / "cache" / "session.json",
+    )
+    model_id = session.add_model(None, components=[Linear])
+    model = session.get_model(model_id)
+    model.initial_guess = {"m_1": 11.0}
+
+    session.add_component(model_id, ConstFunc)
+
+    merged = session._default_values_for(session.get_model(model_id))
+
+    assert merged == {"m_1": 11.0, "n_1": 0.0, "b_2": 2.0}
 
 
 def test_fit_session_plot_renders_data_intervals_and_results(monkeypatch, tmp_path):
@@ -278,7 +369,7 @@ def test_fit_session_component_ids_are_per_model_integers(tmp_path):
     assert session.get_component(second_model_id, 1).id == 1
 
 
-def test_fit_session_load_state_migrates_legacy_string_ids(tmp_path):
+def test_fit_session_rejects_legacy_string_ids(tmp_path):
     cache_path = tmp_path / "cache" / "session.json"
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     cache_path.write_text(
@@ -297,15 +388,12 @@ def test_fit_session_load_state_migrates_legacy_string_ids(tmp_path):
 """.strip()
     )
 
-    session = workspace_module.FitSession(
-        np.arange(4),
-        np.arange(4),
-        cache_path=cache_path,
-    )
-
-    assert session.get_model_by_name("legacy").id == 3
-    assert session.get_component(3, 2).id == 2
-    assert session.add_model() == 4
+    with pytest.raises(ValueError, match="invalid literal for int\\(\\)"):
+        workspace_module.FitSession(
+            np.arange(4),
+            np.arange(4),
+            cache_path=cache_path,
+        )
 
 
 def test_fit_session_cache_path_adds_json_suffix(tmp_path):

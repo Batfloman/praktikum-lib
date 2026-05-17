@@ -88,7 +88,7 @@ def test_show_without_arguments_delegates_to_matplotlib(monkeypatch):
     assert shown == [(True, (fig1.number, fig2.number))]
 
 
-def test_show_without_arguments_reregisters_tracked_closed_plots(monkeypatch):
+def test_show_without_arguments_does_not_reregister_tracked_closed_plots(monkeypatch):
     plt.close("all")
     plot = create_plot()
     fig, _ = plot
@@ -105,5 +105,5 @@ def test_show_without_arguments_reregisters_tracked_closed_plots(monkeypatch):
 
     show(ignore_quiet=True)
 
-    assert Gcf.get_fig_manager(fig.number) is not None
-    assert shown == [(True, (fig.number,))]
+    assert Gcf.get_fig_manager(fig.number) is None
+    assert shown == [(True, ())]

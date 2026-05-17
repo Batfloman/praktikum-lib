@@ -26,7 +26,7 @@ def test_plot_func_adds_default_least_squares_quality_label():
         with_error=False,
     )
 
-    assert result.line.get_label() == r"$\chi^2_\mathrm{red} = 1.2346$"
+    assert result.line.get_label() == r"$\chi^2_\mathrm{red} = 1{,}2346$"
     plt.close(plot[0])
 
 
@@ -38,10 +38,24 @@ def test_plot_func_adds_default_odr_quality_label_with_decimal_comma():
         plot=plot,
         interval=(0, 1),
         with_error=False,
-        fit_quality_label_decimal_comma=True,
     )
 
-    assert result.line.get_label() == r"$\chi^2_{\mathrm{red, ODR}} = 1,2346$"
+    assert result.line.get_label() == r"$\chi^2_{\mathrm{red, ODR}} = 1{,}2346$"
+    plt.close(plot[0])
+
+
+def test_plot_func_can_use_decimal_point_for_fit_quality_label():
+    plot = graph.create_plot()
+
+    result = graph.plot_func(
+        _fit_result(quality=1.23456, method="least squares"),
+        plot=plot,
+        interval=(0, 1),
+        with_error=False,
+        fit_quality_label_decimal_comma=False,
+    )
+
+    assert result.line.get_label() == r"$\chi^2_\mathrm{red} = 1.2346$"
     plt.close(plot[0])
 
 

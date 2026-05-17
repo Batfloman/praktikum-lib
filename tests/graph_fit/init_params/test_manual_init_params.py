@@ -8,6 +8,12 @@ from batfloman_praktikum_lib.structs.measurement import Measurement
 manual_init_params_module = importlib.import_module(
     "batfloman_praktikum_lib.graph_fit.init_params.manual_init_params"
 )
+least_squares_module = importlib.import_module(
+    "batfloman_praktikum_lib.graph_fit.least_squares"
+)
+orthogonal_distance_module = importlib.import_module(
+    "batfloman_praktikum_lib.graph_fit.orthogonal_distance"
+)
 
 
 def test_manual_init_params_passes_composite_model_to_parameter_window(monkeypatch, tmp_path):
@@ -31,7 +37,20 @@ def test_manual_init_params_passes_composite_model_to_parameter_window(monkeypat
     class DummyGraphWindow:
         def __init__(self, *args, **kwargs):
             self.param_win = None
+            self.fit_selection_win = None
             captured["graph_render_parts"] = kwargs.get("render_parts")
+
+        def _refresh_scatter_points(self):
+            return None
+
+        def get_interval_indices(self):
+            return (0, 2)
+
+        def get_excluded_indices(self):
+            return ()
+
+        def isVisible(self):
+            return False
 
         def update_params(self, params):
             return None
@@ -49,6 +68,9 @@ def test_manual_init_params_passes_composite_model_to_parameter_window(monkeypat
             self.sliders = params
             self.graph_win = None
 
+        def isVisible(self):
+            return False
+
         def show(self):
             return None
 
@@ -61,6 +83,16 @@ def test_manual_init_params_passes_composite_model_to_parameter_window(monkeypat
                 for name, value in self.sliders.items()
             }
 
+    class DummyFitSelectionWindow:
+        def __init__(self, *args, **kwargs):
+            self.graph_win = None
+
+        def isVisible(self):
+            return False
+
+        def show(self):
+            return None
+
     class DummySlider:
         def __init__(self, value):
             self._value = value
@@ -69,8 +101,10 @@ def test_manual_init_params_passes_composite_model_to_parameter_window(monkeypat
             return self._value
 
     monkeypatch.setattr(manual_init_params_module, "QApplication", DummyQApplication)
+    monkeypatch.setattr(manual_init_params_module, "check_quiet", lambda: False)
     monkeypatch.setattr(manual_init_params_module, "GraphWindow", DummyGraphWindow)
     monkeypatch.setattr(manual_init_params_module, "ParameterWindow", DummyParameterWindow)
+    monkeypatch.setattr(manual_init_params_module, "FitSelectionWindow", DummyFitSelectionWindow)
     monkeypatch.setattr(
         manual_init_params_module.ParameterSlider,
         "from_cache",
@@ -116,7 +150,20 @@ def test_manual_init_params_passes_custom_render_parts(monkeypatch, tmp_path):
     class DummyGraphWindow:
         def __init__(self, *args, **kwargs):
             self.param_win = None
+            self.fit_selection_win = None
             captured["graph_render_parts"] = kwargs.get("render_parts")
+
+        def _refresh_scatter_points(self):
+            return None
+
+        def get_interval_indices(self):
+            return (0, 2)
+
+        def get_excluded_indices(self):
+            return ()
+
+        def isVisible(self):
+            return False
 
         def update_params(self, params):
             return None
@@ -133,6 +180,9 @@ def test_manual_init_params_passes_custom_render_parts(monkeypatch, tmp_path):
             self.sliders = params
             self.graph_win = None
 
+        def isVisible(self):
+            return False
+
         def show(self):
             return None
 
@@ -145,6 +195,16 @@ def test_manual_init_params_passes_custom_render_parts(monkeypatch, tmp_path):
                 for name, value in self.sliders.items()
             }
 
+    class DummyFitSelectionWindow:
+        def __init__(self, *args, **kwargs):
+            self.graph_win = None
+
+        def isVisible(self):
+            return False
+
+        def show(self):
+            return None
+
     class DummySlider:
         def __init__(self, value):
             self._value = value
@@ -153,8 +213,10 @@ def test_manual_init_params_passes_custom_render_parts(monkeypatch, tmp_path):
             return self._value
 
     monkeypatch.setattr(manual_init_params_module, "QApplication", DummyQApplication)
+    monkeypatch.setattr(manual_init_params_module, "check_quiet", lambda: False)
     monkeypatch.setattr(manual_init_params_module, "GraphWindow", DummyGraphWindow)
     monkeypatch.setattr(manual_init_params_module, "ParameterWindow", DummyParameterWindow)
+    monkeypatch.setattr(manual_init_params_module, "FitSelectionWindow", DummyFitSelectionWindow)
     monkeypatch.setattr(
         manual_init_params_module.ParameterSlider,
         "from_cache",
@@ -277,8 +339,8 @@ def test_manual_fit_setup_fit_filters_bound_data_and_uses_odr_for_x_measurement_
     def fail_ls(*args, **kwargs):
         raise AssertionError("least squares should not be used when x-errors are present in measurements")
 
-    monkeypatch.setattr(manual_init_params_module, "orthogonal_distance_regression_fit", fake_odr)
-    monkeypatch.setattr(manual_init_params_module, "least_squares_fit", fail_ls)
+    monkeypatch.setattr(orthogonal_distance_module, "generic_fit", fake_odr)
+    monkeypatch.setattr(least_squares_module, "generic_fit", fail_ls)
 
     x = np.array([
         Measurement(0.0, 0.1),
