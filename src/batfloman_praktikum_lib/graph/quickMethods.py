@@ -125,10 +125,6 @@ def show(*plots: ShowArg, ignore_quiet: bool = False) -> None:
         return
 
     if not plots:
-        figures = tuple(_tracked_figures.values())
-        for fig in figures:
-            _ensure_registered(fig)
-
         return plt.show(block=True)
 
     figures = tuple(_iter_figures(plots))
