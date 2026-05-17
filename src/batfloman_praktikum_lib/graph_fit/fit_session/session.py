@@ -298,10 +298,13 @@ class FitSession:
 
     def open_parameter_editor(self, model_id: int, **kwargs) -> ManualFitSetup:
         instance = self.get_model(model_id)
+        resolved_initial_guess = self._default_values_for(instance)
+        if resolved_initial_guess is not None:
+            instance.initial_guess = dict(resolved_initial_guess)
         setup = self._build_setup(
             instance,
             use_cache=False,
-            default_values=self._default_values_for(instance),
+            default_values=resolved_initial_guess,
             **kwargs,
         )
         global_interval, global_excluded = self._map_setup_selection_to_global(instance, setup)
@@ -320,8 +323,14 @@ class FitSession:
             interval_indices=global_interval,
             excluded_indices=global_excluded,
         )
-        instance.result = None
-        instance.last_error = None
+        try:
+            instance.result = instance.setup.fit()
+            instance.last_error = None
+        except Exception as exc:
+            instance.result = None
+            instance.last_error = f"{type(exc).__name__}: {exc}"
+            self.save_state()
+            raise
         self.save_state()
         return instance.setup
 
@@ -581,11 +590,35 @@ class FitSession:
         return global_interval, global_excluded
 
     def _default_values_for(self, instance: SessionModel):
-        if instance.initial_guess is not None:
-            return dict(instance.initial_guess)
+        auto_defaults = self._auto_initial_guess_for(instance)
+
+        stored_values: dict[str, float] = {}
         if instance.setup is not None and instance.setup.initial_guess is not None:
-            return dict(instance.setup.initial_guess)
-        return None
+            stored_values.update(instance.setup.initial_guess)
+        if instance.initial_guess is not None:
+            stored_values.update(instance.initial_guess)
+
+        if auto_defaults is None:
+            return dict(stored_values) if stored_values else None
+        return {**auto_defaults, **stored_values}
+
+    def _auto_initial_guess_for(self, instance: SessionModel) -> dict[str, float] | None:
+        composed_model = instance.build_model()
+        if composed_model is None:
+            return None
+        if not hasattr(composed_model, "get_initial_guess") or not hasattr(composed_model, "get_param_names"):
+            return None
+
+        x_subset, y_subset, _, _ = self._select_data(instance)
+        if len(x_subset) == 0 or len(y_subset) == 0:
+            return None
+
+        param_names = list(composed_model.get_param_names())  # type: ignore[call-arg]
+        initial_guess = list(composed_model.get_initial_guess(x_subset, y_subset))  # type: ignore[call-arg]
+        return {
+            param_name: float(value)
+            for param_name, value in zip(param_names, initial_guess)
+        }
 
     def _resolve_model_type(self, model_name: str | None):
         if model_name is None:
@@ -602,24 +635,6 @@ class FitSession:
         if isinstance(model_ref, (int, np.integer)):
             return self.get_model(int(model_ref))
         return self.get_model_by_name(model_ref)
-
-    def _normalize_model_id(self, model_id: int | str) -> int:
-        if isinstance(model_id, (int, np.integer)):
-            return int(model_id)
-        if isinstance(model_id, str) and model_id.startswith("model_"):
-            suffix = model_id.removeprefix("model_")
-            if suffix.isdigit():
-                return int(suffix)
-        return int(model_id)
-
-    def _normalize_component_id(self, component_id: int | str) -> int:
-        if isinstance(component_id, (int, np.integer)):
-            return int(component_id)
-        if isinstance(component_id, str) and "_component_" in component_id:
-            suffix = component_id.rsplit("_component_", 1)[1]
-            if suffix.isdigit():
-                return int(suffix)
-        return int(component_id)
 
     def _normalize_model_name(self, model_name: str) -> str:
         normalized_name = str(model_name).strip()
@@ -691,7 +706,7 @@ class FitSession:
         max_model_number = 0
 
         for model_data in state.get("models", []):
-            model_id = self._normalize_model_id(model_data["id"])
+            model_id = int(model_data["id"])
             interval_data = model_data.get("interval")
             interval = None if interval_data is None else (interval_data[0], interval_data[1])
             instance = SessionModel(
@@ -705,7 +720,7 @@ class FitSession:
                 initial_guess=None,
                 components=[
                     CompositionComponent(
-                        id=self._normalize_component_id(component_data["id"]),
+                        id=int(component_data["id"]),
                         model_type=self._resolve_model_type(
                             component_data.get("registry_key") or component_data.get("model_type")
                         ),

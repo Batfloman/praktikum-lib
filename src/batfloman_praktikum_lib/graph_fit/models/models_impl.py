@@ -20,17 +20,19 @@ class Linear(FitModel):
     @staticmethod
     def model(x, m, n):
         return m * x + n
-    
+
     @staticmethod
     def get_param_names():
         return ["m", "n"]
 
     @staticmethod
     def get_initial_guess(x, y):
-        dy = np.max(y) - np.min(y)
-        dx = np.max(x) - np.min(x)
+        start_idx = np.argmin(x)
+        end_idx = np.argmax(x)
+        dy = y[end_idx] - y[start_idx]
+        dx = x[end_idx] - x[start_idx]
         m = dy / dx if dx != 0 else 0
-        n = np.min(y) if m > 0 else np.max(y)
+        n = y[start_idx] - m * x[start_idx]
         return [m, n]
 
 class Exponential(FitModel):
@@ -136,7 +138,37 @@ class Gaussian(FitModel):
 
     @staticmethod
     def get_initial_guess(x, y):
-        A = np.max(y)
-        x0 = np.sum(x * y) / np.sum(y)
-        sigma = np.sqrt(np.sum(y * (x - x0)**2) / np.sum(y))
+        x = np.asarray(x)
+        y = np.asarray(y)
+
+        # estimate and subtract baseline
+        baseline = np.percentile(y, 10)
+        yw = y - baseline
+        yw = np.clip(yw, 0, None)
+
+        # amplitude
+        A = np.max(y) - baseline
+
+        # center: position of maximum is usually more robust than weighted mean
+        x0 = x[np.argmax(y)]
+
+        # sigma estimate from FWHM
+        half_max = baseline + A / 2
+        above = y >= half_max
+
+        if np.sum(above) >= 2:
+            x_left = x[above][0]
+            x_right = x[above][-1]
+            fwhm = x_right - x_left
+            sigma = fwhm / (2 * np.sqrt(2 * np.log(2)))
+        else:
+            # fallback: weighted variance
+            if np.sum(yw) > 0:
+                sigma = np.sqrt(np.sum(yw * (x - x0)**2) / np.sum(yw))
+            else:
+                sigma = (np.max(x) - np.min(x)) / 6
+
+        # avoid zero/negative sigma
+        sigma = max(sigma, np.finfo(float).eps)
+
         return [A, sigma, x0]
