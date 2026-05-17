@@ -99,6 +99,26 @@ class ClampedFloatSpinBox(QDoubleSpinBox):
         return max(self.minimum(), min(value, self.maximum()))
 
 
+class ModelTreeWidget(QTreeWidget):
+    def edit(self, index, trigger, event):
+        if not index.isValid():
+            return False
+        item = self.itemFromIndex(index)
+        if item is None:
+            return False
+        item_type = item.data(0, Qt.ItemDataRole.UserRole)
+        if item_type is None:
+            return False
+        item_kind = item_type[0]
+        if item_kind == "model" and index.column() == 0:
+            return super().edit(index, trigger, event)
+        if item_kind == "fit_quality" and index.column() == 2:
+            return super().edit(index, trigger, event)
+        if item_kind == "component" and index.column() == 0:
+            return super().edit(index, trigger, event)
+        return False
+
+
 class FitSessionModelsWindow(QWidget):
     closed = pyqtSignal()
 
@@ -150,7 +170,7 @@ class FitSessionModelsWindow(QWidget):
         add_model_row.addWidget(self.remove_selected_button)
         layout.addLayout(add_model_row)
 
-        self.model_tree = QTreeWidget()
+        self.model_tree = ModelTreeWidget()
         self.model_tree.setColumnCount(4)
         self.model_tree.setHeaderLabels(["Model", "State", "Details", "Status"])
         self.model_tree.itemSelectionChanged.connect(self._handle_selection_changed)
@@ -498,7 +518,10 @@ class FitSessionModelsWindow(QWidget):
                     self.session.rename_model(model_id, renamed_value)
                 except ValueError as exc:
                     self._show_error("Rename failed", exc)
-                QTimer.singleShot(0, lambda model_id=model_id: self.refresh(select_model_id=model_id))
+                    QTimer.singleShot(0, lambda model_id=model_id: self.refresh(select_model_id=model_id))
+                    return
+                if self.visualization_window is not None:
+                    self.visualization_window.refresh()
             return
 
         if item_type[0] == "fit_quality":
