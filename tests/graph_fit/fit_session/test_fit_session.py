@@ -474,3 +474,95 @@ def test_open_fit_session_windows_attempts_startup_fit(monkeypatch, tmp_path):
     assert models_window.visualization_window is visualization_window
     assert visualization_window.shown is True
     assert models_window.shown is True
+
+
+def test_manual_fit_session_returns_cached_session_in_quiet_mode(monkeypatch, tmp_path):
+    interactive_module = importlib.import_module(
+        "batfloman_praktikum_lib.graph_fit.fit_session.interactive"
+    )
+
+    class DummyModel:
+        __name__ = "DummyModel"
+
+    session = workspace_module.FitSession(
+        np.arange(5),
+        np.arange(5),
+        cache_path=tmp_path / "quiet-session.json",
+        available_models={"DummyModel": DummyModel},
+    )
+    model_id = session.add_model(DummyModel, name="Peak 1")
+    session.get_model(model_id).initial_guess = {"a_1": 1.0}
+    session.save_state()
+
+    called = {"windows": 0}
+
+    monkeypatch.setattr(interactive_module, "check_quiet", lambda: True)
+    monkeypatch.setattr(
+        interactive_module,
+        "open_fit_session_windows",
+        lambda *args, **kwargs: called.__setitem__("windows", called["windows"] + 1),
+    )
+
+    result = interactive_module.manual_fit_session(
+        np.arange(5),
+        np.arange(5),
+        cache_path=tmp_path / "quiet-session.json",
+        available_models={"DummyModel": DummyModel},
+    )
+
+    assert called["windows"] == 0
+    assert len(result.models) == 1
+    assert result.get_model_by_name("Peak 1").display_name == "Peak 1"
+
+
+def test_manual_fit_session_use_cache_skips_windows(monkeypatch, tmp_path):
+    interactive_module = importlib.import_module(
+        "batfloman_praktikum_lib.graph_fit.fit_session.interactive"
+    )
+
+    class DummyModel:
+        __name__ = "DummyModel"
+
+    session = workspace_module.FitSession(
+        np.arange(4),
+        np.arange(4),
+        cache_path=tmp_path / "use-cache-session.json",
+        available_models={"DummyModel": DummyModel},
+    )
+    session.add_model(DummyModel, name="Cached")
+
+    called = {"windows": 0}
+
+    monkeypatch.setattr(interactive_module, "check_quiet", lambda: False)
+    monkeypatch.setattr(
+        interactive_module,
+        "open_fit_session_windows",
+        lambda *args, **kwargs: called.__setitem__("windows", called["windows"] + 1),
+    )
+
+    result = interactive_module.manual_fit_session(
+        np.arange(4),
+        np.arange(4),
+        cache_path=tmp_path / "use-cache-session.json",
+        available_models={"DummyModel": DummyModel},
+        use_cache=True,
+    )
+
+    assert called["windows"] == 0
+    assert len(result.models) == 1
+
+
+def test_manual_fit_session_require_cache_raises_without_saved_session(monkeypatch, tmp_path):
+    interactive_module = importlib.import_module(
+        "batfloman_praktikum_lib.graph_fit.fit_session.interactive"
+    )
+
+    monkeypatch.setattr(interactive_module, "check_quiet", lambda: True)
+
+    with pytest.raises(ValueError, match="No saved fit session configuration"):
+        interactive_module.manual_fit_session(
+            np.arange(3),
+            np.arange(3),
+            cache_path=tmp_path / "missing-session.json",
+            require_cache=True,
+        )

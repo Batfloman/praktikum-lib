@@ -5,6 +5,7 @@ import numpy as np
 from PyQt6.QtCore import QEventLoop, Qt
 from PyQt6.QtWidgets import QApplication
 
+from ...flags import check_quiet
 from ...graph.adapter_measurement import extract_value_error
 from .session import AvailableModels, FitSession
 from .windows import open_fit_session_windows
@@ -30,6 +31,8 @@ def manual_fit_session(
     available_models: AvailableModels | None = None,
     visualization_title: str = "Fit Session Visualization",
     models_title: str = "Fit Session Models",
+    use_cache: bool = False,
+    require_cache: bool = False,
 ) -> FitSession:
     x_values, resolved_xerr = _normalize_data_with_embedded_errors(x, explicit_err=xerr)
     y_values, resolved_yerr = _normalize_data_with_embedded_errors(y, explicit_err=yerr)
@@ -46,6 +49,15 @@ def manual_fit_session(
     session.original_y = np.asarray(y, dtype=object)
     session.original_xerr = None if xerr is None else np.asarray(xerr, dtype=object)
     session.original_yerr = None if yerr is None else np.asarray(yerr, dtype=object)
+
+    if require_cache and not session.models:
+        raise ValueError(
+            f"No saved fit session configuration found at '{session.cache_path}'."
+        )
+
+    if use_cache or check_quiet():
+        session.try_fit_models()
+        return session
 
     existing_app = QApplication.instance()
     app = existing_app or QApplication([])
