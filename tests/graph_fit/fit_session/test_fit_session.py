@@ -434,6 +434,20 @@ def test_fit_session_try_fit_models_continues_after_failures(tmp_path):
     assert session.get_model(second_id).last_error == "RuntimeError: boom"
 
 
+def test_fit_session_sorts_working_data_by_x(tmp_path):
+    session = workspace_module.FitSession(
+        np.array([4.0, 1.0, 3.0, 2.0]),
+        np.array([40.0, 10.0, 30.0, 20.0]),
+        yerr=np.array([0.4, 0.1, 0.3, 0.2]),
+        cache_path=tmp_path / "cache" / "session.json",
+    )
+
+    assert np.asarray(session.x, dtype=float).tolist() == [1.0, 2.0, 3.0, 4.0]
+    assert np.asarray(session.y, dtype=float).tolist() == [10.0, 20.0, 30.0, 40.0]
+    assert np.asarray(session.yerr, dtype=float).tolist() == [0.1, 0.2, 0.3, 0.4]
+    assert np.asarray(session.original_x, dtype=float).tolist() == [4.0, 1.0, 3.0, 2.0]
+
+
 def test_open_fit_session_windows_attempts_startup_fit(monkeypatch, tmp_path):
     session = workspace_module.FitSession(
         np.arange(4),

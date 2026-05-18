@@ -89,12 +89,25 @@ class FitSession:
         self.y = np.asarray(y, dtype=object)
         self.xerr = None if xerr is None else np.asarray(xerr, dtype=object)
         self.yerr = None if yerr is None else np.asarray(yerr, dtype=object)
+        self._sort_data_by_x()
         self.cache_path = Path(ensure_extension(os.fspath(cache_path), ".json"))
         self.available_models: dict[str, FitSessionModelType] = dict(available_models or {})
         self.models: list[SessionModel] = []
         self._next_model_id = 1
         self._next_color_index = 0
         self.load_state()
+
+    def _sort_data_by_x(self) -> None:
+        if len(self.x) <= 1:
+            return
+
+        order = np.argsort(np.asarray(self.x, dtype=float), kind="stable")
+        self.x = self.x[order]
+        self.y = self.y[order]
+        if self.xerr is not None:
+            self.xerr = self.xerr[order]
+        if self.yerr is not None:
+            self.yerr = self.yerr[order]
 
     def get_model_by_name(self, model_name: str) -> SessionModel:
         normalized_name = self._normalize_model_name(model_name)
