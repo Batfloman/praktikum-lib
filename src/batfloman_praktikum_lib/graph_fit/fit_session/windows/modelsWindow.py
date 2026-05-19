@@ -545,6 +545,17 @@ class FitSessionModelsWindow(QWidget):
             if component.enabled != enabled:
                 self.session.set_component_enabled(model_id, component_id, enabled)
                 QTimer.singleShot(0, lambda model_id=model_id: self.refresh(select_model_id=model_id))
+                return
+            renamed_value = item.text(0)
+            if renamed_value != component.display_name:
+                try:
+                    self.session.rename_component(model_id, component_id, renamed_value)
+                except ValueError as exc:
+                    self._show_error("Component rename failed", exc)
+                    QTimer.singleShot(0, lambda model_id=model_id: self.refresh(select_model_id=model_id))
+                    return
+                if self.visualization_window is not None:
+                    self.visualization_window.refresh()
 
     def _refresh_model_list(self, *, select_model_id: Optional[int] = None):
         active_selected_model_id = select_model_id
@@ -656,6 +667,7 @@ class FitSessionModelsWindow(QWidget):
                 component_item.setFlags(
                     component_item.flags()
                     | Qt.ItemFlag.ItemIsUserCheckable
+                    | Qt.ItemFlag.ItemIsEditable
                     | Qt.ItemFlag.ItemIsSelectable
                     | Qt.ItemFlag.ItemIsEnabled
                 )

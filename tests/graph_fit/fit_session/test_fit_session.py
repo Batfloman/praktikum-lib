@@ -369,6 +369,64 @@ def test_fit_session_component_ids_are_per_model_integers(tmp_path):
     assert session.get_component(second_model_id, 1).id == 1
 
 
+def test_fit_session_component_ids_remain_stable_after_deletion(tmp_path):
+    class DummyModel:
+        __name__ = "DummyModel"
+
+        @staticmethod
+        def model(x, a):
+            return a * x
+
+        @staticmethod
+        def get_param_names():
+            return ["a"]
+
+    session = workspace_module.FitSession(
+        np.arange(4),
+        np.arange(4),
+        cache_path=tmp_path / "cache" / "session.json",
+    )
+    model_id = session.add_model()
+
+    first_component_id = session.add_component(model_id, DummyModel)
+    second_component_id = session.add_component(model_id, DummyModel)
+    session.remove_component(model_id, first_component_id)
+    third_component_id = session.add_component(model_id, DummyModel)
+
+    assert second_component_id == 2
+    assert third_component_id == 3
+
+
+def test_fit_session_component_names_are_auto_deduplicated_and_renameable(tmp_path):
+    class GaussianLike:
+        __name__ = "Gaussian"
+
+        @staticmethod
+        def model(x, a):
+            return a * x
+
+        @staticmethod
+        def get_param_names():
+            return ["a"]
+
+    session = workspace_module.FitSession(
+        np.arange(4),
+        np.arange(4),
+        cache_path=tmp_path / "cache" / "session.json",
+    )
+    model_id = session.add_model()
+
+    first_component_id = session.add_component(model_id, GaussianLike)
+    second_component_id = session.add_component(model_id, GaussianLike)
+
+    assert session.get_component(model_id, first_component_id).name == "Gaussian"
+    assert session.get_component(model_id, second_component_id).name == "Gaussian 2"
+
+    session.rename_component(model_id, second_component_id, "Signal")
+
+    assert session.get_component(model_id, second_component_id).name == "Signal"
+
+
 def test_fit_session_rejects_legacy_string_ids(tmp_path):
     cache_path = tmp_path / "cache" / "session.json"
     cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -432,6 +490,76 @@ def test_fit_session_try_fit_models_continues_after_failures(tmp_path):
     assert results == {first_id: "fit-1"}
     assert session.get_model(first_id).result == "fit-1"
     assert session.get_model(second_id).last_error == "RuntimeError: boom"
+
+
+def test_fit_session_analyze_component_lookup_by_id_and_name(tmp_path):
+    fit_result_module = importlib.import_module("batfloman_praktikum_lib.graph_fit.fitResult")
+    models_module = importlib.import_module("batfloman_praktikum_lib.graph_fit.models")
+
+    composite_model = models_module.Gaussian + models_module.Linear
+    result = fit_result_module.generate_fit_result(
+        composite_model.model,
+        values=[10.0, 2.0, 5.0, 0.5, 1.0],
+        errors=[1.0, 0.2, 0.3, 0.05, 0.1],
+        cov=[],
+        param_names=composite_model.get_param_names(),
+        quality=1.2,
+        method="least squares",
+    )
+
+    session = workspace_module.FitSession(
+        np.linspace(0, 10, 8),
+        np.linspace(0, 10, 8),
+        cache_path=tmp_path / "cache" / "session.json",
+    )
+    model_id = session.add_model(name="Peak")
+    first_component_id = session.add_component(model_id, models_module.Gaussian, name="Signal")
+    second_component_id = session.add_component(model_id, models_module.Linear, name="Background")
+    session.get_model(model_id).result = result
+
+    analysis = session.analyze(model_id, auto_fit=False)
+
+    signal = analysis.component(first_component_id)
+    background = analysis.component("Background")
+
+    assert len(analysis.components) == 2
+    assert signal.name == "Signal"
+    assert signal.model_name == "Gaussian"
+    assert signal.params["A"].value == 10.0
+    assert background.component_id == second_component_id
+    assert background.model_name == "Linear"
+    assert background.params["m"].value == 0.5
+
+
+def test_fit_session_analyze_component_model_name_lookup_requires_uniqueness(tmp_path):
+    fit_result_module = importlib.import_module("batfloman_praktikum_lib.graph_fit.fitResult")
+    models_module = importlib.import_module("batfloman_praktikum_lib.graph_fit.models")
+
+    composite_model = models_module.Gaussian + models_module.Gaussian
+    result = fit_result_module.generate_fit_result(
+        composite_model.model,
+        values=[10.0, 2.0, 4.0, 8.0, 1.0, 7.0],
+        errors=[1.0, 0.2, 0.3, 0.8, 0.1, 0.4],
+        cov=[],
+        param_names=composite_model.get_param_names(),
+        quality=1.0,
+        method="least squares",
+    )
+
+    session = workspace_module.FitSession(
+        np.linspace(0, 10, 8),
+        np.linspace(0, 10, 8),
+        cache_path=tmp_path / "cache" / "session.json",
+    )
+    model_id = session.add_model(name="Double Peak")
+    session.add_component(model_id, models_module.Gaussian)
+    session.add_component(model_id, models_module.Gaussian)
+    session.get_model(model_id).result = result
+
+    analysis = session.analyze(model_id, auto_fit=False)
+
+    with pytest.raises(ValueError, match="Ambiguous component reference 'Gaussian'"):
+        analysis.component("Gaussian")
 
 
 def test_fit_session_sorts_working_data_by_x(tmp_path):
@@ -580,3 +708,51 @@ def test_manual_fit_session_require_cache_raises_without_saved_session(monkeypat
             cache_path=tmp_path / "missing-session.json",
             require_cache=True,
         )
+
+
+def test_manual_fit_session_loads_saved_custom_model_from_default_model(monkeypatch, tmp_path):
+    interactive_module = importlib.import_module(
+        "batfloman_praktikum_lib.graph_fit.fit_session.interactive"
+    )
+
+    class CustomModel:
+        __name__ = "CustomModel"
+
+        @staticmethod
+        def model(x, a):
+            return a * x
+
+        @staticmethod
+        def get_param_names():
+            return ["a"]
+
+    cache_path = tmp_path / "custom-session.json"
+    cache_path.write_text(
+        """
+{
+  "models": [
+    {
+      "id": 1,
+      "name": "Peak",
+      "components": [
+        {"id": 1, "enabled": true, "name": "Signal", "model_type": "theo_HPGe_FWHM"}
+      ]
+    }
+  ]
+}
+""".strip()
+    )
+
+    monkeypatch.setattr(interactive_module, "check_quiet", lambda: True)
+
+    session = interactive_module.manual_fit_session(
+        np.arange(4),
+        np.arange(4),
+        cache_path=cache_path,
+        default_model=CustomModel,
+        available_models={"theo_HPGe_FWHM": CustomModel},
+    )
+
+    component = session.get_component(1, 1)
+    assert component.model_type is CustomModel
+    assert component.registry_key == "theo_HPGe_FWHM"

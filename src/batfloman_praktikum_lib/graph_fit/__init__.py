@@ -5,6 +5,7 @@ from .init_params import ManualFitSetup, manual_fit_setup, manual_init_params
 from .fitResult import FitResult
 from .fit_session import (
     AvailableModels,
+    ComponentFitAnalysis,
     CompositionComponent,
     FitAnalysis,
     FitSession,
@@ -38,6 +39,7 @@ __all__ = [
     "orthogonal_distance_regression_fit",
     "FitResult",
     "AvailableModels",
+    "ComponentFitAnalysis",
     "FitAnalysis",
     "CompositionComponent",
     "FitSession",

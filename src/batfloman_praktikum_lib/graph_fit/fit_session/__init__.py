@@ -1,4 +1,4 @@
-from .analysis import FitAnalysis
+from .analysis import ComponentFitAnalysis, FitAnalysis
 from .session import (
     AvailableModels,
     CompositionComponent,
@@ -21,6 +21,7 @@ __all__ = [
     "FitSessionModelType",
     "AvailableModels",
     "FitAnalysis",
+    "ComponentFitAnalysis",
     "CompositionComponent",
     "SessionModel",
     "ModelInstance",

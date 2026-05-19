@@ -9,7 +9,7 @@ from typing import Any, Literal, Optional
 import numpy as np
 
 from ...path_managment import ensure_extension
-from .analysis import FitAnalysis
+from .analysis import ComponentFitAnalysis, FitAnalysis
 from ..fitResult import FIT_METHODS, FitResult
 from ..init_params import ManualFitSetup, manual_fit_setup
 
@@ -91,11 +91,22 @@ class FitSession:
         self.yerr = None if yerr is None else np.asarray(yerr, dtype=object)
         self._sort_data_by_x()
         self.cache_path = Path(ensure_extension(os.fspath(cache_path), ".json"))
-        self.available_models: dict[str, FitSessionModelType] = dict(available_models or {})
+        self.available_models = self._build_available_models(available_models)
         self.models: list[SessionModel] = []
         self._next_model_id = 1
         self._next_color_index = 0
         self.load_state()
+
+    def _build_available_models(
+        self,
+        available_models: AvailableModels | None,
+    ) -> dict[str, FitSessionModelType]:
+        resolved_models: dict[str, FitSessionModelType] = dict(available_models or {})
+        for model in list(resolved_models.values()):
+            model_name = getattr(model, "__name__", None)
+            if model_name is not None and model_name not in resolved_models:
+                resolved_models[model_name] = model
+        return resolved_models
 
     def _sort_data_by_x(self) -> None:
         if len(self.x) <= 1:
@@ -217,7 +228,11 @@ class FitSession:
         name: Optional[str] = None,
     ) -> int:
         session_model = self.get_model(model_id)
-        resolved_id = len(session_model.components) + 1 if component_id is None else int(component_id)
+        resolved_id = (
+            max((component.id for component in session_model.components), default=0) + 1
+            if component_id is None
+            else int(component_id)
+        )
         if any(component.id == resolved_id for component in session_model.components):
             raise ValueError(f"Duplicate component id '{resolved_id}' in model '{model_id}'.")
 
@@ -226,8 +241,11 @@ class FitSession:
                 id=resolved_id,
                 model_type=model_type,
                 enabled=enabled,
-                name=name,
-                registry_key=name or getattr(model_type, "__name__", None),
+                name=self._deduplicate_component_name(
+                    session_model,
+                    name or getattr(model_type, "__name__", None),
+                ),
+                registry_key=self._registry_key_for_model_type(model_type),
             )
         )
         self.invalidate_model(model_id)
@@ -259,6 +277,20 @@ class FitSession:
         component = self.get_component(model_id, component_id)
         component.enabled = enabled
         self.invalidate_model(model_id)
+        self.save_state()
+
+    def rename_component(self, model_id: int, component_id: int, new_name: str) -> None:
+        session_model = self.get_model(model_id)
+        component = self.get_component(model_id, component_id)
+        normalized_name = self._normalize_component_name(new_name)
+        if any(
+            other.id != component_id and other.name == normalized_name
+            for other in session_model.components
+        ):
+            raise ValueError(
+                f"Duplicate component name: '{normalized_name}' in model '{session_model.display_name}'."
+            )
+        component.name = normalized_name
         self.save_state()
 
     def move_component(
@@ -392,6 +424,7 @@ class FitSession:
             interval=self._resolve_x_interval(instance),
             model_id=instance.id,
             model_name=instance.display_name,
+            components=self._build_component_analyses(instance),
         )
 
     def fit(
@@ -659,6 +692,12 @@ class FitSession:
             raise KeyError(f"Unknown saved model type '{model_name}'.")
         return getattr(models_module, model_name)
 
+    def _registry_key_for_model_type(self, model_type: FitSessionModelType) -> str | None:
+        for registry_key, candidate in self.available_models.items():
+            if candidate is model_type and registry_key != getattr(model_type, "__name__", None):
+                return registry_key
+        return getattr(model_type, "__name__", None)
+
     def _resolve_analysis_model(self, model_ref: str | int) -> SessionModel:
         if isinstance(model_ref, (int, np.integer)):
             return self.get_model(int(model_ref))
@@ -694,6 +733,52 @@ class FitSession:
                 raise ValueError(f"Duplicate saved model name: '{normalized_name}'.")
             instance.name = normalized_name
             seen_names.add(normalized_name)
+
+    def _normalize_component_name(self, component_name: str) -> str:
+        normalized_name = str(component_name).strip()
+        if normalized_name == "":
+            raise ValueError("Component name must not be empty.")
+        return normalized_name
+
+    def _deduplicate_component_name(
+        self,
+        session_model: SessionModel,
+        component_name: str | None,
+        *,
+        exclude_component_id: int | None = None,
+    ) -> str | None:
+        if component_name is None:
+            return None
+        normalized_name = self._normalize_component_name(component_name)
+        if not any(
+            component.id != exclude_component_id and component.name == normalized_name
+            for component in session_model.components
+        ):
+            return normalized_name
+
+        suffix = 2
+        while True:
+            candidate = f"{normalized_name} {suffix}"
+            if not any(
+                component.id != exclude_component_id and component.name == candidate
+                for component in session_model.components
+            ):
+                return candidate
+            suffix += 1
+
+    def _validate_unique_component_names(self) -> None:
+        for instance in self.models:
+            seen_names: set[str] = set()
+            for component in instance.components:
+                if component.name is None:
+                    continue
+                normalized_name = self._normalize_component_name(component.name)
+                if normalized_name in seen_names:
+                    raise ValueError(
+                        f"Duplicate saved component name '{normalized_name}' in model '{instance.display_name}'."
+                    )
+                component.name = normalized_name
+                seen_names.add(normalized_name)
 
     def _serialize_state(self) -> dict:
         return {
@@ -754,11 +839,11 @@ class FitSession:
                     CompositionComponent(
                         id=int(component_data["id"]),
                         model_type=self._resolve_model_type(
-                            component_data.get("registry_key") or component_data.get("model_type")
+                            component_data.get("model_type") or component_data.get("registry_key")
                         ),
                         enabled=bool(component_data.get("enabled", True)),
                         name=component_data.get("name"),
-                        registry_key=component_data.get("registry_key") or component_data.get("model_type"),
+                        registry_key=component_data.get("model_type") or component_data.get("registry_key"),
                     )
                     for component_data in model_data.get("components", [])
                 ],
@@ -790,6 +875,7 @@ class FitSession:
             max((instance.color_index for instance in self.models), default=-1) + 1
         )
         self._validate_unique_model_names()
+        self._validate_unique_component_names()
 
     def _load_interval_display_mode(self, model_data: dict[str, Any]) -> IntervalDisplayMode:
         saved_mode = model_data.get("interval_display_mode")
@@ -828,6 +914,74 @@ class FitSession:
             for component in components
             if component.enabled
         ]
+
+    def _build_component_analyses(
+        self,
+        instance: SessionModel,
+    ) -> list[ComponentFitAnalysis]:
+        if instance.result is None or not hasattr(instance.result, "params"):
+            return []
+
+        active_components = [component for component in instance.components if component.enabled]
+        if any(
+            not hasattr(component.model_type, "model") or not hasattr(component.model_type, "get_param_names")
+            for component in active_components
+        ):
+            return []
+        blocks = self._active_component_blocks(instance.components)
+        flat_names = self._flat_param_names_for_blocks(blocks)
+        flat_names_by_component: dict[int, list[tuple[str, str]]] = {}
+        for component_id, param_name, flat_name in flat_names:
+            flat_names_by_component.setdefault(component_id, []).append((param_name, flat_name))
+
+        component_analyses: list[ComponentFitAnalysis] = []
+        for position, component in enumerate(active_components, start=1):
+            component_params = {
+                param_name: instance.result.params[flat_name]
+                for param_name, flat_name in flat_names_by_component.get(component.id, [])
+            }
+            component_analyses.append(
+                ComponentFitAnalysis(
+                    component_id=component.id,
+                    order=position,
+                    name=component.display_name,
+                    model_name=getattr(component.model_type, "__name__", str(component.model_type)),
+                    params=self._build_component_param_dataset(component_params),
+                    evaluate_func=self._build_component_eval(component.model_type, component_params),
+                    evaluate_nominal_func=self._build_component_nominal_eval(component.model_type, component_params),
+                    interval=self._resolve_x_interval(instance),
+                )
+            )
+        return component_analyses
+
+    def _build_component_param_dataset(self, params: dict[str, Any]):
+        from ...structs.dataset import Dataset
+
+        return Dataset(params)
+
+    def _build_component_eval(self, model_type: FitSessionModelType, params: dict[str, Any]):
+        ordered_names = list(self._component_param_names(model_type))
+
+        def evaluate(x_val):
+            values = [params[name] for name in ordered_names]
+            if isinstance(x_val, (list, np.ndarray)):
+                return [model_type.model(x, *values) for x in x_val]  # type: ignore[attr-defined]
+            return model_type.model(x_val, *values)  # type: ignore[attr-defined]
+
+        return evaluate
+
+    def _build_component_nominal_eval(self, model_type: FitSessionModelType, params: dict[str, Any]):
+        ordered_values = [
+            float(params[name].value if hasattr(params[name], "value") else params[name])
+            for name in self._component_param_names(model_type)
+        ]
+
+        def evaluate_nominal(x_val):
+            if isinstance(x_val, (list, np.ndarray)):
+                return np.asarray([model_type.model(x, *ordered_values) for x in x_val])  # type: ignore[attr-defined]
+            return model_type.model(x_val, *ordered_values)  # type: ignore[attr-defined]
+
+        return evaluate_nominal
 
     def _flat_param_names_for_blocks(
         self,

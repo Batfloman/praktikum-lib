@@ -36,6 +36,9 @@ def manual_fit_session(
 ) -> FitSession:
     x_values, resolved_xerr = _normalize_data_with_embedded_errors(x, explicit_err=xerr)
     y_values, resolved_yerr = _normalize_data_with_embedded_errors(y, explicit_err=yerr)
+    resolved_available_models = dict(available_models or {})
+    if default_model is not None:
+        resolved_available_models.setdefault(default_model.__name__, default_model)
 
     session = FitSession(
         x_values,
@@ -43,7 +46,7 @@ def manual_fit_session(
         xerr=resolved_xerr,
         yerr=resolved_yerr,
         cache_path=cache_path,
-        available_models=available_models,
+        available_models=resolved_available_models,
     )
     session.original_x = np.asarray(x, dtype=object)
     session.original_y = np.asarray(y, dtype=object)
@@ -64,7 +67,7 @@ def manual_fit_session(
     visualization_window, models_window = open_fit_session_windows(
         session,
         default_model=default_model,
-        available_models=available_models,
+        available_models=resolved_available_models,
         visualization_title=visualization_title,
         models_title=models_title,
     )
