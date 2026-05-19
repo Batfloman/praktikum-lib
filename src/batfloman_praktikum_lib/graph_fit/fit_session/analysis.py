@@ -1,5 +1,6 @@
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Callable
+from typing import Any, Callable, Literal
 
 from ...structs.dataset import Dataset
 from ...structs.measurement import Measurement
@@ -10,6 +11,26 @@ from .area import (
     integrate_with_error,
     resolve_finite_bounds,
 )
+
+RecordConflictMode = Literal["raise", "overwrite"]
+
+
+def _merge_record_data(
+    base: Dataset,
+    extra: Mapping[str, Any] | Dataset | None,
+    *,
+    on_conflict: RecordConflictMode,
+) -> Dataset:
+    if extra is None:
+        return base
+
+    merged = base.copy()
+    extra_items = extra.items() if hasattr(extra, "items") else dict(extra).items()
+    for key, value in extra_items:
+        if key in merged and on_conflict == "raise":
+            raise ValueError(f"Duplicate record field '{key}'.")
+        merged[key] = value
+    return merged
 
 
 @dataclass(frozen=True)
@@ -30,6 +51,28 @@ class ComponentFitAnalysis:
 
     def evaluate_nominal(self, x):
         return self.evaluate_nominal_func(x)
+
+    def to_record(
+        self,
+        *,
+        fit_name: str | None = None,
+        model_id: int | None = None,
+        extra: Mapping[str, Any] | Dataset | None = None,
+        on_conflict: RecordConflictMode = "raise",
+    ) -> Dataset:
+        record = Dataset({
+            "component_id": self.component_id,
+            "component_name": self.name,
+            "component_model": self.model_name,
+            "interval_start": self.interval[0],
+            "interval_end": self.interval[1],
+        })
+        if fit_name is not None:
+            record["fit_name"] = fit_name
+        if model_id is not None:
+            record["model_id"] = model_id
+        record.update(self.params.items())
+        return _merge_record_data(record, extra, on_conflict=on_conflict)
 
     def area(
         self,
@@ -77,6 +120,41 @@ class FitAnalysis:
 
     def evaluate_nominal(self, x):
         return self.fit_result.func_no_err(x)
+
+    def to_record(
+        self,
+        *,
+        extra: Mapping[str, Any] | Dataset | None = None,
+        on_conflict: RecordConflictMode = "raise",
+    ) -> Dataset:
+        fit_record = Dataset({
+            "fit_name": self.model_name,
+            "model_id": self.model_id,
+            "interval_start": self.interval[0],
+            "interval_end": self.interval[1],
+        })
+        fit_record.update(self.params.items())
+        return _merge_record_data(fit_record, extra, on_conflict=on_conflict)
+
+    def to_records(
+        self,
+        *,
+        split_components: bool = False,
+        extra: Mapping[str, Any] | Dataset | None = None,
+        on_conflict: RecordConflictMode = "raise",
+    ) -> list[Dataset]:
+        if not split_components:
+            return [self.to_record(extra=extra, on_conflict=on_conflict)]
+
+        return [
+            component.to_record(
+                fit_name=self.model_name,
+                model_id=self.model_id,
+                extra=extra,
+                on_conflict=on_conflict,
+            )
+            for component in self.components
+        ]
 
     def area(
         self,

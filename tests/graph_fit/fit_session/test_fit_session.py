@@ -532,6 +532,190 @@ def test_fit_session_analyze_component_lookup_by_id_and_name(tmp_path):
     assert signal.area("interval").value > 0
 
 
+def test_component_fit_analysis_to_record_flattens_component_params(tmp_path):
+    fit_result_module = importlib.import_module("batfloman_praktikum_lib.graph_fit.fitResult")
+    models_module = importlib.import_module("batfloman_praktikum_lib.graph_fit.models")
+
+    composite_model = models_module.Gaussian + models_module.Linear
+    result = fit_result_module.generate_fit_result(
+        composite_model.model,
+        values=[10.0, 2.0, 5.0, 0.5, 1.0],
+        errors=[1.0, 0.2, 0.3, 0.05, 0.1],
+        cov=[],
+        param_names=composite_model.get_param_names(),
+        quality=1.0,
+        method="least squares",
+    )
+
+    session = workspace_module.FitSession(
+        np.linspace(0, 10, 8),
+        np.linspace(0, 10, 8),
+        cache_path=tmp_path / "cache" / "session.json",
+    )
+    model_id = session.add_model(name="Peak")
+    component_id = session.add_component(model_id, models_module.Gaussian, name="Signal")
+    session.add_component(model_id, models_module.Linear, name="Background")
+    session.get_model(model_id).result = result
+
+    analysis = session.analyze(model_id, auto_fit=False)
+    record = analysis.component(component_id).to_record(
+        fit_name=analysis.model_name,
+        model_id=analysis.model_id,
+    )
+
+    assert record["fit_name"] == "Peak"
+    assert record["model_id"] == model_id
+    assert record["component_id"] == component_id
+    assert record["component_name"] == "Signal"
+    assert record["component_model"] == "Gaussian"
+    assert record["A"].value == 10.0
+    assert record["sigma"].value == 2.0
+    assert record["x0"].value == 5.0
+
+
+def test_component_fit_analysis_to_record_merges_extra_fields_and_detects_conflicts(tmp_path):
+    fit_result_module = importlib.import_module("batfloman_praktikum_lib.graph_fit.fitResult")
+    models_module = importlib.import_module("batfloman_praktikum_lib.graph_fit.models")
+
+    composite_model = models_module.Gaussian + models_module.Linear
+    result = fit_result_module.generate_fit_result(
+        composite_model.model,
+        values=[10.0, 2.0, 5.0, 0.5, 1.0],
+        errors=[1.0, 0.2, 0.3, 0.05, 0.1],
+        cov=[],
+        param_names=composite_model.get_param_names(),
+        quality=1.0,
+        method="least squares",
+    )
+
+    session = workspace_module.FitSession(
+        np.linspace(0, 10, 8),
+        np.linspace(0, 10, 8),
+        cache_path=tmp_path / "cache" / "session.json",
+    )
+    model_id = session.add_model(name="Peak")
+    component_id = session.add_component(model_id, models_module.Gaussian, name="Signal")
+    session.add_component(model_id, models_module.Linear, name="Background")
+    session.get_model(model_id).result = result
+
+    component = session.analyze(model_id, auto_fit=False).component(component_id)
+
+    record = component.to_record(
+        fit_name="Peak",
+        model_id=model_id,
+        extra={"E": Measurement(1173.2, "0.01%"), "quelle": "Co"},
+    )
+    assert record["E"].value == pytest.approx(1173.2)
+    assert record["quelle"] == "Co"
+
+    with pytest.raises(ValueError, match="Duplicate record field 'fit_name'"):
+        component.to_record(
+            fit_name="Peak",
+            extra={"fit_name": "override"},
+        )
+
+    overwritten = component.to_record(
+        fit_name="Peak",
+        extra={"fit_name": "override"},
+        on_conflict="overwrite",
+    )
+    assert overwritten["fit_name"] == "override"
+
+
+def test_fit_analysis_to_records_supports_fit_and_component_rows(tmp_path):
+    fit_result_module = importlib.import_module("batfloman_praktikum_lib.graph_fit.fitResult")
+    models_module = importlib.import_module("batfloman_praktikum_lib.graph_fit.models")
+
+    composite_model = models_module.Gaussian + models_module.Linear
+    result = fit_result_module.generate_fit_result(
+        composite_model.model,
+        values=[10.0, 2.0, 5.0, 0.5, 1.0],
+        errors=[1.0, 0.2, 0.3, 0.05, 0.1],
+        cov=[],
+        param_names=composite_model.get_param_names(),
+        quality=1.0,
+        method="least squares",
+    )
+
+    session = workspace_module.FitSession(
+        np.linspace(0, 10, 8),
+        np.linspace(0, 10, 8),
+        cache_path=tmp_path / "cache" / "session.json",
+    )
+    model_id = session.add_model(name="Peak")
+    session.add_component(model_id, models_module.Gaussian, name="Signal")
+    session.add_component(model_id, models_module.Linear, name="Background")
+    session.get_model(model_id).result = result
+
+    analysis = session.analyze(model_id, auto_fit=False)
+
+    fit_rows = analysis.to_records(split_components=False)
+    component_rows = analysis.to_records(split_components=True)
+
+    assert len(fit_rows) == 1
+    assert fit_rows[0]["fit_name"] == "Peak"
+    assert fit_rows[0]["A_1"].value == 10.0
+    assert fit_rows[0]["m_2"].value == 0.5
+
+    assert len(component_rows) == 2
+    assert component_rows[0]["component_name"] == "Signal"
+    assert component_rows[0]["A"].value == 10.0
+    assert component_rows[1]["component_name"] == "Background"
+    assert component_rows[1]["m"].value == 0.5
+
+
+def test_fit_analysis_to_record_and_to_records_support_extra_fields(tmp_path):
+    fit_result_module = importlib.import_module("batfloman_praktikum_lib.graph_fit.fitResult")
+    models_module = importlib.import_module("batfloman_praktikum_lib.graph_fit.models")
+
+    composite_model = models_module.Gaussian + models_module.Linear
+    result = fit_result_module.generate_fit_result(
+        composite_model.model,
+        values=[10.0, 2.0, 5.0, 0.5, 1.0],
+        errors=[1.0, 0.2, 0.3, 0.05, 0.1],
+        cov=[],
+        param_names=composite_model.get_param_names(),
+        quality=1.0,
+        method="least squares",
+    )
+
+    session = workspace_module.FitSession(
+        np.linspace(0, 10, 8),
+        np.linspace(0, 10, 8),
+        cache_path=tmp_path / "cache" / "session.json",
+    )
+    model_id = session.add_model(name="Peak")
+    session.add_component(model_id, models_module.Gaussian, name="Signal")
+    session.add_component(model_id, models_module.Linear, name="Background")
+    session.get_model(model_id).result = result
+
+    analysis = session.analyze(model_id, auto_fit=False)
+
+    fit_record = analysis.to_record(extra={"E": Measurement(661.7, "0.01%"), "quelle": "Cs"})
+    assert fit_record["fit_name"] == "Peak"
+    assert fit_record["A_1"].value == 10.0
+    assert fit_record["E"].value == pytest.approx(661.7)
+    assert fit_record["quelle"] == "Cs"
+
+    component_rows = analysis.to_records(
+        split_components=True,
+        extra={"quelle": "Cs"},
+    )
+    assert len(component_rows) == 2
+    assert component_rows[0]["quelle"] == "Cs"
+    assert component_rows[1]["quelle"] == "Cs"
+
+    with pytest.raises(ValueError, match="Duplicate record field 'fit_name'"):
+        analysis.to_record(extra={"fit_name": "override"})
+
+    overwritten = analysis.to_records(
+        split_components=False,
+        extra={"fit_name": "override"},
+        on_conflict="overwrite",
+    )
+    assert overwritten[0]["fit_name"] == "override"
+
+
 def test_fit_session_analyze_component_model_name_lookup_requires_uniqueness(tmp_path):
     fit_result_module = importlib.import_module("batfloman_praktikum_lib.graph_fit.fitResult")
     models_module = importlib.import_module("batfloman_praktikum_lib.graph_fit.models")
