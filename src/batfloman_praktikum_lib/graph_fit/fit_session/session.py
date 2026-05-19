@@ -946,6 +946,7 @@ class FitSession:
                     order=position,
                     name=component.display_name,
                     model_name=getattr(component.model_type, "__name__", str(component.model_type)),
+                    model_type=component.model_type,
                     params=self._build_component_param_dataset(component_params),
                     evaluate_func=self._build_component_eval(component.model_type, component_params),
                     evaluate_nominal_func=self._build_component_nominal_eval(component.model_type, component_params),

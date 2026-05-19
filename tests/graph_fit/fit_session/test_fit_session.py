@@ -529,6 +529,7 @@ def test_fit_session_analyze_component_lookup_by_id_and_name(tmp_path):
     assert background.component_id == second_component_id
     assert background.model_name == "Linear"
     assert background.params["m"].value == 0.5
+    assert signal.area("interval").value > 0
 
 
 def test_fit_session_analyze_component_model_name_lookup_requires_uniqueness(tmp_path):
@@ -560,6 +561,103 @@ def test_fit_session_analyze_component_model_name_lookup_requires_uniqueness(tmp
 
     with pytest.raises(ValueError, match="Ambiguous component reference 'Gaussian'"):
         analysis.component("Gaussian")
+
+
+def test_component_fit_analysis_area_requires_explicit_bounds_and_supports_gaussian_modes(tmp_path):
+    fit_result_module = importlib.import_module("batfloman_praktikum_lib.graph_fit.fitResult")
+    models_module = importlib.import_module("batfloman_praktikum_lib.graph_fit.models")
+
+    composite_model = models_module.Gaussian + models_module.Linear
+    result = fit_result_module.generate_fit_result(
+        composite_model.model,
+        values=[10.0, 2.0, 1.0, 0.5, 1.0],
+        errors=[1.0, 0.2, 0.1, 0.05, 0.1],
+        cov=[],
+        param_names=composite_model.get_param_names(),
+        quality=1.0,
+        method="least squares",
+    )
+
+    session = workspace_module.FitSession(
+        np.linspace(-2, 4, 12),
+        np.linspace(0, 1, 12),
+        cache_path=tmp_path / "cache" / "session.json",
+    )
+    model_id = session.add_model(name="Peak")
+    session.add_component(model_id, models_module.Gaussian, name="Signal")
+    session.add_component(model_id, models_module.Linear, name="Background")
+    session.get_model(model_id).result = result
+
+    analysis = session.analyze(model_id, auto_fit=False)
+    signal = analysis.component("Signal")
+
+    interval_area = signal.area("interval")
+    custom_area = signal.area((-1.0, 2.0))
+    full_area = signal.area("full")
+    positive_area = signal.area("positive")
+    negative_area = signal.area("negative")
+
+    assert interval_area.value > 0
+    assert custom_area.value > 0
+    assert full_area.value == pytest.approx(10.0 * 2.0 * np.sqrt(2 * np.pi))
+    assert positive_area.value + negative_area.value == pytest.approx(full_area.value)
+
+    with pytest.raises(TypeError):
+        signal.area()  # type: ignore[call-arg]
+
+
+def test_fit_analysis_full_bounds_sum_supported_components_and_fail_for_unsupported(tmp_path):
+    fit_result_module = importlib.import_module("batfloman_praktikum_lib.graph_fit.fitResult")
+    models_module = importlib.import_module("batfloman_praktikum_lib.graph_fit.models")
+
+    gaussian_pair = models_module.Gaussian + models_module.Gaussian
+    gaussian_pair_result = fit_result_module.generate_fit_result(
+        gaussian_pair.model,
+        values=[10.0, 2.0, -1.0, 4.0, 1.0, 2.0],
+        errors=[1.0, 0.2, 0.1, 0.4, 0.1, 0.2],
+        cov=[],
+        param_names=gaussian_pair.get_param_names(),
+        quality=1.0,
+        method="least squares",
+    )
+
+    session = workspace_module.FitSession(
+        np.linspace(-3, 4, 12),
+        np.linspace(0, 1, 12),
+        cache_path=tmp_path / "cache" / "session.json",
+    )
+    model_id = session.add_model(name="Double")
+    session.add_component(model_id, models_module.Gaussian, name="G1")
+    session.add_component(model_id, models_module.Gaussian, name="G2")
+    session.get_model(model_id).result = gaussian_pair_result
+    analysis = session.analyze(model_id, auto_fit=False)
+
+    summed = analysis.component("G1").area("full") + analysis.component("G2").area("full")
+    assert analysis.area("full").value == pytest.approx(summed.value)
+
+    mixed_model = models_module.Gaussian + models_module.Linear
+    mixed_result = fit_result_module.generate_fit_result(
+        mixed_model.model,
+        values=[10.0, 2.0, 1.0, 0.5, 1.0],
+        errors=[1.0, 0.2, 0.1, 0.05, 0.1],
+        cov=[],
+        param_names=mixed_model.get_param_names(),
+        quality=1.0,
+        method="least squares",
+    )
+    mixed_session = workspace_module.FitSession(
+        np.linspace(-2, 4, 12),
+        np.linspace(0, 1, 12),
+        cache_path=tmp_path / "cache" / "session-mixed.json",
+    )
+    mixed_model_id = mixed_session.add_model(name="Mixed")
+    mixed_session.add_component(mixed_model_id, models_module.Gaussian, name="Signal")
+    mixed_session.add_component(mixed_model_id, models_module.Linear, name="Background")
+    mixed_session.get_model(mixed_model_id).result = mixed_result
+    mixed_analysis = mixed_session.analyze(mixed_model_id, auto_fit=False)
+
+    with pytest.raises(NotImplementedError):
+        mixed_analysis.area("full")
 
 
 def test_fit_session_sorts_working_data_by_x(tmp_path):

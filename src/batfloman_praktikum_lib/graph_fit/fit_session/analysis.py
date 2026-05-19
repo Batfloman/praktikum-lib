@@ -1,46 +1,15 @@
 from dataclasses import dataclass, field
-from typing import Callable, Optional
-
-import numpy as np
+from typing import Callable
 
 from ...structs.dataset import Dataset
 from ...structs.measurement import Measurement
 from ..fitResult import FitResult
-
-
-def _integrate_with_error(
-    evaluate_nominal: Callable,
-    evaluate: Callable,
-    interval: tuple[float, float],
-    xmin: Optional[float],
-    xmax: Optional[float],
-    *,
-    sample_count: int,
-) -> Measurement:
-    resolved_xmin = interval[0] if xmin is None else float(xmin)
-    resolved_xmax = interval[1] if xmax is None else float(xmax)
-    resolved_xmin, resolved_xmax = sorted((resolved_xmin, resolved_xmax))
-
-    if sample_count < 2:
-        raise ValueError("sample_count must be at least 2.")
-
-    x_line = np.linspace(resolved_xmin, resolved_xmax, sample_count)
-    nominal = np.asarray(evaluate_nominal(x_line), dtype=float)
-    measured = evaluate(x_line)
-    lower = np.asarray(
-        [value.value - value.error for value in measured],
-        dtype=float,
-    )
-    upper = np.asarray(
-        [value.value + value.error for value in measured],
-        dtype=float,
-    )
-
-    area = float(np.trapezoid(nominal, x_line))
-    lower_area = float(np.trapezoid(lower, x_line))
-    upper_area = float(np.trapezoid(upper, x_line))
-    error = max(upper_area - area, area - lower_area)
-    return Measurement(area, error)
+from .area import (
+    AreaBounds,
+    component_area_special_bounds,
+    integrate_with_error,
+    resolve_finite_bounds,
+)
 
 
 @dataclass(frozen=True)
@@ -49,6 +18,7 @@ class ComponentFitAnalysis:
     order: int
     name: str
     model_name: str
+    model_type: object | None
     params: Dataset
     evaluate_func: Callable
     evaluate_nominal_func: Callable
@@ -63,17 +33,21 @@ class ComponentFitAnalysis:
 
     def area(
         self,
-        xmin: Optional[float] = None,
-        xmax: Optional[float] = None,
+        bounds: AreaBounds,
         *,
         sample_count: int = 1000,
     ) -> Measurement:
-        return _integrate_with_error(
+        if bounds in {"full", "positive", "negative"}:
+            return component_area_special_bounds(
+                model_name=self.model_name,
+                params=self.params,
+                bounds=bounds,
+            )
+
+        return integrate_with_error(
             self.evaluate_nominal_func,
             self.evaluate_func,
-            self.interval,
-            xmin,
-            xmax,
+            resolve_finite_bounds(self.interval, bounds),
             sample_count=sample_count,
         )
 
@@ -106,17 +80,24 @@ class FitAnalysis:
 
     def area(
         self,
-        xmin: Optional[float] = None,
-        xmax: Optional[float] = None,
+        bounds: AreaBounds,
         *,
         sample_count: int = 1000,
     ) -> Measurement:
-        return _integrate_with_error(
+        if bounds in {"full", "positive", "negative"}:
+            if not self.components:
+                raise NotImplementedError(
+                    f"Bounds '{bounds}' are not available for this fit analysis."
+                )
+            total = Measurement(0, 0)
+            for component in self.components:
+                total = total + component.area(bounds, sample_count=sample_count)
+            return total
+
+        return integrate_with_error(
             self.fit_result.func_no_err,
             self.fit_result.func,
-            self.interval,
-            xmin,
-            xmax,
+            resolve_finite_bounds(self.interval, bounds),
             sample_count=sample_count,
         )
 
