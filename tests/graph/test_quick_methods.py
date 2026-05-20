@@ -1,6 +1,7 @@
 from matplotlib import pyplot as plt
 from matplotlib._pylab_helpers import Gcf
 
+import batfloman_praktikum_lib.graph.quickMethods as quick_methods_module
 from batfloman_praktikum_lib.graph.quickMethods import create_plot, show
 
 
@@ -107,3 +108,27 @@ def test_show_without_arguments_does_not_reregister_tracked_closed_plots(monkeyp
 
     assert Gcf.get_fig_manager(fig.number) is None
     assert shown == [(True, ())]
+
+
+def test_show_ignore_quiet_bypasses_skip_logic(monkeypatch):
+    plt.close("all")
+    create_plot()
+
+    called = {"skip": 0}
+    shown = []
+
+    monkeypatch.setattr(
+        quick_methods_module,
+        "should_skip_popup_sequence",
+        lambda: called.__setitem__("skip", called["skip"] + 1),
+    )
+    monkeypatch.setattr(
+        plt,
+        "show",
+        lambda block=True: shown.append(block),
+    )
+
+    show(ignore_quiet=True)
+
+    assert called["skip"] == 0
+    assert shown == [True]

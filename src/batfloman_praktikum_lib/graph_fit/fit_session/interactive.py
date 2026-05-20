@@ -5,7 +5,7 @@ import numpy as np
 from PyQt6.QtCore import QEventLoop, Qt
 from PyQt6.QtWidgets import QApplication
 
-from ...flags import check_quiet
+from ...flags import should_skip_popup_sequence
 from ...graph.adapter_measurement import extract_value_error
 from .session import AvailableModels, FitSession
 from .windows import open_fit_session_windows
@@ -58,7 +58,7 @@ def manual_fit_session(
             f"No saved fit session configuration found at '{session.cache_path}'."
         )
 
-    if use_cache or check_quiet():
+    if use_cache or should_skip_popup_sequence():
         session.try_fit_models()
         return session
 

@@ -920,7 +920,7 @@ def test_manual_fit_session_returns_cached_session_in_quiet_mode(monkeypatch, tm
 
     called = {"windows": 0}
 
-    monkeypatch.setattr(interactive_module, "check_quiet", lambda: True)
+    monkeypatch.setattr(interactive_module, "should_skip_popup_sequence", lambda: True)
     monkeypatch.setattr(
         interactive_module,
         "open_fit_session_windows",
@@ -957,7 +957,7 @@ def test_manual_fit_session_use_cache_skips_windows(monkeypatch, tmp_path):
 
     called = {"windows": 0}
 
-    monkeypatch.setattr(interactive_module, "check_quiet", lambda: False)
+    monkeypatch.setattr(interactive_module, "should_skip_popup_sequence", lambda: False)
     monkeypatch.setattr(
         interactive_module,
         "open_fit_session_windows",
@@ -981,7 +981,7 @@ def test_manual_fit_session_require_cache_raises_without_saved_session(monkeypat
         "batfloman_praktikum_lib.graph_fit.fit_session.interactive"
     )
 
-    monkeypatch.setattr(interactive_module, "check_quiet", lambda: True)
+    monkeypatch.setattr(interactive_module, "should_skip_popup_sequence", lambda: True)
 
     with pytest.raises(ValueError, match="No saved fit session configuration"):
         interactive_module.manual_fit_session(
@@ -1025,7 +1025,7 @@ def test_manual_fit_session_loads_saved_custom_model_from_default_model(monkeypa
 """.strip()
     )
 
-    monkeypatch.setattr(interactive_module, "check_quiet", lambda: True)
+    monkeypatch.setattr(interactive_module, "should_skip_popup_sequence", lambda: True)
 
     session = interactive_module.manual_fit_session(
         np.arange(4),

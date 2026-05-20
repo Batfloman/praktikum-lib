@@ -101,7 +101,7 @@ def test_manual_init_params_passes_composite_model_to_parameter_window(monkeypat
             return self._value
 
     monkeypatch.setattr(manual_init_params_module, "QApplication", DummyQApplication)
-    monkeypatch.setattr(manual_init_params_module, "check_quiet", lambda: False)
+    monkeypatch.setattr(manual_init_params_module, "should_skip_popup_sequence", lambda: False)
     monkeypatch.setattr(manual_init_params_module, "GraphWindow", DummyGraphWindow)
     monkeypatch.setattr(manual_init_params_module, "ParameterWindow", DummyParameterWindow)
     monkeypatch.setattr(manual_init_params_module, "FitSelectionWindow", DummyFitSelectionWindow)
@@ -213,7 +213,7 @@ def test_manual_init_params_passes_custom_render_parts(monkeypatch, tmp_path):
             return self._value
 
     monkeypatch.setattr(manual_init_params_module, "QApplication", DummyQApplication)
-    monkeypatch.setattr(manual_init_params_module, "check_quiet", lambda: False)
+    monkeypatch.setattr(manual_init_params_module, "should_skip_popup_sequence", lambda: False)
     monkeypatch.setattr(manual_init_params_module, "GraphWindow", DummyGraphWindow)
     monkeypatch.setattr(manual_init_params_module, "ParameterWindow", DummyParameterWindow)
     monkeypatch.setattr(manual_init_params_module, "FitSelectionWindow", DummyFitSelectionWindow)
@@ -254,7 +254,7 @@ def test_manual_init_params_returns_cached_values_in_quiet_mode(monkeypatch, tmp
         """.strip()
     )
 
-    monkeypatch.setattr(manual_init_params_module, "check_quiet", lambda: True)
+    monkeypatch.setattr(manual_init_params_module, "should_skip_popup_sequence", lambda: True)
 
     result = manual_init_params_module.manual_init_params(
         Gaussian,
@@ -267,7 +267,7 @@ def test_manual_init_params_returns_cached_values_in_quiet_mode(monkeypatch, tmp
 
 
 def test_manual_init_params_returns_defaults_in_quiet_mode_without_cache(monkeypatch, tmp_path):
-    monkeypatch.setattr(manual_init_params_module, "check_quiet", lambda: True)
+    monkeypatch.setattr(manual_init_params_module, "should_skip_popup_sequence", lambda: True)
 
     result = manual_init_params_module.manual_init_params(
         Gaussian,
@@ -290,7 +290,7 @@ def test_manual_init_params_require_cache_raises_without_complete_cache(monkeypa
         """.strip()
     )
 
-    monkeypatch.setattr(manual_init_params_module, "check_quiet", lambda: True)
+    monkeypatch.setattr(manual_init_params_module, "should_skip_popup_sequence", lambda: True)
 
     with pytest.raises(ValueError, match="No complete cached manual init parameters"):
         manual_init_params_module.manual_init_params(
@@ -303,7 +303,7 @@ def test_manual_init_params_require_cache_raises_without_complete_cache(monkeypa
 
 
 def test_manual_fit_setup_returns_bound_setup_in_quiet_mode(monkeypatch, tmp_path):
-    monkeypatch.setattr(manual_init_params_module, "check_quiet", lambda: True)
+    monkeypatch.setattr(manual_init_params_module, "should_skip_popup_sequence", lambda: True)
 
     setup = manual_init_params_module.manual_fit_setup(
         Gaussian,
@@ -324,7 +324,7 @@ def test_manual_fit_setup_returns_bound_setup_in_quiet_mode(monkeypatch, tmp_pat
 
 
 def test_manual_fit_setup_fit_filters_bound_data_and_uses_odr_for_x_measurement_errors(monkeypatch, tmp_path):
-    monkeypatch.setattr(manual_init_params_module, "check_quiet", lambda: True)
+    monkeypatch.setattr(manual_init_params_module, "should_skip_popup_sequence", lambda: True)
     captured = {}
 
     def fake_odr(model, x_data, y_data, *, x_err=None, y_err=None, initial_guess=None, param_names=None, ignore_warning_x_errors=False, ignore_warning_y_errors=False):

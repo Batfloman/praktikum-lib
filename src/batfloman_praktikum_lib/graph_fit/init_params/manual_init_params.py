@@ -8,7 +8,7 @@ import inspect
 
 from PyQt6.QtCore import QObject, QEventLoop, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QApplication
-from ...flags import check_quiet
+from ...flags import should_skip_popup_sequence
 from .parameterWindow import ParameterWindow
 from .fitSelectionWindow import FitSelectionWindow
 from .graphWindow import GraphWindow
@@ -357,7 +357,7 @@ def manual_fit_setup(
             f"No complete cached manual init parameters found at '{filepath}'."
         )
 
-    if use_cache or check_quiet():
+    if use_cache or should_skip_popup_sequence():
         return ManualFitSetup(
             model=model_info,
             x=filtered_x_data,

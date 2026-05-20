@@ -13,7 +13,7 @@ from matplotlib._pylab_helpers import Gcf
 
 from ..io.termColors import bcolors
 from ..path_managment import create_dirs, dir_exist
-from ..flags import check_quiet
+from ..flags import should_skip_popup_sequence
 
 # ==================================================
 
@@ -121,7 +121,7 @@ def _show_registered(figures: Iterable[Figure]) -> None:
 
 
 def show(*plots: ShowArg, ignore_quiet: bool = False) -> None:
-    if check_quiet() and not ignore_quiet:
+    if not ignore_quiet and should_skip_popup_sequence():
         return
 
     if not plots:
