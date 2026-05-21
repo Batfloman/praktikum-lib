@@ -22,16 +22,24 @@ type AvailableModels = Mapping[str, FitSessionModelType]
 @dataclass
 class CompositionComponent:
     id: int
-    model_type: FitSessionModelType
+    model_type: FitSessionModelType | None
     enabled: bool = True
     name: Optional[str] = None
     registry_key: Optional[str] = None
+    saved_model_type_name: Optional[str] = None
+    load_error: Optional[str] = None
 
     @property
     def display_name(self) -> str:
         if self.name is not None:
             return self.name
-        return getattr(self.model_type, "__name__", str(self.model_type))
+        if self.model_type is not None:
+            return getattr(self.model_type, "__name__", str(self.model_type))
+        if self.saved_model_type_name is not None:
+            return self.saved_model_type_name
+        if self.registry_key is not None:
+            return self.registry_key
+        return "Unresolved Component"
 
 
 @dataclass
@@ -49,6 +57,7 @@ class SessionModel:
     setup: ManualFitSetup | None = None
     result: FitResult | None = None
     last_error: str | None = None
+    load_warning: str | None = None
     show_1sigma_band: bool = True
     interval_display_mode: IntervalDisplayMode = "selected-only"
 
@@ -57,7 +66,11 @@ class SessionModel:
         return self.name or str(self.id)
 
     def build_model(self):
-        active_components = [component.model_type for component in self.components if component.enabled]
+        active_components = [
+            component.model_type
+            for component in self.components
+            if component.enabled and component.model_type is not None
+        ]
         if not active_components:
             return None
 
@@ -275,6 +288,10 @@ class FitSession:
 
     def set_component_enabled(self, model_id: int, component_id: int, enabled: bool) -> None:
         component = self.get_component(model_id, component_id)
+        if enabled and component.model_type is None:
+            raise ValueError(
+                f"Component '{component.display_name}' cannot be enabled because its saved model type is unavailable."
+            )
         component.enabled = enabled
         self.invalidate_model(model_id)
         self.save_state()
@@ -698,6 +715,40 @@ class FitSession:
                 return registry_key
         return getattr(model_type, "__name__", None)
 
+    def _load_component_from_state(self, component_data: dict[str, Any]) -> CompositionComponent:
+        saved_registry_key = component_data.get("registry_key")
+        saved_model_type_name = component_data.get("model_type")
+        resolution_candidates = [
+            candidate
+            for candidate in (saved_registry_key, saved_model_type_name)
+            if candidate is not None
+        ]
+
+        resolved_model_type = None
+        load_error = None
+        for candidate in resolution_candidates:
+            try:
+                resolved_model_type = self._resolve_model_type(candidate)
+                break
+            except KeyError:
+                continue
+
+        enabled = bool(component_data.get("enabled", True))
+        if resolved_model_type is None:
+            primary_name = saved_registry_key or saved_model_type_name or "<missing>"
+            load_error = f"Unknown saved model type '{primary_name}'."
+            enabled = False
+
+        return CompositionComponent(
+            id=int(component_data["id"]),
+            model_type=resolved_model_type,
+            enabled=enabled,
+            name=component_data.get("name"),
+            registry_key=saved_registry_key,
+            saved_model_type_name=saved_model_type_name,
+            load_error=load_error,
+        )
+
     def _resolve_analysis_model(self, model_ref: str | int) -> SessionModel:
         if isinstance(model_ref, (int, np.integer)):
             return self.get_model(int(model_ref))
@@ -797,7 +848,8 @@ class FitSession:
                             "name": component.name,
                             "registry_key": component.registry_key,
                             "enabled": component.enabled,
-                            "model_type": getattr(component.model_type, "__name__", str(component.model_type)),
+                            "model_type": component.saved_model_type_name
+                            or getattr(component.model_type, "__name__", str(component.model_type)),
                         }
                         for component in instance.components
                     ],
@@ -836,18 +888,21 @@ class FitSession:
                 interval_display_mode=self._load_interval_display_mode(model_data),
                 initial_guess=None,
                 components=[
-                    CompositionComponent(
-                        id=int(component_data["id"]),
-                        model_type=self._resolve_model_type(
-                            component_data.get("model_type") or component_data.get("registry_key")
-                        ),
-                        enabled=bool(component_data.get("enabled", True)),
-                        name=component_data.get("name"),
-                        registry_key=component_data.get("model_type") or component_data.get("registry_key"),
-                    )
+                    self._load_component_from_state(component_data)
                     for component_data in model_data.get("components", [])
                 ],
             )
+            unresolved_components = [
+                component.display_name
+                for component in instance.components
+                if component.load_error is not None
+            ]
+            if unresolved_components:
+                joined = ", ".join(unresolved_components)
+                instance.load_warning = (
+                    "Unavailable saved component types were kept disabled: "
+                    f"{joined}"
+                )
 
             initial_guess = model_data.get("initial_guess")
             if initial_guess is not None:
@@ -855,16 +910,18 @@ class FitSession:
                     key: float(value)
                     for key, value in initial_guess.items()
                 }
-                instance.setup = ManualFitSetup(
-                    model=instance.build_model(),
-                    x=self.x,
-                    y=self.y,
-                    xerr=self.xerr,
-                    yerr=self.yerr,
-                    initial_guess=dict(instance.initial_guess),
-                    interval_indices=instance.interval if instance.interval_kind == "index" else None,
-                    excluded_indices=instance.excluded_indices,
-                )
+                built_model = instance.build_model()
+                if built_model is not None:
+                    instance.setup = ManualFitSetup(
+                        model=built_model,
+                        x=self.x,
+                        y=self.y,
+                        xerr=self.xerr,
+                        yerr=self.yerr,
+                        initial_guess=dict(instance.initial_guess),
+                        interval_indices=instance.interval if instance.interval_kind == "index" else None,
+                        excluded_indices=instance.excluded_indices,
+                    )
 
             self.models.append(instance)
 
@@ -928,17 +985,19 @@ class FitSession:
             for component in active_components
         ):
             return []
-        blocks = self._active_component_blocks(instance.components)
-        flat_names = self._flat_param_names_for_blocks(blocks)
-        flat_names_by_component: dict[int, list[tuple[str, str]]] = {}
-        for component_id, param_name, flat_name in flat_names:
-            flat_names_by_component.setdefault(component_id, []).append((param_name, flat_name))
 
         component_analyses: list[ComponentFitAnalysis] = []
         for position, component in enumerate(active_components, start=1):
+            component_param_names = self._component_param_names(component.model_type)
+            resolved_param_names = self._resolve_component_result_param_names(
+                instance,
+                component=component,
+                component_number=position,
+                param_names=component_param_names,
+            )
             component_params = {
-                param_name: instance.result.params[flat_name]
-                for param_name, flat_name in flat_names_by_component.get(component.id, [])
+                param_name: instance.result.params[resolved_name]
+                for param_name, resolved_name in resolved_param_names
             }
             component_analyses.append(
                 ComponentFitAnalysis(
@@ -954,6 +1013,34 @@ class FitSession:
                 )
             )
         return component_analyses
+
+    def _resolve_component_result_param_names(
+        self,
+        instance: SessionModel,
+        *,
+        component: CompositionComponent,
+        component_number: int,
+        param_names: list[str],
+    ) -> list[tuple[str, str]]:
+        assert instance.result is not None
+        result_params = instance.result.params
+        suffixed_names = [
+            (param_name, f"{param_name}_{component_number}")
+            for param_name in param_names
+        ]
+        if all(flat_name in result_params for _, flat_name in suffixed_names):
+            return suffixed_names
+
+        if len([candidate for candidate in instance.components if candidate.enabled]) == 1:
+            raw_names = [(param_name, param_name) for param_name in param_names]
+            if all(raw_name in result_params for _, raw_name in raw_names):
+                return raw_names
+
+        missing_names = ", ".join(flat_name for _, flat_name in suffixed_names)
+        raise KeyError(
+            f"Could not resolve fit result parameters for component '{component.display_name}'. "
+            f"Expected names like: {missing_names}"
+        )
 
     def _build_component_param_dataset(self, params: dict[str, Any]):
         from ...structs.dataset import Dataset

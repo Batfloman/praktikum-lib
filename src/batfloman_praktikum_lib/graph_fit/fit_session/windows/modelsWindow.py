@@ -475,8 +475,9 @@ class FitSessionModelsWindow(QWidget):
         self._updating_interval_controls = False
 
         if has_component:
+            component_status = selected_component.load_error or "ok"
             self.status_label.setText(
-                f"Selected component: {selected_component.display_name} in {selected_model.display_name}"
+                f"Selected component: {selected_component.display_name} in {selected_model.display_name} | {component_status}"
             )
             self._update_interval_render_statuses(selected_model_id=selected_model.id)
             if self.visualization_window is not None:
@@ -486,6 +487,10 @@ class FitSessionModelsWindow(QWidget):
         self.status_label.setText(
             f"Selected: {selected_model.display_name} | Status: {self._status_text(selected_model)}"
         )
+        if selected_model.load_warning is not None:
+            self.status_label.setText(
+                f"Selected: {selected_model.display_name} | Warning: {selected_model.load_warning}"
+            )
         if selected_model.last_error is not None:
             self.status_label.setText(
                 f"Selected: {selected_model.display_name} | Failed: {selected_model.last_error}"
@@ -543,7 +548,12 @@ class FitSessionModelsWindow(QWidget):
             enabled = item.checkState(0) == Qt.CheckState.Checked
             component = self.session.get_component(model_id, component_id)
             if component.enabled != enabled:
-                self.session.set_component_enabled(model_id, component_id, enabled)
+                try:
+                    self.session.set_component_enabled(model_id, component_id, enabled)
+                except ValueError as exc:
+                    self._show_error("Component toggle failed", exc)
+                    QTimer.singleShot(0, lambda model_id=model_id: self.refresh(select_model_id=model_id))
+                    return
                 QTimer.singleShot(0, lambda model_id=model_id: self.refresh(select_model_id=model_id))
                 return
             renamed_value = item.text(0)
@@ -654,9 +664,10 @@ class FitSessionModelsWindow(QWidget):
                 component_item = QTreeWidgetItem(
                     [
                         component.display_name,
-                        "enabled" if component.enabled else "disabled",
-                        getattr(component.model_type, "__name__", str(component.model_type)),
-                        "",
+                        "unresolved" if component.load_error is not None else ("enabled" if component.enabled else "disabled"),
+                        component.saved_model_type_name
+                        or getattr(component.model_type, "__name__", str(component.model_type)),
+                        component.load_error or "",
                     ]
                 )
                 component_item.setData(
@@ -664,13 +675,15 @@ class FitSessionModelsWindow(QWidget):
                     Qt.ItemDataRole.UserRole,
                     ("component", instance.id, component.id),
                 )
-                component_item.setFlags(
+                component_flags = (
                     component_item.flags()
-                    | Qt.ItemFlag.ItemIsUserCheckable
                     | Qt.ItemFlag.ItemIsEditable
                     | Qt.ItemFlag.ItemIsSelectable
                     | Qt.ItemFlag.ItemIsEnabled
                 )
+                if component.model_type is not None:
+                    component_flags |= Qt.ItemFlag.ItemIsUserCheckable
+                component_item.setFlags(component_flags)
                 component_item.setCheckState(0, Qt.CheckState.Checked if component.enabled else Qt.CheckState.Unchecked)
                 self._apply_model_item_styling(component_item, model_color, child=True)
                 composition_item.addChild(component_item)
@@ -800,6 +813,8 @@ class FitSessionModelsWindow(QWidget):
     def _fit_quality_summary(self, instance: SessionModel) -> str:
         if not instance.components:
             return "empty"
+        if instance.load_warning is not None:
+            return "load warning"
         if instance.last_error is not None:
             return "fit failed"
         if instance.result is None:
@@ -807,6 +822,8 @@ class FitSessionModelsWindow(QWidget):
         return format_fit_quality(instance.result, decimals=3, latex=False)
 
     def _fit_quality_status(self, instance: SessionModel) -> str:
+        if instance.load_warning is not None:
+            return "warning"
         if instance.last_error is not None:
             return "failed"
         if instance.result is None:
@@ -822,6 +839,8 @@ class FitSessionModelsWindow(QWidget):
     def _status_text(self, instance: SessionModel) -> str:
         if not instance.components:
             return "empty"
+        if instance.load_warning is not None:
+            return "warning"
         if instance.last_error is not None:
             return "failed"
         if instance.result is not None:

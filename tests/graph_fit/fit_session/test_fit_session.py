@@ -532,6 +532,50 @@ def test_fit_session_analyze_component_lookup_by_id_and_name(tmp_path):
     assert signal.area("interval").value > 0
 
 
+def test_fit_session_analyze_single_custom_component_uses_unsuffixed_param_names(tmp_path):
+    fit_result_module = importlib.import_module("batfloman_praktikum_lib.graph_fit.fitResult")
+
+    class PeakModel:
+        __name__ = "peak_model"
+
+        @staticmethod
+        def model(x, A, sigma, mu, m, x0, n):
+            return A + sigma + mu + m + x0 + n + 0 * x
+
+        @staticmethod
+        def get_param_names():
+            return ["A", "sigma", "mu", "m", "x0", "n"]
+
+    result = fit_result_module.generate_fit_result(
+        PeakModel.model,
+        values=[10.0, 2.0, 5.0, 0.5, 6.0, 1.0],
+        errors=[1.0, 0.2, 0.3, 0.05, 0.4, 0.1],
+        cov=[],
+        param_names=PeakModel.get_param_names(),
+        quality=1.0,
+        method="least squares",
+    )
+
+    session = workspace_module.FitSession(
+        np.linspace(0, 10, 8),
+        np.linspace(0, 10, 8),
+        cache_path=tmp_path / "cache" / "session.json",
+        available_models={"peak": PeakModel},
+    )
+    model_id = session.add_model(name="Peak")
+    component_id = session.add_component(model_id, PeakModel, name="peak")
+    session.get_model(model_id).result = result
+
+    component = session.analyze(model_id, auto_fit=False).component(component_id)
+
+    assert component.params["A"].value == 10.0
+    assert component.params["sigma"].value == 2.0
+    assert component.params["mu"].value == 5.0
+    assert component.params["m"].value == 0.5
+    assert component.params["x0"].value == 6.0
+    assert component.params["n"].value == 1.0
+
+
 def test_component_fit_analysis_to_record_flattens_component_params(tmp_path):
     fit_result_module = importlib.import_module("batfloman_praktikum_lib.graph_fit.fitResult")
     models_module = importlib.import_module("batfloman_praktikum_lib.graph_fit.models")
@@ -1038,3 +1082,48 @@ def test_manual_fit_session_loads_saved_custom_model_from_default_model(monkeypa
     component = session.get_component(1, 1)
     assert component.model_type is CustomModel
     assert component.registry_key == "theo_HPGe_FWHM"
+
+
+def test_fit_session_preserves_unresolved_saved_component_as_disabled_warning(tmp_path):
+    cache_path = tmp_path / "custom-session.json"
+    cache_path.write_text(
+        """
+{
+  "models": [
+    {
+      "id": 1,
+      "name": "Peak",
+      "components": [
+        {
+          "id": 1,
+          "enabled": true,
+          "name": "Signal",
+          "registry_key": "peak",
+          "model_type": "peak_model"
+        }
+      ],
+      "initial_guess": {"A": 10.0}
+    }
+  ]
+}
+""".strip()
+    )
+
+    session = workspace_module.FitSession(
+        np.arange(4),
+        np.arange(4),
+        cache_path=cache_path,
+        available_models={},
+    )
+
+    model = session.get_model(1)
+    component = session.get_component(1, 1)
+
+    assert component.model_type is None
+    assert component.enabled is False
+    assert component.registry_key == "peak"
+    assert component.saved_model_type_name == "peak_model"
+    assert component.load_error == "Unknown saved model type 'peak'."
+    assert model.load_warning is not None
+    assert "Signal" in model.load_warning
+    assert model.setup is None
