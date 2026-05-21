@@ -200,22 +200,31 @@ class DataCluster:
 
     # ==================================================
 
-    def sort(self, key) -> None:
-        def sort_key(x):
-            has_index = key in x;
+    def sort(self, *keys: str) -> None:
+        if len(keys) == 0:
+            raise ValueError("At least one sort key must be provided")
+
+        sort_keys = list(keys)
+        if not all(isinstance(key, str) for key in sort_keys):
+            raise TypeError("Sort keys must be strings")
+
+        def normalize_value(dataset: Dataset, index: str):
+            has_index = index in dataset
             if not has_index:
                 return (has_index, None)
-            else:
-                value = x[key]
-                if isinstance(value, Measurement):
-                    return (has_index, value.value)
-                else:
-                    try:
-                        float_ = float(value)
-                        return (has_index, float_)
-                    except ValueError:
-                        return (has_index, value)
-            
+
+            value = dataset[index]
+            if isinstance(value, Measurement):
+                return (has_index, value.value)
+
+            try:
+                return (has_index, float(value))
+            except (ValueError, TypeError):
+                return (has_index, value)
+
+        def sort_key(dataset: Dataset):
+            return tuple(normalize_value(dataset, index) for index in sort_keys)
+
         self.data = sorted(self, key=sort_key)
     
     def filter(self, condition: Callable[['Dataset'], bool]) -> 'DataCluster':
