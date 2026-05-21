@@ -17,7 +17,7 @@ def test_fit_session_add_model_and_fit_uses_cached_setup(monkeypatch, tmp_path):
     captured = []
 
     class DummySetup:
-        def __init__(self, *, model, x, y, xerr=None, yerr=None, initial_guess=None, interval_indices=None, excluded_indices=()):
+        def __init__(self, *, model, x, y, xerr=None, yerr=None, initial_guess=None, fixed_params=None, interval_indices=None, excluded_indices=()):
             self.model = model
             captured.append(
                 {
@@ -27,6 +27,7 @@ def test_fit_session_add_model_and_fit_uses_cached_setup(monkeypatch, tmp_path):
                     "xerr": None if xerr is None else np.asarray(xerr, dtype=float),
                     "yerr": None if yerr is None else np.asarray(yerr, dtype=float),
                     "initial_guess": initial_guess,
+                    "fixed_params": fixed_params,
                     "interval_indices": interval_indices,
                     "excluded_indices": excluded_indices,
                 }
@@ -66,6 +67,7 @@ def test_fit_session_open_parameter_editor_stores_setup(monkeypatch, tmp_path):
         interval_indices=(0, 1),
         excluded_indices=(),
         initial_guess=None,
+        fixed_params={"a": 2.5},
     )
 
     def fake_manual_fit_setup(model, x, y, *, xerr=None, yerr=None, cache_path=None, use_cache=False, **kwargs):
@@ -84,6 +86,7 @@ def test_fit_session_open_parameter_editor_stores_setup(monkeypatch, tmp_path):
             self.xerr = kwargs["xerr"]
             self.yerr = kwargs["yerr"]
             self.initial_guess = kwargs["initial_guess"]
+            self.fixed_params = kwargs["fixed_params"]
             self.interval_indices = kwargs["interval_indices"]
             self.excluded_indices = kwargs["excluded_indices"]
 
@@ -120,6 +123,7 @@ def test_fit_session_open_parameter_editor_uses_model_initial_guess_by_default(m
         interval_indices=(0, 1),
         excluded_indices=(),
         initial_guess={"a": 9.0, "b": 4.0},
+        fixed_params={"b": 4.0},
     )
 
     def fake_manual_fit_setup(model, x, y, *, default_values=None, **kwargs):
@@ -136,6 +140,7 @@ def test_fit_session_open_parameter_editor_uses_model_initial_guess_by_default(m
             self.xerr = kwargs["xerr"]
             self.yerr = kwargs["yerr"]
             self.initial_guess = kwargs["initial_guess"]
+            self.fixed_params = kwargs["fixed_params"]
             self.interval_indices = kwargs["interval_indices"]
             self.excluded_indices = kwargs["excluded_indices"]
 
@@ -185,6 +190,36 @@ def test_fit_session_default_values_merge_model_defaults_with_session_values(tmp
     merged = session._default_values_for(session.get_model(model_id))
 
     assert merged == {"m_1": 11.0, "n_1": 0.0, "b_2": 2.0}
+
+
+def test_fit_session_persists_fixed_params_in_state(tmp_path):
+    class DummyModel:
+        __name__ = "DummyModel"
+
+    cache_path = tmp_path / "cache" / "session.json"
+    session = workspace_module.FitSession(
+        np.arange(4),
+        np.arange(4),
+        cache_path=cache_path,
+        available_models={"DummyModel": DummyModel},
+    )
+    model_id = session.add_model(DummyModel)
+    model = session.get_model(model_id)
+    model.initial_guess = {"a": 1.0}
+    model.fixed_params = {"a": 2.0}
+    session.save_state()
+
+    reloaded = workspace_module.FitSession(
+        np.arange(4),
+        np.arange(4),
+        cache_path=cache_path,
+        available_models={"DummyModel": DummyModel},
+    )
+    reloaded_model = reloaded.get_model(model_id)
+
+    assert reloaded_model.fixed_params == {"a": 2.0}
+    assert reloaded_model.setup is not None
+    assert reloaded_model.setup.fixed_params == {"a": 2.0}
 
 
 def test_fit_session_plot_renders_data_intervals_and_results(monkeypatch, tmp_path):

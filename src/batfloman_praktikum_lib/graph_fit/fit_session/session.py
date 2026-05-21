@@ -54,6 +54,7 @@ class SessionModel:
     excluded_indices: tuple[int, ...] = ()
     components: list[CompositionComponent] = field(default_factory=list)
     initial_guess: dict[str, float] | None = None
+    fixed_params: dict[str, float] | None = None
     setup: ManualFitSetup | None = None
     result: FitResult | None = None
     last_error: str | None = None
@@ -390,6 +391,7 @@ class FitSession:
         instance.interval_kind = "index"
         instance.excluded_indices = global_excluded
         instance.initial_guess = None if setup.initial_guess is None else dict(setup.initial_guess)
+        instance.fixed_params = None if setup.fixed_params is None else dict(setup.fixed_params)
         instance.setup = ManualFitSetup(
             model=instance.build_model(),
             x=self.x,
@@ -397,6 +399,7 @@ class FitSession:
             xerr=self.xerr,
             yerr=self.yerr,
             initial_guess=instance.initial_guess,
+            fixed_params=instance.fixed_params,
             interval_indices=global_interval,
             excluded_indices=global_excluded,
         )
@@ -546,6 +549,7 @@ class FitSession:
             xerr=xerr_subset,
             yerr=yerr_subset,
             initial_guess=self._default_values_for(instance),
+            fixed_params=None if instance.fixed_params is None else dict(instance.fixed_params),
             interval_indices=local_interval,
             excluded_indices=local_excluded,
         )
@@ -572,6 +576,7 @@ class FitSession:
             use_cache=use_cache,
             interval_indices=local_interval,
             excluded_indices=local_excluded,
+            fixed_params=None if instance.fixed_params is None else dict(instance.fixed_params),
             **kwargs,
         )
 
@@ -854,6 +859,7 @@ class FitSession:
                         for component in instance.components
                     ],
                     "initial_guess": None if instance.initial_guess is None else dict(instance.initial_guess),
+                    "fixed_params": None if instance.fixed_params is None else dict(instance.fixed_params),
                     "show_1sigma_band": instance.show_1sigma_band,
                     "interval_display_mode": instance.interval_display_mode,
                 }
@@ -887,6 +893,7 @@ class FitSession:
                 show_1sigma_band=bool(model_data.get("show_1sigma_band", True)),
                 interval_display_mode=self._load_interval_display_mode(model_data),
                 initial_guess=None,
+                fixed_params=None,
                 components=[
                     self._load_component_from_state(component_data)
                     for component_data in model_data.get("components", [])
@@ -910,18 +917,25 @@ class FitSession:
                     key: float(value)
                     for key, value in initial_guess.items()
                 }
-                built_model = instance.build_model()
-                if built_model is not None:
-                    instance.setup = ManualFitSetup(
-                        model=built_model,
-                        x=self.x,
-                        y=self.y,
-                        xerr=self.xerr,
-                        yerr=self.yerr,
-                        initial_guess=dict(instance.initial_guess),
-                        interval_indices=instance.interval if instance.interval_kind == "index" else None,
-                        excluded_indices=instance.excluded_indices,
-                    )
+            fixed_params = model_data.get("fixed_params")
+            if fixed_params is not None:
+                instance.fixed_params = {
+                    key: float(value)
+                    for key, value in fixed_params.items()
+                }
+            built_model = instance.build_model()
+            if built_model is not None and instance.initial_guess is not None:
+                instance.setup = ManualFitSetup(
+                    model=built_model,
+                    x=self.x,
+                    y=self.y,
+                    xerr=self.xerr,
+                    yerr=self.yerr,
+                    initial_guess=dict(instance.initial_guess),
+                    fixed_params=None if instance.fixed_params is None else dict(instance.fixed_params),
+                    interval_indices=instance.interval if instance.interval_kind == "index" else None,
+                    excluded_indices=instance.excluded_indices,
+                )
 
             self.models.append(instance)
 

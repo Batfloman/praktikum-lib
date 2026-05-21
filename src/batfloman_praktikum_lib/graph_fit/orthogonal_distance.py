@@ -1,17 +1,21 @@
-from typing import Optional, Type, Callable, Union, Literal
+from typing import Optional, Type, Callable, Union, Literal, Mapping, Any
 from inspect import isclass
 import numpy as np
 import traceback
 from scipy.odr import ODR, Model, RealData
 
-from batfloman_praktikum_lib.structs.measurementBase import MeasurementBase
 from batfloman_praktikum_lib.io.termColors import bcolors
 
 from ..graph.plotNScatter import filter_nan_values
 from .helper import extract_vals_and_errors
 from .fitResult import generate_fit_result, FitResult
+from .fixed_params import (
+    build_fixed_param_binding,
+    order_free_initial_guess,
+    rebuild_full_fit_result,
+)
 from .models.fitModel import FitModel
-from .init_params.order_init_params import InitalParamGuess, order_initial_params
+from .init_params.order_init_params import InitalParamGuess
 
 def _warn_user_no_errors(y_data, y_err, ignore_y_errors: bool, coord: Literal["x", "y"]):
     if ignore_y_errors or (y_err is not None):
@@ -57,6 +61,7 @@ def generic_fit(
     x_err=None, 
     y_err=None, 
     initial_guess= None, 
+    fixed_params: Mapping[str, Any] | None = None,
     param_names =  None,
     ignore_warning_x_errors: bool = False,
     ignore_warning_y_errors: bool = False,
@@ -74,13 +79,28 @@ def generic_fit(
     y_data, y_err = extract_vals_and_errors(y_data, y_err)
     x_data, x_err = extract_vals_and_errors(x_data, x_err)
 
-    if initial_guess is not None:
-        initial_guess = order_initial_params(model, initial_guess);
-        initial_guess = [guess.value if isinstance(guess, MeasurementBase) else guess for guess in initial_guess]
+    binding = build_fixed_param_binding(model, fixed_params=fixed_params)
+    fit_model = binding.wrap_model() if binding.fixed_params else model
+    fit_param_names = binding.free_param_names if binding.fixed_params else param_names
+    initial_guess = order_free_initial_guess(
+        model,
+        initial_guess,
+        binding=binding,
+    )
+
+    if binding.fixed_params and not binding.free_param_names:
+        return rebuild_full_fit_result(
+            binding=binding,
+            free_values=[],
+            free_errors=[],
+            cov=np.zeros((0, 0), dtype=float),
+            quality=np.nan,
+            method="ODR",
+        )
 
     # Prepare data for ODR
     data = RealData(x_data, y_data, sx=x_err, sy=y_err)
-    wrapped_model = Model(lambda B, x: _odr_wrapper(B, x, model))
+    wrapped_model = Model(lambda B, x: _odr_wrapper(B, x, fit_model))
     odr = ODR(data, wrapped_model, beta0=initial_guess)
 
     # Run the fit
@@ -90,7 +110,7 @@ def generic_fit(
     # Degenerate case
         if y_err is not None:
             print("Warning: Using error estimate fallback for fit")
-            J = numerical_jacobian(model, x_data, out.beta)
+            J = numerical_jacobian(fit_model, x_data, out.beta)
 
             W = 1 / y_err**2
             JT_W = J.T * W  # broadcasting
@@ -99,7 +119,17 @@ def generic_fit(
             out.sd_beta = np.sqrt(np.diag(cov))
 
     # return out.beta, out.sd_beta  # Best-fit parameters and uncertainties
-    return generate_fit_result(model, out.beta, out.sd_beta, cov=out.cov_beta, param_names=param_names, quality=out.res_var, method="ODR");
+    if binding.fixed_params:
+        return rebuild_full_fit_result(
+            binding=binding,
+            free_values=out.beta,
+            free_errors=out.sd_beta,
+            cov=out.cov_beta,
+            quality=out.res_var,
+            method="ODR",
+        )
+
+    return generate_fit_result(fit_model, out.beta, out.sd_beta, cov=out.cov_beta, param_names=fit_param_names, quality=out.res_var, method="ODR");
 
 def _odr_wrapper(B, x, model):
     """Wrapper to adapt curve_fit-style functions for ODR."""

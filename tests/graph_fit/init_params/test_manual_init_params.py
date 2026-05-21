@@ -376,3 +376,62 @@ def test_manual_fit_setup_fit_filters_bound_data_and_uses_odr_for_x_measurement_
     assert np.allclose(np.asarray(captured["y_data"], dtype=float), np.array([12.0]))
     assert captured["x_err"] is None
     assert captured["y_err"] is None
+
+
+def test_manual_fit_setup_passes_fixed_params_to_fit_model():
+    captured = {}
+
+    class DummyModel(manual_init_params_module.FitModel):
+        @staticmethod
+        def model(x, m, n):
+            return m * x + n
+
+        @staticmethod
+        def get_initial_guess(x, y):
+            return [1.0, 0.0]
+
+        @staticmethod
+        def get_param_names():
+            return ["m", "n"]
+
+        @classmethod
+        def fit(cls, x, y, *, xerr=None, yerr=None, initial_guess=None, fixed_params=None, method=None):
+            captured["x"] = x
+            captured["y"] = y
+            captured["initial_guess"] = initial_guess
+            captured["fixed_params"] = fixed_params
+            captured["method"] = method
+            return "fit-result"
+
+    setup = manual_init_params_module.ManualFitSetup(
+        model=DummyModel,
+        x=np.array([0.0, 1.0, 2.0]),
+        y=np.array([3.0, 5.0, 7.0]),
+        initial_guess={"m": 1.5, "n": 3.0},
+        fixed_params={"n": 3.0},
+    )
+
+    result = setup.fit(method="least squares")
+
+    assert result == "fit-result"
+    assert captured["initial_guess"] == {"m": 1.5, "n": 3.0}
+    assert captured["fixed_params"] == {"n": 3.0}
+    assert captured["method"] == "least squares"
+
+
+def test_least_squares_fixed_params_reconstructs_full_result():
+    x = np.linspace(0.0, 4.0, 9)
+    y = 2.0 * x + 3.0
+
+    result = least_squares_module.generic_fit(
+        Linear.model,
+        x,
+        y,
+        initial_guess={"m": 1.0},
+        fixed_params={"n": 3.0},
+        param_names=["m", "n"],
+    )
+
+    assert result.params["m"].value == pytest.approx(2.0, abs=1e-6)
+    assert result.params["n"].value == pytest.approx(3.0, abs=1e-12)
+    assert result.params["n"].error == pytest.approx(0.0, abs=1e-12)

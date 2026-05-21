@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Mapping, Any
 
 from batfloman_praktikum_lib.structs.dataCluster import DataCluster
 from ..fitResult import FitResult, FIT_METHODS
@@ -30,6 +30,7 @@ class FitModel(ABC, metaclass=ModelMeta): # type: ignore[misc]
     def fit(cls, x, y, xerr = None, yerr = None,
         *,
         initial_guess = None,
+        fixed_params: Mapping[str, Any] | None = None,
         method: Optional[FIT_METHODS] = None,
     ) -> FitResult:
         from batfloman_praktikum_lib.structs.measurementBase import MeasurementBase
@@ -37,19 +38,20 @@ class FitModel(ABC, metaclass=ModelMeta): # type: ignore[misc]
         x_has_err = any(isinstance(val, MeasurementBase) and val.error is not None for val in x)
 
         if method == "least squares":
-            return cls.ls_fit(x, y, yerr=yerr, initial_guess=initial_guess, ignore_warning_x_errors=True);
+            return cls.ls_fit(x, y, yerr=yerr, initial_guess=initial_guess, fixed_params=fixed_params, ignore_warning_x_errors=True);
         if method == "ODR":
-            return cls.odr_fit(x, y, xerr=xerr, yerr=yerr, initial_guess=initial_guess);
+            return cls.odr_fit(x, y, xerr=xerr, yerr=yerr, initial_guess=initial_guess, fixed_params=fixed_params);
 
         if has_xerr or x_has_err:
-            return cls.odr_fit(x, y, xerr=xerr, yerr=yerr, initial_guess=initial_guess);
+            return cls.odr_fit(x, y, xerr=xerr, yerr=yerr, initial_guess=initial_guess, fixed_params=fixed_params);
         else:
-            return cls.ls_fit(x, y, yerr=yerr, initial_guess=initial_guess);
+            return cls.ls_fit(x, y, yerr=yerr, initial_guess=initial_guess, fixed_params=fixed_params);
     
     @classmethod
     def ls_fit(cls, x, y, yerr = None,
         *,
         initial_guess = None,
+        fixed_params: Mapping[str, Any] | None = None,
         ignore_warning_x_errors: bool = False,
         ignore_warning_y_errors: bool = False,
     ) -> FitResult:
@@ -65,6 +67,7 @@ class FitModel(ABC, metaclass=ModelMeta): # type: ignore[misc]
 
         res = generic_fit(cls.model, x, y, yerr,
             initial_guess=initial_guess, 
+            fixed_params=fixed_params,
             param_names=param_names,
             ignore_warning_x_errors=ignore_warning_x_errors,
             ignore_warning_y_errors=ignore_warning_y_errors,
@@ -76,17 +79,19 @@ class FitModel(ABC, metaclass=ModelMeta): # type: ignore[misc]
     def odr_fit(cls, x, y, xerr = None, yerr = None, 
         *,
         initial_guess = None,
+        fixed_params: Mapping[str, Any] | None = None,
     ) -> FitResult:
         from ..orthogonal_distance import generic_fit as odr_fit
 
         param_names = cls.get_param_names()
         initial_guess = initial_guess if (initial_guess is not None) else cls.get_initial_guess(x, y)
-        return odr_fit(cls.model, x, y, x_err=xerr, y_err=yerr, initial_guess=initial_guess, param_names=param_names)
+        return odr_fit(cls.model, x, y, x_err=xerr, y_err=yerr, initial_guess=initial_guess, fixed_params=fixed_params, param_names=param_names)
     
     @classmethod
     def on_data(cls, data: DataCluster, x_index: str, y_index: str,
         *,
         initial_guess = None,
+        fixed_params: Mapping[str, Any] | None = None,
         method: Optional[FIT_METHODS] = None,
     ) -> FitResult:
         if not x_index in data.get_column_names():
@@ -97,4 +102,4 @@ class FitModel(ABC, metaclass=ModelMeta): # type: ignore[misc]
         x_values = data.column(x_index);
         y_values = data.column(y_index);
 
-        return cls.fit(x_values, y_values, initial_guess=initial_guess, method=method);
+        return cls.fit(x_values, y_values, initial_guess=initial_guess, fixed_params=fixed_params, method=method);

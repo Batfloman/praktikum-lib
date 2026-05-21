@@ -1,7 +1,7 @@
 from typing import Optional
 from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout,
-    QSlider, QDoubleSpinBox, QPushButton, QLabel
+    QSlider, QDoubleSpinBox, QPushButton, QLabel, QCheckBox
 )
 from PyQt6.QtCore import Qt
 
@@ -23,6 +23,7 @@ class ParameterSlider(QWidget):
         self.name = name
         self.display_name = display_name or name
         self.update_callback = update_callback
+        self.fixed = False
 
         self.slider_value = initial_value
         self.center = center or initial_value
@@ -58,6 +59,9 @@ class ParameterSlider(QWidget):
         self.spin.setRange(-1e12, 1e12)
         layout.addWidget(self.spin)
 
+        self.fixed_checkbox = QCheckBox("fixed")
+        layout.addWidget(self.fixed_checkbox)
+
         self.btn_shrink = QPushButton("–")
         self.btn_center = QPushButton("●")
         self.btn_expand = QPushButton("+")
@@ -76,6 +80,7 @@ class ParameterSlider(QWidget):
         self.btn_center.clicked.connect(self.recenter)
         self.btn_shrink.clicked.connect(lambda: self.scale_range(0.5))
         self.btn_expand.clicked.connect(lambda: self.scale_range(2.0))
+        self.fixed_checkbox.toggled.connect(self._on_fixed_toggled)
 
     # ==========================================
     # mapping
@@ -143,6 +148,13 @@ class ParameterSlider(QWidget):
         self.spin.setValue(v)
         self.slider.setValue(self._value_to_slider(v))
 
+    def set_fixed(self, fixed: bool):
+        self.fixed = bool(fixed)
+        self.fixed_checkbox.setChecked(self.fixed)
+
+    def is_fixed(self) -> bool:
+        return self.fixed
+
     def get_value(self) -> float:
         return self.slider_value
 
@@ -152,7 +164,12 @@ class ParameterSlider(QWidget):
             "max": self.vmax,
             "center": self.center,
             "slider_value": self.slider_value,
+            "fixed": self.fixed,
         }
+
+    def _on_fixed_toggled(self, checked: bool):
+        self.fixed = bool(checked)
+        self._emit_update()
 
     def _emit_update(self):
         if self.update_callback:
@@ -177,7 +194,7 @@ class ParameterSlider(QWidget):
         center = settings.get("center", initial_value)
         vmin = settings.get("min", None)
         vmax = settings.get("max", None)
-        return cls(
+        slider = cls(
             name=name,
             display_name=display_name,
             initial_value=initial_value,
@@ -186,6 +203,8 @@ class ParameterSlider(QWidget):
             vmax=vmax,
             update_callback=update_callback
         )
+        slider.set_fixed(bool(settings.get("fixed", False)))
+        return slider
 
 
 # ==================================================

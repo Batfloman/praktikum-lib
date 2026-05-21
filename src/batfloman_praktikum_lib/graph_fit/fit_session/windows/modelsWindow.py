@@ -285,11 +285,12 @@ class FitSessionModelsWindow(QWidget):
             self.visualization_window.close()
 
     def _default_available_models(self, default_model):
-        from ...models import ConstFunc, Exponential, Gaussian, Linear
+        from ...models import ConstFunc, Exponential, Gaussian, Linear, LinearShifted
 
         models = {
             "Gaussian": Gaussian,
             "Linear": Linear,
+            "LinearShifted": LinearShifted,
             "Exponential": Exponential,
             "ConstFunc": ConstFunc,
         }

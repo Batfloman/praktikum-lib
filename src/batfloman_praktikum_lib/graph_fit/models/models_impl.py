@@ -35,6 +35,28 @@ class Linear(FitModel):
         n = y[start_idx] - m * x[start_idx]
         return [m, n]
 
+
+class LinearShifted(FitModel):
+    @staticmethod
+    def model(x, m, x0, n):
+        return m * (x - x0) + n
+
+    @staticmethod
+    def get_param_names():
+        return ["m", "x0", "n"]
+
+    @staticmethod
+    def get_initial_guess(x, y):
+        start_idx = np.argmin(x)
+        end_idx = np.argmax(x)
+        dy = y[end_idx] - y[start_idx]
+        dx = x[end_idx] - x[start_idx]
+        m = dy / dx if dx != 0 else 0
+        x0 = np.mean(x)
+        n = y[start_idx] - m * (x[start_idx] - x0)
+        return [m, x0, n]
+
+
 class Quadratic(FitModel):
     @staticmethod
     def model(x, a, b, c):

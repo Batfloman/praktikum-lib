@@ -262,6 +262,13 @@ class ParameterWindow(QWidget):
     def get_params(self):
         return {k: s.get_value() for k, s in self.sliders.items()}
 
+    def get_fixed_params(self):
+        return {
+            name: slider.get_value()
+            for name, slider in self.sliders.items()
+            if slider.is_fixed()
+        }
+
     def set_render_part_visibility(self, key: str, visible: bool):
         checkbox = self.render_part_checkboxes.get(key)
         if checkbox is None:

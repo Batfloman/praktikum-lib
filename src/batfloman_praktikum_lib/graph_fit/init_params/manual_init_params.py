@@ -85,6 +85,7 @@ class ManualFitSetupController(QObject):
             xerr=self.xerr,
             yerr=self.yerr,
             initial_guess=self.param_win.get_params(),
+            fixed_params=self.param_win.get_fixed_params(),
             interval_indices=self.graph_win.get_interval_indices(),
             excluded_indices=self.graph_win.get_excluded_indices(),
         )
@@ -100,6 +101,7 @@ class ManualFitSetup:
     xerr: Any = None
     yerr: Any = None
     initial_guess: dict[str, float] | None = None
+    fixed_params: dict[str, float] | None = None
     interval_indices: tuple[int, int] | None = None
     excluded_indices: tuple[int, ...] = ()
 
@@ -134,6 +136,7 @@ class ManualFitSetup:
                 xerr=x_errors,
                 yerr=y_errors,
                 initial_guess=self.initial_guess,
+                fixed_params=self.fixed_params,
                 method=method,
             )
 
@@ -144,6 +147,7 @@ class ManualFitSetup:
                 y_values,
                 y_errors,
                 initial_guess=self.initial_guess,
+                fixed_params=self.fixed_params,
                 ignore_warning_x_errors=True,
             )
 
@@ -155,6 +159,7 @@ class ManualFitSetup:
                 x_err=x_errors,
                 y_err=y_errors,
                 initial_guess=self.initial_guess,
+                fixed_params=self.fixed_params,
             )
 
         return least_squares_fit(
@@ -163,6 +168,7 @@ class ManualFitSetup:
             y_values,
             y_errors,
             initial_guess=self.initial_guess,
+            fixed_params=self.fixed_params,
         )
 
 
@@ -302,6 +308,7 @@ def manual_fit_setup(
     warn_filter_nan: bool = True,
     use_cache: bool = False,
     require_cache: bool = False,
+    fixed_params: dict[str, float] | None = None,
     interval_indices: tuple[int, int] | None = None,
     interval: tuple[int, int] | None = None,
     excluded_indices: tuple[int, ...] = (),
@@ -349,6 +356,12 @@ def manual_fit_setup(
     }
     has_complete_cache = len(cached_values) == len(param_names)
     resolved_params = {**default_dict, **cached_values}
+    cached_fixed_params = {
+        p: resolved_value
+        for p, resolved_value in resolved_params.items()
+        if p in cached and bool(cached[p].get("fixed", False))
+    }
+    resolved_fixed_params = {**cached_fixed_params, **(fixed_params or {})}
 
     starting_params = order_initial_params(model, resolved_params)
 
@@ -365,6 +378,7 @@ def manual_fit_setup(
             xerr=filtered_xerr,
             yerr=filtered_yerr,
             initial_guess=resolved_params,
+            fixed_params=resolved_fixed_params,
             interval_indices=interval_indices,
             excluded_indices=excluded_indices,
         )
@@ -393,13 +407,17 @@ def manual_fit_setup(
         params = {name: s.get_value() for name, s in param_win.sliders.items()}
         graph_win.update_params(params)
 
+    slider_params = {
+        name: ParameterSlider.from_cache(name, cached, default)
+        for name, default in zip(param_names, starting_params)
+    }
+    for name, slider in slider_params.items():
+        slider.set_fixed(name in resolved_fixed_params)
+
     # --------------------
     # Create Parameter Window
     param_win = ParameterWindow(
-        params={
-            name: ParameterSlider.from_cache(name, cached, default)
-            for name, default in zip(param_names, starting_params)
-        },
+        params=slider_params,
         update_callback=update_graph,
         model=model_info,
         render_parts=resolved_render_parts,
