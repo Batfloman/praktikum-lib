@@ -327,10 +327,34 @@ class FitSession:
             session_model.components[new_index],
             session_model.components[current_index],
         )
-        session_model.initial_guess = self._remap_initial_guess_for_component_order(
+        session_model.initial_guess = self._remap_param_mapping_for_component_order(
             session_model,
+            mapping=session_model.initial_guess,
             old_components=old_components,
         )
+        session_model.fixed_params = self._remap_param_mapping_for_component_order(
+            session_model,
+            mapping=session_model.fixed_params,
+            old_components=old_components,
+        )
+        self.invalidate_model(model_id)
+        self.save_state()
+
+    def set_fixed_param_value(self, model_id: int, param_name: str, value: float) -> None:
+        session_model = self.get_model(model_id)
+        if session_model.fixed_params is None:
+            session_model.fixed_params = {}
+        session_model.fixed_params[param_name] = float(value)
+        self.invalidate_model(model_id)
+        self.save_state()
+
+    def clear_fixed_param(self, model_id: int, param_name: str) -> None:
+        session_model = self.get_model(model_id)
+        if session_model.fixed_params is None:
+            return
+        session_model.fixed_params.pop(param_name, None)
+        if not session_model.fixed_params:
+            session_model.fixed_params = None
         self.invalidate_model(model_id)
         self.save_state()
 
@@ -1097,13 +1121,14 @@ class FitSession:
             component_number += 1
         return flat_names
 
-    def _remap_initial_guess_for_component_order(
+    def _remap_param_mapping_for_component_order(
         self,
         session_model: SessionModel,
         *,
+        mapping: dict[str, float] | None,
         old_components: list[CompositionComponent],
     ) -> dict[str, float] | None:
-        if session_model.initial_guess is None:
+        if mapping is None:
             return None
 
         old_blocks = self._active_component_blocks(old_components)
@@ -1113,10 +1138,10 @@ class FitSession:
 
         component_param_values: dict[tuple[int, str], float] = {}
         for component_id, param_name, flat_name in old_flat_names:
-            if flat_name in session_model.initial_guess:
-                component_param_values[(component_id, param_name)] = session_model.initial_guess[flat_name]
+            if flat_name in mapping:
+                component_param_values[(component_id, param_name)] = mapping[flat_name]
 
-        remapped_guess = dict(session_model.initial_guess)
+        remapped_guess = dict(mapping)
         for _, _, flat_name in old_flat_names:
             remapped_guess.pop(flat_name, None)
 

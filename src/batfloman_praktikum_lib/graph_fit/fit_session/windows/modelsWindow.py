@@ -10,12 +10,14 @@ from PyQt6.QtGui import QKeyEvent
 from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtGui import QValidator
 from PyQt6.QtWidgets import (
+    QAbstractItemView,
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
     QFormLayout,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QMessageBox,
     QPushButton,
     QTreeWidget,
@@ -100,23 +102,29 @@ class ClampedFloatSpinBox(QDoubleSpinBox):
 
 
 class ModelTreeWidget(QTreeWidget):
-    def edit(self, index, trigger, event):
-        if not index.isValid():
-            return False
-        item = self.itemFromIndex(index)
-        if item is None:
-            return False
-        item_type = item.data(0, Qt.ItemDataRole.UserRole)
-        if item_type is None:
-            return False
-        item_kind = item_type[0]
-        if item_kind == "model" and index.column() == 0:
-            return super().edit(index, trigger, event)
-        if item_kind == "fit_quality" and index.column() == 2:
-            return super().edit(index, trigger, event)
-        if item_kind == "component" and index.column() == 0:
-            return super().edit(index, trigger, event)
-        return False
+    pass
+
+
+class InlineRenameEdit(QLineEdit):
+    focus_lost = pyqtSignal()
+
+    def focusOutEvent(self, event) -> None:
+        super().focusOutEvent(event)
+        self.focus_lost.emit()
+
+
+class AutoPopupComboBox(QComboBox):
+    def mousePressEvent(self, event) -> None:
+        should_open = (
+            event.button() == Qt.MouseButton.LeftButton
+            and not self.view().isVisible()
+        )
+        super().mousePressEvent(event)
+        if should_open:
+            QTimer.singleShot(0, self.showPopup)
+
+    def wheelEvent(self, event) -> None:
+        event.ignore()
 
 
 class FitSessionModelsWindow(QWidget):
@@ -141,6 +149,7 @@ class FitSessionModelsWindow(QWidget):
         self._updating_tree = False
         self._updating_interval_controls = False
         self._is_closing_all = False
+        self._active_rename: tuple[QTreeWidgetItem, str, tuple[Any, ...]] | None = None
         self._pending_autofit_model_id: int | None = None
         self._autofit_timer = QTimer(self)
         self._autofit_timer.setSingleShot(True)
@@ -173,8 +182,10 @@ class FitSessionModelsWindow(QWidget):
         self.model_tree = ModelTreeWidget()
         self.model_tree.setColumnCount(4)
         self.model_tree.setHeaderLabels(["Model", "State", "Details", "Status"])
+        self.model_tree.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.model_tree.itemSelectionChanged.connect(self._handle_selection_changed)
         self.model_tree.itemChanged.connect(self._handle_item_changed)
+        self.model_tree.itemDoubleClicked.connect(self._handle_item_double_clicked)
         layout.addWidget(self.model_tree, stretch=1)
 
         interval_box = QWidget()
@@ -258,12 +269,32 @@ class FitSessionModelsWindow(QWidget):
         if self.visualization_window is not None:
             self.visualization_window.refresh()
 
+    def _expanded_component_ids(self) -> set[tuple[int, int]]:
+        expanded: set[tuple[int, int]] = set()
+        for row in range(self.model_tree.topLevelItemCount()):
+            model_item = self.model_tree.topLevelItem(row)
+            for child_idx in range(model_item.childCount()):
+                child = model_item.child(child_idx)
+                child_type = child.data(0, Qt.ItemDataRole.UserRole)
+                if child_type is None or child_type[0] != "composition":
+                    continue
+                for component_idx in range(child.childCount()):
+                    component_item = child.child(component_idx)
+                    component_type = component_item.data(0, Qt.ItemDataRole.UserRole)
+                    if (
+                        component_type is not None
+                        and component_type[0] == "component"
+                        and component_item.isExpanded()
+                    ):
+                        expanded.add((int(component_type[1]), int(component_type[2])))
+        return expanded
+
     def _create_interval_mode_combo(
         self,
         model_id: int,
         current_mode: IntervalDisplayMode,
     ) -> QComboBox:
-        combo = QComboBox(self.model_tree)
+        combo = AutoPopupComboBox(self.model_tree)
         combo.addItem("off", userData="off")
         combo.addItem("selected-only", userData="selected-only")
         combo.addItem("always", userData="always")
@@ -518,16 +549,6 @@ class FitSessionModelsWindow(QWidget):
                 self.session.set_visible(model_id, visible)
                 if self.visualization_window is not None:
                     self.visualization_window.refresh()
-            renamed_value = item.text(0)
-            if renamed_value != instance.display_name:
-                try:
-                    self.session.rename_model(model_id, renamed_value)
-                except ValueError as exc:
-                    self._show_error("Rename failed", exc)
-                    QTimer.singleShot(0, lambda model_id=model_id: self.refresh(select_model_id=model_id))
-                    return
-                if self.visualization_window is not None:
-                    self.visualization_window.refresh()
             return
 
         if item_type[0] == "fit_quality":
@@ -557,18 +578,82 @@ class FitSessionModelsWindow(QWidget):
                     return
                 QTimer.singleShot(0, lambda model_id=model_id: self.refresh(select_model_id=model_id))
                 return
-            renamed_value = item.text(0)
-            if renamed_value != component.display_name:
-                try:
-                    self.session.rename_component(model_id, component_id, renamed_value)
-                except ValueError as exc:
-                    self._show_error("Component rename failed", exc)
-                    QTimer.singleShot(0, lambda model_id=model_id: self.refresh(select_model_id=model_id))
-                    return
-                if self.visualization_window is not None:
-                    self.visualization_window.refresh()
+
+    def _handle_item_double_clicked(self, item: QTreeWidgetItem, column: int) -> None:
+        if column != 0 or self._active_rename is not None:
+            return
+        item_type = item.data(0, Qt.ItemDataRole.UserRole)
+        if item_type is None or item_type[0] not in {"model", "component"}:
+            return
+        self._start_inline_rename(item, item_type)
+
+    def _start_inline_rename(self, item: QTreeWidgetItem, item_type: tuple[Any, ...]) -> None:
+        original_text = item.text(0)
+        editor = InlineRenameEdit(original_text, self.model_tree)
+        editor.setFrame(False)
+        editor.setStyleSheet(
+            "QLineEdit {"
+            " border: 1px solid palette(mid);"
+            " border-radius: 3px;"
+            " padding: 0 4px;"
+            " background: palette(base);"
+            " color: palette(text);"
+            " }"
+        )
+        item.setText(0, "")
+        self.model_tree.setItemWidget(item, 0, editor)
+        self._active_rename = (item, original_text, item_type)
+        editor.selectAll()
+        editor.setFocus()
+        editor.editingFinished.connect(lambda: self._finish_inline_rename())
+        editor.focus_lost.connect(lambda: self._finish_inline_rename())
+
+    def _finish_inline_rename(self) -> None:
+        active = self._active_rename
+        self._active_rename = None
+        if active is None:
+            return
+
+        item, original_text, item_type = active
+        editor = self.model_tree.itemWidget(item, 0)
+        new_text = original_text
+        if isinstance(editor, QLineEdit):
+            candidate = editor.text().strip()
+            if candidate != "":
+                new_text = candidate
+        self.model_tree.removeItemWidget(item, 0)
+        item.setText(0, original_text)
+
+        if new_text == original_text:
+            return
+
+        if item_type[0] == "model":
+            model_id = int(item_type[1])
+            try:
+                self.session.rename_model(model_id, new_text)
+            except ValueError as exc:
+                self._show_error("Rename failed", exc)
+                self.refresh(select_model_id=model_id)
+                return
+            item.setText(0, new_text)
+            if self.visualization_window is not None:
+                self.visualization_window.refresh()
+            return
+
+        model_id = int(item_type[1])
+        component_id = int(item_type[2])
+        try:
+            self.session.rename_component(model_id, component_id, new_text)
+        except ValueError as exc:
+            self._show_error("Component rename failed", exc)
+            self.refresh(select_model_id=model_id)
+            return
+        item.setText(0, new_text)
+        if self.visualization_window is not None:
+            self.visualization_window.refresh()
 
     def _refresh_model_list(self, *, select_model_id: Optional[int] = None):
+        expanded_components = self._expanded_component_ids()
         active_selected_model_id = select_model_id
         if active_selected_model_id is None:
             active_selected_model_id = self._selected_model_id()
@@ -593,7 +678,6 @@ class FitSessionModelsWindow(QWidget):
             model_item.setFlags(
                 model_item.flags()
                 | Qt.ItemFlag.ItemIsUserCheckable
-                | Qt.ItemFlag.ItemIsEditable
                 | Qt.ItemFlag.ItemIsSelectable
                 | Qt.ItemFlag.ItemIsEnabled
             )
@@ -668,7 +752,7 @@ class FitSessionModelsWindow(QWidget):
                         "unresolved" if component.load_error is not None else ("enabled" if component.enabled else "disabled"),
                         component.saved_model_type_name
                         or getattr(component.model_type, "__name__", str(component.model_type)),
-                        component.load_error or "",
+                        self._component_status_summary(instance, component),
                     ]
                 )
                 component_item.setData(
@@ -678,7 +762,6 @@ class FitSessionModelsWindow(QWidget):
                 )
                 component_flags = (
                     component_item.flags()
-                    | Qt.ItemFlag.ItemIsEditable
                     | Qt.ItemFlag.ItemIsSelectable
                     | Qt.ItemFlag.ItemIsEnabled
                 )
@@ -688,6 +771,19 @@ class FitSessionModelsWindow(QWidget):
                 component_item.setCheckState(0, Qt.CheckState.Checked if component.enabled else Qt.CheckState.Unchecked)
                 self._apply_model_item_styling(component_item, model_color, child=True)
                 composition_item.addChild(component_item)
+                for param_item, param_name in self._build_component_param_items(instance, component, model_color):
+                    component_item.addChild(param_item)
+                    self.model_tree.setItemWidget(
+                        param_item,
+                        1,
+                        self._create_component_param_state_combo(instance.id, component.id, param_name),
+                    )
+                    self.model_tree.setItemWidget(
+                        param_item,
+                        2,
+                        self._create_component_param_value_widget(instance, component, param_name),
+                    )
+                component_item.setExpanded((instance.id, component.id) in expanded_components)
 
             model_item.setExpanded(True)
             composition_item.setExpanded(True)
@@ -714,6 +810,8 @@ class FitSessionModelsWindow(QWidget):
             return item_type[1]
         if item_type[0] == "component":
             return item_type[1]
+        if item_type[0] == "component_param":
+            return item_type[1]
         return None
 
     def _selected_component_id(self) -> Optional[int]:
@@ -721,7 +819,7 @@ class FitSessionModelsWindow(QWidget):
         if item is None:
             return None
         item_type = item.data(0, Qt.ItemDataRole.UserRole)
-        if item_type is None or item_type[0] != "component":
+        if item_type is None or item_type[0] not in {"component", "component_param"}:
             return None
         return int(item_type[2])
 
@@ -736,7 +834,7 @@ class FitSessionModelsWindow(QWidget):
         if item is None:
             return None
         item_type = item.data(0, Qt.ItemDataRole.UserRole)
-        if item_type is None or item_type[0] != "component":
+        if item_type is None or item_type[0] not in {"component", "component_param"}:
             return None
         return self.session.get_component(item_type[1], item_type[2])
 
@@ -836,6 +934,327 @@ class FitSessionModelsWindow(QWidget):
             return "empty"
         enabled_count = sum(component.enabled for component in instance.components)
         return f"{enabled_count}/{len(instance.components)} active"
+
+    def _component_status_summary(
+        self,
+        instance: SessionModel,
+        component: CompositionComponent,
+    ) -> str:
+        if component.load_error is not None:
+            return component.load_error
+
+        fixed_count = self._component_fixed_count(instance, component)
+        if fixed_count == 1:
+            return "1 fixed"
+        return f"{fixed_count} fixed"
+
+    def _component_fixed_count(
+        self,
+        instance: SessionModel,
+        component: CompositionComponent,
+    ) -> int:
+        return sum(
+            1
+            for param_name in self._component_param_names(component)
+            if self._component_fixed_value(instance, component, param_name) is not None
+        )
+
+    def _build_component_param_items(
+        self,
+        instance: SessionModel,
+        component: CompositionComponent,
+        model_color: QColor,
+    ) -> list[tuple[QTreeWidgetItem, str]]:
+        items: list[tuple[QTreeWidgetItem, str]] = []
+        for param_name in self._component_param_names(component):
+            state_text, value_text, status_text = self._component_param_display(
+                instance,
+                component,
+                param_name,
+            )
+            item = QTreeWidgetItem([param_name, "", "", status_text])
+            item.setData(
+                0,
+                Qt.ItemDataRole.UserRole,
+                ("component_param", instance.id, component.id, param_name),
+            )
+            item.setFlags(
+                item.flags()
+                | Qt.ItemFlag.ItemIsSelectable
+                | Qt.ItemFlag.ItemIsEnabled
+            )
+            self._apply_model_item_styling(item, model_color, child=True)
+            items.append((item, param_name))
+        return items
+
+    def _component_param_names(self, component: CompositionComponent) -> list[str]:
+        if component.model_type is None:
+            return []
+        return list(self.session._component_param_names(component.model_type))
+
+    def _component_param_display(
+        self,
+        instance: SessionModel,
+        component: CompositionComponent,
+        param_name: str,
+    ) -> tuple[str, str, str]:
+        fixed_value = self._component_fixed_value(instance, component, param_name)
+        if fixed_value is not None:
+            return ("fixed", f"{fixed_value:.6g}", "fixed")
+
+        fitted_value = self._component_fitted_value(instance, component, param_name)
+        if fitted_value is not None:
+            return ("free", str(fitted_value), "fit")
+
+        initial_value = self._component_initial_guess_value(instance, component, param_name)
+        if initial_value is not None:
+            return ("free", f"{initial_value:.6g}", "init")
+
+        return ("free", "auto", "auto")
+
+    def _component_fitted_value(
+        self,
+        instance: SessionModel,
+        component: CompositionComponent,
+        param_name: str,
+    ):
+        if instance.result is None or component.model_type is None or not component.enabled:
+            return None
+
+        active_components = [candidate for candidate in instance.components if candidate.enabled]
+        try:
+            component_number = active_components.index(component) + 1
+        except ValueError:
+            return None
+
+        try:
+            resolved_names = dict(
+                self.session._resolve_component_result_param_names(
+                    instance,
+                    component=component,
+                    component_number=component_number,
+                    param_names=self._component_param_names(component),
+                )
+            )
+        except KeyError:
+            return None
+
+        resolved_name = resolved_names.get(param_name)
+        if resolved_name is None:
+            return None
+        return instance.result.params.get(resolved_name)
+
+    def _component_initial_guess_value(
+        self,
+        instance: SessionModel,
+        component: CompositionComponent,
+        param_name: str,
+    ) -> float | None:
+        storage_name = self._component_storage_param_name(
+            instance,
+            component,
+            param_name,
+            source=instance.initial_guess,
+        )
+        if storage_name is None or instance.initial_guess is None:
+            return None
+        return instance.initial_guess.get(storage_name)
+
+    def _component_fixed_value(
+        self,
+        instance: SessionModel,
+        component: CompositionComponent,
+        param_name: str,
+    ) -> float | None:
+        storage_name = self._component_storage_param_name(
+            instance,
+            component,
+            param_name,
+            source=instance.fixed_params,
+        )
+        if storage_name is None or instance.fixed_params is None:
+            return None
+        return instance.fixed_params.get(storage_name)
+
+    def _component_storage_param_name(
+        self,
+        instance: SessionModel,
+        component: CompositionComponent,
+        param_name: str,
+        *,
+        source: dict[str, float] | None,
+    ) -> str | None:
+        if source is None or component.model_type is None:
+            return None
+
+        active_components = [candidate for candidate in instance.components if candidate.enabled]
+        try:
+            component_number = active_components.index(component) + 1
+        except ValueError:
+            component_number = None
+
+        if component_number is not None:
+            suffixed_name = f"{param_name}_{component_number}"
+            if suffixed_name in source:
+                return suffixed_name
+
+        if len(active_components) == 1 and param_name in source:
+            return param_name
+
+        return None
+
+    def _create_component_param_state_combo(
+        self,
+        model_id: int,
+        component_id: int,
+        param_name: str,
+    ) -> QComboBox:
+        combo = AutoPopupComboBox(self.model_tree)
+        combo.addItem("free", userData="free")
+        combo.addItem("fixed", userData="fixed")
+        combo.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        combo.setStyleSheet(
+            "QComboBox {"
+            " border: 1px solid palette(mid);"
+            " border-radius: 3px;"
+            " padding: 0 12px 0 3px;"
+            " margin: 0px;"
+            " min-height: 18px;"
+            " background: transparent;"
+            " color: palette(text);"
+            " }"
+            "QComboBox::drop-down {"
+            " border: none;"
+            " width: 10px;"
+            " }"
+            "QComboBox QAbstractItemView {"
+            " background: palette(base);"
+            " color: palette(text);"
+            " selection-background-color: palette(highlight);"
+            " selection-color: palette(highlighted-text);"
+            " }"
+        )
+
+        instance = self.session.get_model(model_id)
+        component = self.session.get_component(model_id, component_id)
+        is_fixed = self._component_fixed_value(instance, component, param_name) is not None
+        combo.setCurrentIndex(1 if is_fixed else 0)
+        combo.activated.connect(
+            lambda _idx, model_id=model_id, component_id=component_id, param_name=param_name, combo=combo:
+            QTimer.singleShot(
+                0,
+                lambda model_id=model_id, component_id=component_id, param_name=param_name, combo=combo:
+                self._handle_component_param_state_changed(model_id, component_id, param_name, combo)
+            )
+        )
+        return combo
+
+    def _create_component_param_value_widget(
+        self,
+        instance: SessionModel,
+        component: CompositionComponent,
+        param_name: str,
+    ) -> QWidget:
+        fixed_value = self._component_fixed_value(instance, component, param_name)
+        if fixed_value is None:
+            label = QLabel(self._component_param_display(instance, component, param_name)[1])
+            label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
+            label.setMargin(4)
+            return label
+
+        spin = ClampedFloatSpinBox()
+        spin.setDecimals(6)
+        spin.setRange(-1e12, 1e12)
+        spin.setKeyboardTracking(False)
+        spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.NoButtons)
+        spin.setFrame(False)
+        spin.setStyleSheet(
+            "QDoubleSpinBox {"
+            " border: 1px solid palette(mid);"
+            " border-radius: 3px;"
+            " padding: 0 4px;"
+            " background: transparent;"
+            " }"
+        )
+        spin.setValue(float(fixed_value))
+        spin.valueChanged.connect(
+            lambda value, model_id=instance.id, component_id=component.id, param_name=param_name:
+            self._handle_component_param_value_changed(model_id, component_id, param_name, value)
+        )
+        return spin
+
+    def _handle_component_param_state_changed(
+        self,
+        model_id: int,
+        component_id: int,
+        param_name: str,
+        combo: QComboBox,
+    ) -> None:
+        mode = combo.currentData()
+        instance = self.session.get_model(model_id)
+        component = self.session.get_component(model_id, component_id)
+        currently_fixed = self._component_fixed_value(instance, component, param_name) is not None
+
+        if mode == "fixed" and not currently_fixed:
+            value = self._default_fixed_value(instance, component, param_name)
+            storage_name = self._component_storage_param_name_for_mode(instance, component, param_name)
+            self.session.set_fixed_param_value(model_id, storage_name, value)
+            QTimer.singleShot(0, lambda model_id=model_id: self.refresh(select_model_id=model_id))
+            return
+
+        if mode == "free" and currently_fixed:
+            storage_name = self._component_storage_param_name_for_mode(instance, component, param_name)
+            self.session.clear_fixed_param(model_id, storage_name)
+            QTimer.singleShot(0, lambda model_id=model_id: self.refresh(select_model_id=model_id))
+
+    def _handle_component_param_value_changed(
+        self,
+        model_id: int,
+        component_id: int,
+        param_name: str,
+        value: float,
+    ) -> None:
+        instance = self.session.get_model(model_id)
+        component = self.session.get_component(model_id, component_id)
+        if self._component_fixed_value(instance, component, param_name) is None:
+            return
+        storage_name = self._component_storage_param_name_for_mode(instance, component, param_name)
+        self.session.set_fixed_param_value(model_id, storage_name, value)
+        QTimer.singleShot(0, lambda model_id=model_id: self.refresh(select_model_id=model_id))
+
+    def _component_storage_param_name_for_mode(
+        self,
+        instance: SessionModel,
+        component: CompositionComponent,
+        param_name: str,
+    ) -> str:
+        existing_name = self._component_storage_param_name(
+            instance,
+            component,
+            param_name,
+            source=instance.fixed_params,
+        )
+        if existing_name is not None:
+            return existing_name
+
+        active_components = [candidate for candidate in instance.components if candidate.enabled]
+        if len(active_components) == 1:
+            return param_name
+        return f"{param_name}_{active_components.index(component) + 1}"
+
+    def _default_fixed_value(
+        self,
+        instance: SessionModel,
+        component: CompositionComponent,
+        param_name: str,
+    ) -> float:
+        fitted_value = self._component_fitted_value(instance, component, param_name)
+        if fitted_value is not None:
+            return float(fitted_value.value if hasattr(fitted_value, "value") else fitted_value)
+        initial_value = self._component_initial_guess_value(instance, component, param_name)
+        if initial_value is not None:
+            return float(initial_value)
+        return 0.0
 
     def _status_text(self, instance: SessionModel) -> str:
         if not instance.components:
