@@ -15,7 +15,7 @@ from .types import SupportedValues, ScatterResult, PlotResult
 
 type ErrorBandMode = Union[bool, Literal["auto"]]
 
-def _fit_quality_label(
+def fit_quality_label(
     fit_result: FitResult,
     *,
     decimals: int = 4,
@@ -203,7 +203,7 @@ def plot_func(
         and show_fit_quality_label
         and "label" not in kwargs
     ):
-        kwargs["label"] = _fit_quality_label(
+        kwargs["label"] = fit_quality_label(
             fit_func,
             decimals=fit_quality_label_decimals,
             decimal_comma=fit_quality_label_decimal_comma,
@@ -250,6 +250,7 @@ def scatter(
     x: Union[Sequence[SupportedValues], np.ndarray],
     y: Union[Sequence[SupportedValues], np.ndarray],
     plot: Tuple[Figure, Axes],
+    x_interval: Optional[Tuple[float, float]] = None,
     with_error: bool = True,
     change_viewport: bool = True,
     warn_filter_nan: bool = True,
@@ -257,7 +258,19 @@ def scatter(
 ) -> ScatterResult:
     if len(x) != len(y):
         raise ValueError(f"x and y have different lengths: {len(x)} vs {len(y)}")
-    x_values, y_values = filter_nan_values(x, y, warn_filter_nan=warn_filter_nan)
+
+    x_raw = np.asarray(x, dtype=object)
+    y_raw = np.asarray(y, dtype=object)
+
+    if x_interval is not None:
+        xmin, xmax = x_interval
+        if xmin > xmax:
+            raise ValueError("x_interval must satisfy x_interval[0] <= x_interval[1].")
+
+        x_interval_values, _ = extract_value_error(x_raw)
+        interval_mask = (x_interval_values >= xmin) & (x_interval_values <= xmax)
+        x_raw = x_raw[interval_mask]
+        y_raw = y_raw[interval_mask]
 
     fig, ax = plot
 
@@ -265,8 +278,17 @@ def scatter(
     xmin, xmax = ax.get_xlim();
     ymin, ymax = ax.get_ylim();
 
-    x_values, x_err = extract_value_error(x)
-    y_values, y_err = extract_value_error(y)
+    x_values, x_err = extract_value_error(x_raw)
+    y_values, y_err = extract_value_error(y_raw)
+
+    nan_mask = ~np.isnan(x_values) & ~np.isnan(y_values)
+    if warn_filter_nan and len(x_values) != np.count_nonzero(nan_mask):
+        warnings.warn("\nFiltered NaN values.", RuntimeWarning)
+
+    x_values = x_values[nan_mask]
+    y_values = y_values[nan_mask]
+    x_err = x_err[nan_mask]
+    y_err = y_err[nan_mask]
 
     linestyle = kwargs.pop("linestyle", "none")
     zorder = kwargs.pop("zorder", 3)
@@ -295,6 +317,7 @@ def scatter_data(
     x_index: str,
     y_index: str,
     plot: Tuple[Figure, Any],
+    x_interval: Optional[Tuple[float, float]] = None,
     with_error: bool = True,
     change_viewport: bool = True,
     warn_filter_nan: bool = True,
@@ -309,6 +332,7 @@ def scatter_data(
         x=data.column(x_index),
         y=data.column(y_index),
         plot=plot,
+        x_interval=x_interval,
         with_error=with_error,
         change_viewport=change_viewport,
         warn_filter_nan=warn_filter_nan,

@@ -9,6 +9,16 @@ from .types import SupportedValues, ScatterResult, PlotResult
 
 type ErrorBandMode = Union[bool, Literal["auto"]]
 
+def fit_quality_label(
+    fit_result: FitResult,
+    *,
+    decimals: int = 4,
+    decimal_comma: bool = False,
+) -> str:
+    """
+    Automatically generates the latex ready $\chi^2{red} = {fit.quality}$ label from a `fitResult`.
+    """
+
 def filter_nan_values(
     x: Union[Sequence[SupportedValues], np.ndarray],
     y: Union[Sequence[SupportedValues], np.ndarray],
@@ -106,6 +116,7 @@ def scatter(
     x: Union[Sequence[SupportedValues], np.ndarray],
     y: Union[Sequence[SupportedValues], np.ndarray],
     plot: Tuple[Figure, Axes],
+    x_interval: Optional[Tuple[float, float]] = None,
     with_error: bool = True,
     change_viewport: bool = True,
     warn_filter_nan: bool = True,
@@ -122,6 +133,8 @@ def scatter(
         Y-axis values, same length as x.
     plot : Tuple[Figure, Axes]
         A matplotlib Figure and Axes object to draw on.
+    x_interval : tuple[float, float] | None, default None
+        Inclusive x-range used to filter points before plotting.
     with_error : bool, default True
         Whether to plot error bars.
     change_viewport : bool, default True
@@ -143,6 +156,7 @@ def scatter_data(
     x_index: str,
     y_index: str,
     plot: Tuple[Figure, Axes],
+    x_interval: Optional[Tuple[float, float]] = None,
     with_error: bool = True,
     change_viewport: bool = True,
     warn_filter_nan: bool = True,
@@ -161,6 +175,8 @@ def scatter_data(
         Column name for y-axis values.
     plot : Tuple[Figure, Axes]
         Matplotlib figure and axes to draw on.
+    x_interval : tuple[float, float] | None, default None
+        Inclusive x-range used to filter rows before plotting.
     with_error : bool, default True
         If True, plot error bars if available.
     change_viewport : bool, default True

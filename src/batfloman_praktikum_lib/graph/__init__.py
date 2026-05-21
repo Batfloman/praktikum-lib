@@ -1,5 +1,5 @@
 from .quickMethods import create_plot, save_plot, plt, show
-from .plotNScatter import plot, plot_func, plot_line_at_point, scatter, scatter_data, plot_data, filter_nan_values
+from .plotNScatter import plot, plot_func, plot_line_at_point, scatter, scatter_data, plot_data, filter_nan_values, fit_quality_label
 from .types import PlotResult, ScatterResult, SupportedValues
 
 __all__ = [
@@ -7,6 +7,7 @@ __all__ = [
     "create_plot", 
     "save_plot", # also creates the dir if necessary
     "filter_nan_values",
+    "fit_quality_label",
     "show",
 
     "SupportedValues",
