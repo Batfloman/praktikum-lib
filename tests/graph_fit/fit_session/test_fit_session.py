@@ -733,6 +733,7 @@ def test_fit_analysis_to_records_supports_fit_and_component_rows(tmp_path):
 
     assert len(fit_rows) == 1
     assert fit_rows[0]["fit_name"] == "Peak"
+    assert fit_rows[0]["quality"] == pytest.approx(1.0)
     assert fit_rows[0]["A_1"].value == 10.0
     assert fit_rows[0]["m_2"].value == 0.5
 
@@ -772,6 +773,7 @@ def test_fit_analysis_to_record_and_to_records_support_extra_fields(tmp_path):
 
     fit_record = analysis.to_record(extra={"E": Measurement(661.7, "0.01%"), "quelle": "Cs"})
     assert fit_record["fit_name"] == "Peak"
+    assert fit_record["quality"] == pytest.approx(1.0)
     assert fit_record["A_1"].value == 10.0
     assert fit_record["E"].value == pytest.approx(661.7)
     assert fit_record["quelle"] == "Cs"

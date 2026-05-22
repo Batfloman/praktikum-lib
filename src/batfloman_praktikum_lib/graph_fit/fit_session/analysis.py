@@ -132,6 +132,7 @@ class FitAnalysis:
             "model_id": self.model_id,
             "interval_start": self.interval[0],
             "interval_end": self.interval[1],
+            "quality": self.quality,
         })
         fit_record.update(self.params.items())
         return _merge_record_data(fit_record, extra, on_conflict=on_conflict)
