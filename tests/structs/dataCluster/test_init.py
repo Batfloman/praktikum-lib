@@ -1,4 +1,5 @@
 from batfloman_praktikum_lib import DataCluster, Dataset
+import numpy as np
 
 
 def test_init_accepts_datasets():
@@ -90,3 +91,37 @@ def test_setitem_on_empty_cluster_creates_rows_from_iterable():
     assert list(data["x"]) == [1, 2, 3]
     assert data[0]["x"] == 1
     assert data[2]["x"] == 3
+
+
+def test_column_uses_nan_for_missing_entries_but_preserves_strings():
+    data = DataCluster([
+        {"x": 1.0, "label": "A"},
+        {"x": "-", "label": "B"},
+        {"label": "C"},
+    ])
+
+    x = data["x"]
+    labels = data["label"]
+
+    assert x[0] == 1.0
+    assert np.isnan(x[1])
+    assert np.isnan(x[2])
+    assert list(labels) == ["A", "B", "C"]
+
+
+def test_values_and_errors_use_nan_for_missing_entries():
+    data = DataCluster([
+        {"x": 1.0},
+        {"x": "-"},
+        {},
+    ])
+
+    values = data.values("x")
+    errors = data.errors("x")
+
+    assert values[0] == 1.0
+    assert errors[0] == 0.0
+    assert np.isnan(values[1])
+    assert np.isnan(values[2])
+    assert np.isnan(errors[1])
+    assert np.isnan(errors[2])

@@ -80,3 +80,30 @@ def test_scatter_data_interval_forwards_to_scatter():
         np.array([[1.0, 11.0], [2.0, 12.0]]),
     )
     plt.close(plot[0])
+
+
+def test_scatter_data_filters_missing_rows_instead_of_crashing():
+    data = DataCluster(
+        [
+            {"x": 0.0, "y": 10.0},
+            {"x": 1.0, "y": "-"},
+            {"x": "-", "y": 12.0},
+            {"x": 3.0, "y": 13.0},
+        ]
+    )
+    plot = graph.create_plot()
+
+    result = graph.scatter_data(
+        data,
+        "x",
+        "y",
+        plot=plot,
+        with_error=False,
+        warn_filter_nan=False,
+    )
+
+    assert np.array_equal(
+        result.scatter.get_offsets(),
+        np.array([[0.0, 10.0], [3.0, 13.0]]),
+    )
+    plt.close(plot[0])

@@ -36,6 +36,12 @@ def _is_missing_scalar(value) -> bool:
     except TypeError:
         return False
 
+
+def _is_missing_entry(value) -> bool:
+    if _is_missing_scalar(value):
+        return True
+    return isinstance(value, str) and value.strip() == "-"
+
 def _df_to_Dataset_arr(df: pd.DataFrame):
     arr = []
 
@@ -238,9 +244,17 @@ class DataCluster:
     def column(self, index: str) -> np.ndarray:
         if index not in self.get_column_names():
             raise IndexError()
-        
+
+        def get_item(dataset: Dataset):
+            if index not in dataset:
+                return np.nan
+
+            value = dataset[index]
+            return np.nan if _is_missing_entry(value) else value
+
         return np.array(
-            [(dataset[index] if (index in dataset) else "-") for dataset in self]
+            [get_item(dataset) for dataset in self],
+            dtype=object,
         )
 
     def values(self, index: str) -> np.ndarray:
@@ -248,15 +262,18 @@ class DataCluster:
             raise IndexError()
 
         def get_value(x):
+            if _is_missing_entry(x):
+                return np.nan
             if isinstance(x, Measurement):
                 return x.value
             try:
                 return float(x)
             except (ValueError, TypeError):
                 return np.nan
-    
+
         return np.array(
-            [(get_value(dataset[index]) if (index in dataset) else "-") for dataset in self]
+            [(get_value(dataset[index]) if (index in dataset) else np.nan) for dataset in self],
+            dtype=float,
         )
         
     def errors(self, index: str) -> np.ndarray:
@@ -264,13 +281,16 @@ class DataCluster:
             raise IndexError()
         
         def get_error(x):
+            if _is_missing_entry(x):
+                return np.nan
             if isinstance(x, Measurement):
                 return x.error
             else:
                 return 0
     
         return np.array(
-            [(get_error(dataset[index]) if (index in dataset) else "-") for dataset in self]
+            [(get_error(dataset[index]) if (index in dataset) else np.nan) for dataset in self],
+            dtype=float,
         )
 
     # ==================================================
