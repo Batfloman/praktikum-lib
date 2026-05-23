@@ -1,4 +1,11 @@
 from .analysis import ComponentFitAnalysis, FitAnalysis
+from .selection import (
+    FitSelection,
+    FitSelectionCluster,
+    SelectionIterable,
+    SelectionRef,
+    SelectionSpec,
+)
 from .session import (
     AvailableModels,
     CompositionComponent,
@@ -22,6 +29,11 @@ __all__ = [
     "AvailableModels",
     "FitAnalysis",
     "ComponentFitAnalysis",
+    "FitSelection",
+    "FitSelectionCluster",
+    "SelectionIterable",
+    "SelectionRef",
+    "SelectionSpec",
     "CompositionComponent",
     "SessionModel",
     "ModelInstance",

@@ -1,15 +1,23 @@
 from dataclasses import dataclass, field
 import json
 from pathlib import Path
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 import inspect
 import os
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, overload
 
 import numpy as np
 
 from ...path_managment import ensure_extension
+from ...structs.dataset import Dataset
 from .analysis import ComponentFitAnalysis, FitAnalysis
+from .selection import (
+    FitSelection,
+    FitSelectionCluster,
+    SelectionIterable,
+    SelectionRef,
+    SelectionSpec,
+)
 from ..fitResult import FIT_METHODS, FitResult
 from ..init_params import ManualFitSetup, manual_fit_setup
 
@@ -470,6 +478,108 @@ class FitSession:
             model_name=instance.display_name,
             components=self._build_component_analyses(instance),
         )
+
+    def select(
+        self,
+        model_ref: SelectionRef,
+        *,
+        component: SelectionRef | None = None,
+        extra: Mapping[str, Any] | None = None,
+        rename: Mapping[str, str] | None = None,
+        auto_fit: bool = True,
+        method: Optional[FIT_METHODS] = None,
+        **fit_kwargs,
+    ) -> FitSelection:
+        analysis = self.analyze(
+            model_ref,
+            auto_fit=auto_fit,
+            method=method,
+            **fit_kwargs,
+        )
+        if component is not None:
+            analysis.component(component)
+        return FitSelection(
+            session=self,
+            ref=model_ref,
+            analysis=analysis,
+            component_ref=component,
+            extra=None if extra is None else Dataset(extra),
+            rename=None if rename is None else dict(rename),
+        )
+
+    @overload
+    def select_many(
+        self,
+        *selections: SelectionSpec,
+        auto_fit: bool = True,
+        method: Optional[FIT_METHODS] = None,
+        **fit_kwargs,
+    ) -> FitSelectionCluster: ...
+
+    @overload
+    def select_many(
+        self,
+        selections: SelectionIterable,
+        *,
+        auto_fit: bool = True,
+        method: Optional[FIT_METHODS] = None,
+        **fit_kwargs,
+    ) -> FitSelectionCluster: ...
+
+    def select_many(
+        self,
+        *selections: SelectionSpec | SelectionIterable,
+        auto_fit: bool = True,
+        method: Optional[FIT_METHODS] = None,
+        **fit_kwargs,
+    ) -> FitSelectionCluster:
+        resolved_specs = self._normalize_selection_specs(selections)
+        resolved_selections: list[FitSelection] = []
+        for selection_spec in resolved_specs:
+            if isinstance(selection_spec, Mapping):
+                if "ref" not in selection_spec:
+                    raise ValueError("Selection mappings must define 'ref'.")
+                resolved_selections.append(
+                    self.select(
+                        selection_spec["ref"],
+                        component=selection_spec.get("component"),
+                        extra=selection_spec.get("extra"),
+                        rename=selection_spec.get("rename"),
+                        auto_fit=selection_spec.get("auto_fit", auto_fit),
+                        method=selection_spec.get("method", method),
+                        **fit_kwargs,
+                    )
+                )
+                continue
+
+            resolved_selections.append(
+                self.select(
+                    selection_spec,
+                    auto_fit=auto_fit,
+                    method=method,
+                    **fit_kwargs,
+                )
+            )
+
+        return FitSelectionCluster(resolved_selections)
+
+    def _normalize_selection_specs(
+        self,
+        selections: tuple[SelectionSpec, ...],
+    ) -> list[SelectionSpec]:
+        if len(selections) != 1:
+            return list(selections)
+
+        candidate = selections[0]
+        if isinstance(candidate, Mapping):
+            return [candidate]
+        if isinstance(candidate, (str, int, np.integer)):
+            return [candidate]
+        if isinstance(candidate, Sequence):
+            return list(candidate)
+        if isinstance(candidate, Iterable):
+            return list(candidate)
+        return [candidate]
 
     def fit(
         self,
