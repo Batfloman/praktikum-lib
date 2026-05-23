@@ -9,9 +9,8 @@ from ...structs.dataset import Dataset
 from .analysis import ComponentFitAnalysis, FitAnalysis, RecordConflictMode, _merge_record_data
 
 if TYPE_CHECKING:
-    from ..fitResult import FIT_METHODS
+    from ..fitResult import FIT_METHODS, FitResult
     from .session import FitSession
-    from ..fitResult import FitResult
 
 type SelectionRef = str | int
 
@@ -19,7 +18,7 @@ type SelectionRef = str | int
 class SelectionOptions(TypedDict):
     ref: SelectionRef
     component: NotRequired[SelectionRef | None]
-    extra: NotRequired[Mapping[str, Any] | Dataset | None]
+    fields: NotRequired[Mapping[str, Any] | Dataset | None]
     rename: NotRequired[Mapping[str, str] | None]
     auto_fit: NotRequired[bool]
     method: NotRequired[FIT_METHODS | None]
@@ -29,12 +28,13 @@ type SelectionSpec = SelectionRef | SelectionOptions
 type SelectionIterable = Iterable[SelectionSpec]
 type MergeableSelection = FitSelection | FitSelectionCluster
 
-def _normalize_extra(extra: Mapping[str, Any] | Dataset | None) -> Dataset:
-    if extra is None:
+
+def _normalize_fields(fields: Mapping[str, Any] | Dataset | None) -> Dataset:
+    if fields is None:
         return Dataset()
-    if isinstance(extra, Dataset):
-        return extra.copy()
-    return Dataset(extra)
+    if isinstance(fields, Dataset):
+        return fields.copy()
+    return Dataset(fields)
 
 
 def _apply_rename(
@@ -46,13 +46,13 @@ def _apply_rename(
     return record.rename(**dict(rename))
 
 
-@dataclass(frozen=True)
+@dataclass
 class FitSelection:
     session: "FitSession"
     ref: SelectionRef
     analysis: FitAnalysis
     component_ref: SelectionRef | None = None
-    extra: Dataset = field(default_factory=Dataset)
+    fields: Dataset = field(default_factory=Dataset)
     rename: Mapping[str, str] | None = None
 
     @property
@@ -72,10 +72,20 @@ class FitSelection:
             return selected_component.params
         return self.analysis.params
 
+    @property
+    def extra(self) -> Dataset:
+        return self.fields
+
+    def __getitem__(self, key):
+        return self.fields[key]
+
+    def __setitem__(self, key, value) -> None:
+        self.fields[key] = value
+
     def to_record(
         self,
         *,
-        extra: Mapping[str, Any] | Dataset | None = None,
+        fields: Mapping[str, Any] | Dataset | None = None,
         rename: Mapping[str, str] | None = None,
         on_conflict: RecordConflictMode = "raise",
     ) -> Dataset:
@@ -93,14 +103,14 @@ class FitSelection:
             record = self.analysis.to_record()
 
         resolved_record = _apply_rename(record, merged_rename or None)
-        resolved_extra = _merge_record_data(
-            self.extra,
-            _normalize_extra(extra),
+        merged_fields = _merge_record_data(
+            self.fields,
+            _normalize_fields(fields),
             on_conflict=on_conflict,
         )
         return _merge_record_data(
             resolved_record,
-            resolved_extra,
+            merged_fields,
             on_conflict=on_conflict,
         )
 
@@ -108,9 +118,59 @@ class FitSelection:
         return FitSelectionCluster([self]).merge(*others)
 
 
+class FitSelectionFieldTable:
+    def __init__(self, cluster: "FitSelectionCluster"):
+        self.cluster = cluster
+
+    def __len__(self) -> int:
+        return len(self.cluster)
+
+    def __getitem__(self, key):
+        if isinstance(key, str):
+            return self.cluster.to_datacluster()[key]
+        if isinstance(key, slice):
+            return DataCluster([
+                selection.to_record()
+                for selection in self.cluster.selections[key]
+            ])
+        return self.cluster.selections[key].to_record()
+
+    def __setitem__(self, key, value) -> None:
+        if not isinstance(key, str):
+            raise TypeError("Only column assignment by field name is supported.")
+
+        if isinstance(value, (str, bytes)) or not isinstance(value, Iterable):
+            if len(self.cluster) == 0:
+                raise IndexError("Cannot assign a scalar column on an empty FitSelectionCluster.")
+            values = [value] * len(self.cluster)
+        else:
+            values = list(value)
+            if len(values) == 0 and len(self.cluster) == 0:
+                return
+            if len(values) != len(self.cluster):
+                raise ValueError("Column length must match the number of selections")
+
+        for selection, item in zip(self.cluster, values):
+            selection.fields[key] = item
+
+    def __iter__(self) -> Iterator[Dataset]:
+        for selection in self.cluster:
+            yield selection.to_record()
+
+    def get_column_names(self) -> list[str]:
+        return self.cluster.to_datacluster().get_column_names()
+
+    def to_datacluster(self) -> DataCluster:
+        return self.cluster.to_datacluster()
+
+
 @dataclass(frozen=True)
 class FitSelectionCluster(Sequence[FitSelection]):
     selections: list[FitSelection] = field(default_factory=list)
+    fieldtable: FitSelectionFieldTable = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "fieldtable", FitSelectionFieldTable(self))
 
     def __getitem__(self, index):
         return self.selections[index]
@@ -130,17 +190,28 @@ class FitSelectionCluster(Sequence[FitSelection]):
         return [selection.fit_result for selection in self.selections]
 
     @property
+    def fields(self) -> list[Dataset]:
+        return [selection.fields for selection in self.selections]
+
+    @property
     def extras(self) -> list[Dataset]:
-        return [selection.extra for selection in self.selections]
+        return self.fields
+
+    @property
+    def data(self) -> FitSelectionFieldTable:
+        return self.fieldtable
 
     def to_datacluster(
         self,
         *,
-        extra: Mapping[str, Any] | Dataset | None = None,
+        fields: Mapping[str, Any] | Dataset | None = None,
         on_conflict: RecordConflictMode = "raise",
     ) -> DataCluster:
         return DataCluster([
-            selection.to_record(extra=extra, on_conflict=on_conflict)
+            selection.to_record(
+                fields=fields,
+                on_conflict=on_conflict,
+            )
             for selection in self.selections
         ])
 

@@ -2,6 +2,7 @@ from .analysis import ComponentFitAnalysis, FitAnalysis
 from .selection import (
     FitSelection,
     FitSelectionCluster,
+    FitSelectionFieldTable,
     SelectionIterable,
     SelectionRef,
     SelectionSpec,
@@ -31,6 +32,7 @@ __all__ = [
     "ComponentFitAnalysis",
     "FitSelection",
     "FitSelectionCluster",
+    "FitSelectionFieldTable",
     "SelectionIterable",
     "SelectionRef",
     "SelectionSpec",

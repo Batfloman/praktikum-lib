@@ -93,6 +93,15 @@ ModelInstance = SessionModel
 
 
 class FitSession:
+    _SELECTION_SPEC_KEYS = frozenset({
+        "ref",
+        "component",
+        "fields",
+        "rename",
+        "auto_fit",
+        "method",
+    })
+
     def __init__(
         self,
         x,
@@ -484,7 +493,7 @@ class FitSession:
         model_ref: SelectionRef,
         *,
         component: SelectionRef | None = None,
-        extra: Mapping[str, Any] | None = None,
+        fields: Mapping[str, Any] | Dataset | None = None,
         rename: Mapping[str, str] | None = None,
         auto_fit: bool = True,
         method: Optional[FIT_METHODS] = None,
@@ -503,7 +512,7 @@ class FitSession:
             ref=model_ref,
             analysis=analysis,
             component_ref=component,
-            extra=Dataset() if extra is None else Dataset(extra),
+            fields=Dataset() if fields is None else Dataset(fields),
             rename=None if rename is None else dict(rename),
         )
 
@@ -539,11 +548,17 @@ class FitSession:
             if isinstance(selection_spec, Mapping):
                 if "ref" not in selection_spec:
                     raise ValueError("Selection mappings must define 'ref'.")
+                unknown_keys = set(selection_spec) - self._SELECTION_SPEC_KEYS
+                if unknown_keys:
+                    unknown_keys_text = ", ".join(sorted(str(key) for key in unknown_keys))
+                    raise ValueError(
+                        f"Unknown selection mapping keys: {unknown_keys_text}."
+                    )
                 resolved_selections.append(
                     self.select(
                         selection_spec["ref"],
                         component=selection_spec.get("component"),
-                        extra=selection_spec.get("extra"),
+                        fields=selection_spec.get("fields"),
                         rename=selection_spec.get("rename"),
                         auto_fit=selection_spec.get("auto_fit", auto_fit),
                         method=selection_spec.get("method", method),
