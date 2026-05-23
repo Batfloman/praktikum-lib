@@ -200,7 +200,7 @@ class DataCluster:
 
     # ==================================================
 
-    def sort(self, *keys: str) -> None:
+    def sort(self, *keys: str) -> "DataCluster":
         if len(keys) == 0:
             raise ValueError("At least one sort key must be provided")
 
@@ -226,6 +226,8 @@ class DataCluster:
             return tuple(normalize_value(dataset, index) for index in sort_keys)
 
         self.data = sorted(self, key=sort_key)
+
+        return self
     
     def filter(self, condition: Callable[['Dataset'], bool]) -> 'DataCluster':
         filtered = [copy.deepcopy(ds) for ds in self.data if condition(ds)]

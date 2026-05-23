@@ -503,7 +503,7 @@ class FitSession:
             ref=model_ref,
             analysis=analysis,
             component_ref=component,
-            extra=None if extra is None else Dataset(extra),
+            extra=Dataset() if extra is None else Dataset(extra),
             rename=None if rename is None else dict(rename),
         )
 

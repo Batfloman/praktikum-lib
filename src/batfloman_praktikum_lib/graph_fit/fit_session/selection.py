@@ -29,9 +29,9 @@ type SelectionSpec = SelectionRef | SelectionOptions
 type SelectionIterable = Iterable[SelectionSpec]
 type MergeableSelection = FitSelection | FitSelectionCluster
 
-def _normalize_extra(extra: Mapping[str, Any] | Dataset | None) -> Dataset | None:
+def _normalize_extra(extra: Mapping[str, Any] | Dataset | None) -> Dataset:
     if extra is None:
-        return None
+        return Dataset()
     if isinstance(extra, Dataset):
         return extra.copy()
     return Dataset(extra)
@@ -52,7 +52,7 @@ class FitSelection:
     ref: SelectionRef
     analysis: FitAnalysis
     component_ref: SelectionRef | None = None
-    extra: Dataset | None = None
+    extra: Dataset = field(default_factory=Dataset)
     rename: Mapping[str, str] | None = None
 
     @property
@@ -94,7 +94,7 @@ class FitSelection:
 
         resolved_record = _apply_rename(record, merged_rename or None)
         resolved_extra = _merge_record_data(
-            self.extra or Dataset(),
+            self.extra,
             _normalize_extra(extra),
             on_conflict=on_conflict,
         )
@@ -130,7 +130,7 @@ class FitSelectionCluster(Sequence[FitSelection]):
         return [selection.fit_result for selection in self.selections]
 
     @property
-    def extras(self) -> list[Dataset | None]:
+    def extras(self) -> list[Dataset]:
         return [selection.extra for selection in self.selections]
 
     def to_datacluster(
