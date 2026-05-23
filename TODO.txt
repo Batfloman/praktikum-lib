@@ -15,4 +15,22 @@
 
 - FitModel + func
 
-- Custom units (e.g. 'Kanäle')
+- Fit session: menaul init params window, better sizing to see all buttons
+
+- Fit session: allow changing display color, avoids same colors next to another
+- Fit ssession: extract x-value?
+
+- Fit session: rename Compoisiotn models?
+- Fit session: covrianze between composiiton models?
+- Fit session: hiding graph in 'models' winodw removes it, while hiding in the 'visualization' window just hides it
+
+- Fit session: tighten implementations for methods that have the model identifier as a paramter: e.g. get_model(ref: name or id), Introduce a type str | int (with comment 'name or id')?
+
+- quiet Flag, limit X amount of skips? e.g. --quiet=6 -> skip 6 plots (good for seeing only the changes for a specific plot)
+
+- graph.plot overloads?
+	- graph.plot(func)? instead of specific method for that
+	- graph.plot(FitResult) 
+	- graph.plot(session.analyze())?
+	- graph.plot(session)? idk
+
