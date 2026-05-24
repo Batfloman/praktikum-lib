@@ -99,7 +99,17 @@ class FitModel(ABC, metaclass=ModelMeta): # type: ignore[misc]
         if not y_index in data.get_column_names():
             raise NameError(f"Column {y_index} not found")
 
-        x_values = data.column(x_index);
-        y_values = data.column(y_index);
+        x_values = data.values(x_index);
+        y_values = data.values(y_index);
+        x_errors = data.errors(x_index)
+        y_errors = data.errors(y_index)
 
-        return cls.fit(x_values, y_values, initial_guess=initial_guess, fixed_params=fixed_params, method=method);
+        return cls.fit(
+            x_values,
+            y_values,
+            xerr=x_errors,
+            yerr=y_errors,
+            initial_guess=initial_guess,
+            fixed_params=fixed_params,
+            method=method,
+        );

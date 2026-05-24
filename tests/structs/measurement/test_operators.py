@@ -37,3 +37,15 @@ def test_power_half_on_object_array_matches_real_numpy_semantics():
     assert np.isinf(result[1].error)
     assert result[2].value == 2.0
     assert np.isclose(result[2].error, 0.1)
+
+
+def test_log_methods_match_numpy_dispatch():
+    value = Measurement(np.e**2, 0.5)
+
+    natural = value.log()
+    common = value.log10()
+
+    assert np.isclose(natural.value, 2.0)
+    assert np.isclose(natural.error, 0.5 / (np.e**2))
+    assert np.isclose(common.value, np.log10(np.e**2))
+    assert np.isclose(common.error, 0.5 / (np.e**2 * np.log(10)))

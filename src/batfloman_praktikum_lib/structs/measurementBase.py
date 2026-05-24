@@ -262,6 +262,12 @@ class MeasurementBase:
         err = 0.5 * self.error / val
         return self._from_value_error(val, err)
 
+    def log(self):
+        return np.log(self)
+
+    def log10(self):
+        return np.log10(self)
+
     def deg2rad(self):
         val = np.deg2rad(self.value)
         err = np.deg2rad(self.error)
