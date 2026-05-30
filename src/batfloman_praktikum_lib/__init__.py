@@ -8,7 +8,7 @@ from . import io
 from .structs import DataCluster, Dataset, Measurement
 # from .saving import save_latex
 from .io import to_latex, save_latex
-from .path_managment import set_file, rel_path, ensure_extension, validate_filename
+from .path_managment import set_file, set_basedir, rel_path, ensure_extension, validate_filename
 from .flags import check_quiet
 
 from . import graph
@@ -31,6 +31,7 @@ __all__ = [
 
     # helper
     "set_file",
+    "set_basedir",
     "rel_path",
 
     "to_latex",

@@ -1,43 +1,59 @@
+import inspect
 import os
+from pathlib import Path
 from typing import Optional
 
-_file = None;
+PathInput = str | os.PathLike[str]
 
-def set_file(caller_file: str) -> None:
-    global _file 
-    _file = caller_file;
+_base_dir: Path | None = None
 
-def rel_path(path: str, caller_file: Optional[str] = None) -> str:
-    global _file
+def set_file(caller_file: PathInput) -> None:
+    global _base_dir
+    _base_dir = Path(caller_file).expanduser().resolve().parent
+
+def set_basedir(base_dir: PathInput, caller_file: Optional[PathInput] = None) -> None:
+    global _base_dir
+    path = Path(base_dir).expanduser()
+
+    if not path.is_absolute():
+        if caller_file is None:
+            frame = inspect.currentframe()
+            if frame is not None and frame.f_back is not None:
+                caller_file = frame.f_back.f_code.co_filename
+
+        if caller_file is not None:
+            path = Path(caller_file).expanduser().resolve().parent / path
+
+    _base_dir = path.resolve()
+
+def rel_path(path: PathInput, caller_file: Optional[PathInput] = None) -> Path:
+    global _base_dir
 
     # Fallback auf globalen Zustand
     if caller_file is None:
-        if _file is None:
+        if _base_dir is None:
             raise ValueError("Need to set the file once!")
-        caller_file = _file
+        base_dir = _base_dir
+    else:
+        base_dir = Path(caller_file).expanduser().resolve().parent
 
-    # Kein automatisches Überschreiben des globalen Zustands
-    return os.path.abspath(os.path.join(
-        os.path.dirname(os.path.realpath(caller_file)),
-        path,
-    ))
+    return (base_dir / path).resolve()
 
-def ensure_extension(filename: str, extension: str) -> str:
+def ensure_extension(filename: PathInput, extension: str) -> Path:
     ext = extension.lower()
-    if not filename.lower().endswith(ext):
-        filename += extension
-    return filename
+    filename_str = os.fspath(filename)
+    if filename_str.lower().endswith(ext):
+        return Path(filename)
+    return Path(filename_str + extension)
 
-def validate_filename(filename: str, extension: str) -> str:
+def validate_filename(filename: PathInput, extension: str) -> Path:
     filename = ensure_extension(filename, extension)
-    if not os.path.exists(filename):
+    if not filename.exists():
         raise FileNotFoundError(f"File not found: {filename}")
     return filename
 
-def create_dirs(filepath: str) -> None:
-    dir = os.path.dirname(filepath)
-    os.makedirs(dir, exist_ok=True)
+def create_dirs(filepath: PathInput) -> None:
+    Path(filepath).parent.mkdir(parents=True, exist_ok=True)
 
-def dir_exist(filepath: str) -> bool:
-    dir = os.path.dirname(filepath)
-    return os.path.exists(dir)
+def dir_exist(filepath: PathInput) -> bool:
+    return Path(filepath).parent.exists()

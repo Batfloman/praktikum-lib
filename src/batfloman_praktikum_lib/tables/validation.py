@@ -1,14 +1,18 @@
 import os
+from pathlib import Path
 
-def ensure_extension(filename: str, extension: str) -> str:
+PathInput = str | os.PathLike[str]
+
+def ensure_extension(filename: PathInput, extension: str) -> Path:
     ext = extension.lower()
-    if not filename.lower().endswith(ext):
-        filename += extension
-    return filename
+    filename_str = os.fspath(filename)
+    if filename_str.lower().endswith(ext):
+        return Path(filename)
+    return Path(filename_str + extension)
 
-def validate_filename(filename: str, extension: str) -> str:
+def validate_filename(filename: PathInput, extension: str) -> Path:
     filename = ensure_extension(filename, extension)
-    if not os.path.exists(filename):
+    if not filename.exists():
         raise FileNotFoundError(f"File not found: {filename}")
     return filename
 
