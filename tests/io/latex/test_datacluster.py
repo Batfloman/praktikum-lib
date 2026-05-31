@@ -52,4 +52,5 @@ def test_custom_text_unit_metadata_is_used_for_headers_and_values(tmp_path):
     )
 
     assert "A in \\text{pixels}" in latex
-    assert "\\num{1.23}\\,\\text{pixels}" in latex
+    assert "\\num{1.23}\\,\\text{pixels}" not in latex
+    assert "\\num{1.23}" in latex

@@ -70,7 +70,7 @@ def format_table_value(value, metadata: TableColumnMetadata) -> str:
         value,
         options={
             "format_spec": format_spec,
-            "unit": metadata.unit,
+            "unit": None,
             "unit_mode": getattr(metadata, "unit_mode", "auto"),
             "use_si_prefix": metadata.use_si_prefix,
             "with_error": True,
