@@ -29,6 +29,13 @@ type SelectionIterable = Iterable[SelectionSpec]
 type MergeableSelection = FitSelection | FitSelectionCluster
 
 
+def _format_available(values) -> str:
+    resolved_values = list(values)
+    if not resolved_values:
+        return "<none>"
+    return ", ".join(repr(value) for value in resolved_values)
+
+
 def _normalize_fields(fields: Mapping[str, Any] | Dataset | None) -> Dataset:
     if fields is None:
         return Dataset()
@@ -221,7 +228,10 @@ class FitSelectionCluster(Sequence[FitSelection]):
             return matches[0]
         if len(matches) > 1:
             raise ValueError(f"Ambiguous selection reference '{ref}'.")
-        raise KeyError(f"Unknown selection reference '{ref}'.")
+        raise KeyError(
+            f"Unknown selection reference '{ref}'. "
+            f"Available references: {_format_available(selection.ref for selection in self.selections)}."
+        )
 
     def merge(self, *others: MergeableSelection) -> "FitSelectionCluster":
         selections = list(self.selections)

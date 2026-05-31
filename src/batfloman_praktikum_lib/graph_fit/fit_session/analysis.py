@@ -15,6 +15,13 @@ from .area import (
 RecordConflictMode = Literal["raise", "overwrite"]
 
 
+def _format_available(values) -> str:
+    resolved_values = list(values)
+    if not resolved_values:
+        return "<none>"
+    return ", ".join(repr(value) for value in resolved_values)
+
+
 def _merge_record_data(
     base: Dataset,
     extra: Mapping[str, Any] | Dataset | None,
@@ -185,7 +192,10 @@ class FitAnalysis:
             for component in self.components:
                 if component.component_id == ref:
                     return component
-            raise KeyError(f"Unknown component id: '{ref}'.")
+            raise KeyError(
+                f"Unknown component id: '{ref}'. "
+                f"Available ids: {_format_available(component.component_id for component in self.components)}."
+            )
 
         matching_names = [component for component in self.components if component.name == ref]
         if len(matching_names) == 1:
@@ -201,4 +211,8 @@ class FitAnalysis:
             matches = ", ".join(component.name for component in matching_models)
             raise ValueError(f"Ambiguous component reference '{ref}'. Matches: {matches}")
 
-        raise KeyError(f"Unknown component reference: '{ref}'.")
+        raise KeyError(
+            f"Unknown component reference: '{ref}'. "
+            f"Available names: {_format_available(component.name for component in self.components)}. "
+            f"Available models: {_format_available(component.model_name for component in self.components)}."
+        )

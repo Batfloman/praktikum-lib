@@ -27,6 +27,13 @@ type FitSessionModelType = Callable[..., Any] | type[Any]
 type AvailableModels = Mapping[str, FitSessionModelType]
 
 
+def _format_available(values) -> str:
+    resolved_values = list(values)
+    if not resolved_values:
+        return "<none>"
+    return ", ".join(repr(value) for value in resolved_values)
+
+
 @dataclass
 class CompositionComponent:
     id: int
@@ -156,7 +163,10 @@ class FitSession:
         for instance in self.models:
             if instance.name == normalized_name:
                 return instance
-        raise KeyError(f"Unknown model name: '{normalized_name}'.")
+        raise KeyError(
+            f"Unknown model name: '{normalized_name}'. "
+            f"Available names: {_format_available(instance.name for instance in self.models if instance.name is not None)}."
+        )
 
     def get_named_model(self, model_name: str) -> SessionModel:
         return self.get_model_by_name(model_name)
@@ -203,7 +213,10 @@ class FitSession:
         for instance in self.models:
             if instance.id == model_id:
                 return instance
-        raise KeyError(f"Unknown model id: '{model_id}'.")
+        raise KeyError(
+            f"Unknown model id: '{model_id}'. "
+            f"Available ids: {_format_available(instance.id for instance in self.models)}."
+        )
 
     def set_visible(self, model_id: int, visible: bool) -> None:
         self.get_model(model_id).visible = visible
@@ -295,14 +308,20 @@ class FitSession:
                 self.invalidate_model(model_id)
                 self.save_state()
                 return component
-        raise KeyError(f"Unknown component id '{component_id}' in model '{model_id}'.")
+        raise KeyError(
+            f"Unknown component id '{component_id}' in model '{model_id}'. "
+            f"Available ids: {_format_available(component.id for component in session_model.components)}."
+        )
 
     def get_component(self, model_id: int, component_id: int) -> CompositionComponent:
         session_model = self.get_model(model_id)
         for component in session_model.components:
             if component.id == component_id:
                 return component
-        raise KeyError(f"Unknown component id '{component_id}' in model '{model_id}'.")
+        raise KeyError(
+            f"Unknown component id '{component_id}' in model '{model_id}'. "
+            f"Available ids: {_format_available(component.id for component in session_model.components)}."
+        )
 
     def set_component_enabled(self, model_id: int, component_id: int, enabled: bool) -> None:
         component = self.get_component(model_id, component_id)
@@ -1111,13 +1130,19 @@ class FitSession:
         for idx, instance in enumerate(self.models):
             if instance.id == model_id:
                 return idx
-        raise KeyError(f"Unknown model id: '{model_id}'.")
+        raise KeyError(
+            f"Unknown model id: '{model_id}'. "
+            f"Available ids: {_format_available(instance.id for instance in self.models)}."
+        )
 
     def _find_component_index(self, session_model: SessionModel, component_id: int) -> int:
         for idx, component in enumerate(session_model.components):
             if component.id == component_id:
                 return idx
-        raise KeyError(f"Unknown component id '{component_id}' in model '{session_model.id}'.")
+        raise KeyError(
+            f"Unknown component id '{component_id}' in model '{session_model.id}'. "
+            f"Available ids: {_format_available(component.id for component in session_model.components)}."
+        )
 
     def _component_param_names(self, model_type: FitSessionModelType) -> list[str]:
         if hasattr(model_type, "get_param_names"):
