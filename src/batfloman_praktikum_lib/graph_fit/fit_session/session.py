@@ -781,9 +781,10 @@ class FitSession:
 
         interval_kind = self._resolve_interval_kind(instance)
         if interval_kind == "index":
-            start_idx, end_idx = sorted((int(instance.interval[0]), int(instance.interval[1])))
-            if start_idx < 0 or end_idx >= len(self.x):
-                raise IndexError(f"Model '{instance.id}' interval index out of bounds.")
+            index_interval = self._resolve_index_interval(instance)
+            if index_interval is None:
+                return np.zeros(len(self.x), dtype=bool)
+            start_idx, end_idx = index_interval
             mask = np.zeros(len(self.x), dtype=bool)
             mask[start_idx:end_idx + 1] = True
             return mask
@@ -791,6 +792,17 @@ class FitSession:
         x_vals = np.asarray(self.x, dtype=float)
         xmin, xmax = sorted((float(instance.interval[0]), float(instance.interval[1])))
         return (x_vals >= xmin) & (x_vals <= xmax)
+
+    def _resolve_index_interval(self, instance: SessionModel) -> tuple[int, int] | None:
+        if instance.interval is None or len(self.x) == 0:
+            return None
+
+        start_idx, end_idx = sorted((int(instance.interval[0]), int(instance.interval[1])))
+        max_index = len(self.x) - 1
+        return (
+            max(0, min(start_idx, max_index)),
+            max(0, min(end_idx, max_index)),
+        )
 
     def _resolve_interval_kind(self, instance: SessionModel) -> IntervalKind:
         if instance.interval_kind is not None:
@@ -811,7 +823,10 @@ class FitSession:
             xmin, xmax = sorted((float(instance.interval[0]), float(instance.interval[1])))
             return xmin, xmax
 
-        start_idx, end_idx = sorted((int(instance.interval[0]), int(instance.interval[1])))
+        index_interval = self._resolve_index_interval(instance)
+        if index_interval is None:
+            return (0.0, 0.0)
+        start_idx, end_idx = index_interval
         x_vals = np.asarray(self.x, dtype=float)
         return float(x_vals[start_idx]), float(x_vals[end_idx])
 
@@ -1091,6 +1106,8 @@ class FitSession:
                     key: float(value)
                     for key, value in fixed_params.items()
                 }
+            if instance.interval_kind == "index":
+                instance.interval = self._resolve_index_interval(instance)
             built_model = instance.build_model()
             if built_model is not None and instance.initial_guess is not None:
                 instance.setup = ManualFitSetup(
