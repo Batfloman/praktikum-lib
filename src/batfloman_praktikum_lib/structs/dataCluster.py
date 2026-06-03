@@ -42,6 +42,16 @@ def _is_missing_entry(value) -> bool:
         return True
     return isinstance(value, str) and value.strip() == "-"
 
+
+def _parse_embedded_measurement(value):
+    if not isinstance(value, str):
+        return None
+
+    try:
+        return Measurement(value)
+    except (TypeError, ValueError):
+        return None
+
 def _df_to_Dataset_arr(df: pd.DataFrame):
     arr = []
 
@@ -80,7 +90,11 @@ def _df_to_Dataset_arr(df: pd.DataFrame):
                 except Exception:
                     pass
 
-            dataset[index] = Measurement(value, error) if error else value
+            embedded_measurement = _parse_embedded_measurement(value) if error is None else None
+            if embedded_measurement is not None:
+                dataset[index] = embedded_measurement
+            else:
+                dataset[index] = Measurement(value, error) if error else value
         arr.append(dataset)
 
     return arr;

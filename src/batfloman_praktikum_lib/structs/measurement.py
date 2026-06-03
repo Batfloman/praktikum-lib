@@ -58,12 +58,12 @@ class _MeasurementModifier:
 class Measurement(MeasurementBase):
     def __init__(
         self,
-        value: ConvertibleToFloat,
-        uncertainty: ConvertibleToFloat | str | list[ConvertibleToFloat | str] | tuple[ConvertibleToFloat | str, ...],
+        value: ConvertibleToFloat | str,
+        uncertainty: ConvertibleToFloat | str | list[ConvertibleToFloat | str] | tuple[ConvertibleToFloat | str, ...] | None = None,
         min_error=0,
         combine: ErrorCombinationMethod = "linear",
     ):
-        """Create a measurement from a value and one or more uncertainty terms."""
+        """Create a measurement from value/error inputs or a string like ``1.23(4)``."""
         super().__init__(value, uncertainty, min_error=min_error, combine=combine)
 
     @property

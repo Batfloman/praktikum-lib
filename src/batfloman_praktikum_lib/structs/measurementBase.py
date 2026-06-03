@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.special import erf
+import re
 
 from typing import Literal, Sequence, Tuple, TypeAlias, Union
 
@@ -7,6 +8,40 @@ from typing import Literal, Sequence, Tuple, TypeAlias, Union
 
 ConvertibleToFloat = Union[float, int, np.integer, np.floating]
 ErrorCombinationMethod: TypeAlias = Literal["linear", "quadrature"]
+
+_PARENTHESIZED_MEASUREMENT_PATTERN = re.compile(
+    r"^\s*"
+    r"(?P<value>[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)"
+    r"\("
+    r"(?P<error>\d+)"
+    r"\)"
+    r"\s*$"
+)
+
+
+def _parse_measurement_literal(literal: str) -> tuple[float, float] | None:
+    match = _PARENTHESIZED_MEASUREMENT_PATTERN.match(literal)
+    if match is None:
+        return None
+
+    value_str = match.group("value")
+    error_digits = match.group("error")
+
+    value = float(value_str)
+
+    mantissa = value_str
+    exponent = 0
+    if "e" in mantissa.lower():
+        mantissa, exponent_str = re.split(r"[eE]", mantissa, maxsplit=1)
+        exponent = int(exponent_str)
+
+    if "." in mantissa:
+        decimal_places = len(mantissa.split(".", maxsplit=1)[1])
+    else:
+        decimal_places = 0
+
+    error = float(error_digits) * 10 ** (exponent - decimal_places)
+    return value, error
 
 def _parse_uncertainty_str(value: float, uncertainty: str) -> float:
     uncertainty = uncertainty.replace("\"", "")
@@ -73,11 +108,21 @@ class MeasurementBase:
 
     def __init__(
         self,
-        value: float,
-        uncertainties: str | ConvertibleToFloat | Sequence[str | ConvertibleToFloat],
+        value: float | str,
+        uncertainties: str | ConvertibleToFloat | Sequence[str | ConvertibleToFloat] | None = None,
         min_error=0,
         combine: ErrorCombinationMethod = "linear",
     ):
+        if uncertainties is None:
+            if not isinstance(value, str):
+                raise TypeError("uncertainties must be provided unless value uses '1.23(4)' syntax")
+
+            parsed_measurement = _parse_measurement_literal(value)
+            if parsed_measurement is None:
+                raise TypeError("uncertainties must be provided unless value uses '1.23(4)' syntax")
+
+            value, uncertainties = parsed_measurement
+
         self.value = float(value)
 
         if not isinstance(uncertainties, (list, tuple)):
