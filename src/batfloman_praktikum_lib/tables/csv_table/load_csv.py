@@ -39,7 +39,7 @@ def load_csv(filename: str, section: str | None = None) -> pd.DataFrame:
 
             # Header row
             matchHeader = _HEADER_PATTERN.match(line)
-            if matchHeader and "," in matchHeader.group("header"):
+            if matchHeader:
                 headers = [x.strip() for x in matchHeader.group("header").split(",")]
                 continue
 
