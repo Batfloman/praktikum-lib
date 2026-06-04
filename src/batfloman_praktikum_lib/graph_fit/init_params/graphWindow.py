@@ -5,6 +5,7 @@ import pyqtgraph as pg
 import numpy as np
 
 from batfloman_praktikum_lib.graph_fit.init_params._helper import smart_format
+from batfloman_praktikum_lib.graph_fit.helper import evaluate_model
 
 from .order_init_params import order_initial_params
 from .render_parts import DEFAULT_RENDER_PART_COLORS, RenderPart
@@ -79,7 +80,7 @@ class GraphWindow(QWidget):
         self.x_line = self._get_data_x_line()
         self.line_plot = self.plot_widget.plot(
             self.x_line,
-            self.model(self.x_line, *order_initial_params(self.model, self.params)),
+            evaluate_model(self.model, self.x_line, *order_initial_params(self.model, self.params)),
             pen=pg.mkPen('g', width=2),
             name="Model",
         )
@@ -270,7 +271,7 @@ class GraphWindow(QWidget):
 
     def update_visible_model_curve(self, *_args):
         self.x_line = self._get_visible_x_line()
-        y_line = self.model(self.x_line, *order_initial_params(self.model, self.params))
+        y_line = evaluate_model(self.model, self.x_line, *order_initial_params(self.model, self.params))
         self.line_plot.setData(self.x_line, y_line)
         for part in self.render_parts:
             plot = self.render_part_plots[part.key]

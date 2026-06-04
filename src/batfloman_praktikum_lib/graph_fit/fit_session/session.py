@@ -11,6 +11,7 @@ import numpy as np
 from ...path_managment import ensure_extension
 from ...structs.dataset import Dataset
 from .analysis import ComponentFitAnalysis, FitAnalysis
+from ..helper import evaluate_model
 from .selection import (
     FitSelection,
     FitSelectionCluster,
@@ -1258,8 +1259,8 @@ class FitSession:
         def evaluate(x_val):
             values = [params[name] for name in ordered_names]
             if isinstance(x_val, (list, np.ndarray)):
-                return [model_type.model(x, *values) for x in x_val]  # type: ignore[attr-defined]
-            return model_type.model(x_val, *values)  # type: ignore[attr-defined]
+                return [evaluate_model(model_type.model, x, *values) for x in x_val]  # type: ignore[attr-defined]
+            return evaluate_model(model_type.model, x_val, *values)  # type: ignore[attr-defined]
 
         return evaluate
 
@@ -1270,9 +1271,7 @@ class FitSession:
         ]
 
         def evaluate_nominal(x_val):
-            if isinstance(x_val, (list, np.ndarray)):
-                return np.asarray([model_type.model(x, *ordered_values) for x in x_val])  # type: ignore[attr-defined]
-            return model_type.model(x_val, *ordered_values)  # type: ignore[attr-defined]
+            return evaluate_model(model_type.model, x_val, *ordered_values)  # type: ignore[attr-defined]
 
         return evaluate_nominal
 

@@ -4,6 +4,7 @@ import numpy as np
 
 from batfloman_praktikum_lib.structs.measurement import Measurement
 from batfloman_praktikum_lib.structs.dataset import Dataset
+from .helper import evaluate_model
 
 type FIT_METHODS = Literal["least squares", "ODR", "idk"]
 
@@ -80,14 +81,13 @@ def generate_fit_result(model, values, errors, cov,
     })
 
     def func_no_err(x_val):
-        if isinstance(x_val, (list, np.ndarray)):
-            return np.asarray([model(x, *values) for x in x_val])
-        return model(x_val, *values);
+        return evaluate_model(model, x_val, *values)
 
     def fit_func(x_val):
+        fit_params = [params[name] for name in param_names]
         if isinstance(x_val, (list, np.ndarray)):
-            return [model(x, *[params[name] for name in param_names]) for x in x_val]
-        return model(x_val, *[params[name] for name in param_names])
+            return [evaluate_model(model, x, *fit_params) for x in x_val]
+        return evaluate_model(model, x_val, *fit_params)
 
     # # Define min and max functions based on the `fit_func` uncertainty
     def min_1sigma(x_val):

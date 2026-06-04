@@ -4,7 +4,7 @@ import numpy as np
 from scipy.optimize import curve_fit
 
 from batfloman_praktikum_lib.graph_fit.models.fitModel import FitModel
-from .helper import extract_vals_and_errors
+from .helper import evaluate_model, extract_vals_and_errors
 from ..graph.plotNScatter import filter_nan_values
 from .fitResult import generate_fit_result, FitResult
 from .fixed_params import (
@@ -44,15 +44,18 @@ def generic_fit(
 
     binding = build_fixed_param_binding(model, fixed_params=fixed_params)
     fit_model = binding.wrap_model() if binding.fixed_params else model
-    fit_param_names = binding.free_param_names if binding.fixed_params else param_names
+    fit_model_eval = lambda x, *params: evaluate_model(fit_model, x, *params)
+    fit_param_names = binding.free_param_names if binding.fixed_params else (param_names or binding.full_param_names)
     initial_guess = order_free_initial_guess(
         model,
         initial_guess,
         binding=binding,
     )
+    if initial_guess is None and fit_param_names is not None:
+        initial_guess = [1.0] * len(fit_param_names)
 
     if binding.fixed_params and not binding.free_param_names:
-        chi_squared_red = _calc_chi_squared(fit_model, x_data, y_data, y_err, [])
+        chi_squared_red = _calc_chi_squared(fit_model_eval, x_data, y_data, y_err, [])
         return rebuild_full_fit_result(
             binding=binding,
             free_values=[],
@@ -64,7 +67,7 @@ def generic_fit(
 
     # Perform the curve fit
     popt, pcov = curve_fit(
-        fit_model,
+        fit_model_eval,
         x_data,
         y_data,
         sigma=y_err,
@@ -75,7 +78,7 @@ def generic_fit(
     # Uncertainties from covariance matrix (sqrt of diagonal elements)
     perr = np.sqrt(np.diag(pcov))
 
-    chi_squared_red = _calc_chi_squared(fit_model, x_data, y_data, y_err, popt)
+    chi_squared_red = _calc_chi_squared(fit_model_eval, x_data, y_data, y_err, popt)
     
     if binding.fixed_params:
         return rebuild_full_fit_result(
@@ -87,7 +90,7 @@ def generic_fit(
             method="least squares",
         )
 
-    return generate_fit_result(model, popt, perr, pcov, param_names=fit_param_names, quality=chi_squared_red, method="least squares");
+    return generate_fit_result(fit_model_eval, popt, perr, pcov, param_names=fit_param_names, quality=chi_squared_red, method="least squares");
 
 def _calc_chi_squared(model, x_data, y_data, yerr, popt):
     residuals = (y_data - model(x_data, *popt)) / yerr

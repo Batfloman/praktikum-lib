@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import inspect
 from typing import Any
 
+from ..helper import evaluate_model
 from ..models import FitModel
 
 
@@ -62,7 +63,7 @@ def _wrap_part_callable(func: Callable) -> Callable[[Any, dict[str, float]], Any
 
     def evaluator(x, params: dict[str, float]):
         args = [params[name] for name in param_names]
-        return func(x, *args)
+        return evaluate_model(func, x, *args)
 
     return evaluator
 
@@ -76,7 +77,7 @@ def _composite_render_parts(components: list[type[FitModel]]) -> list[RenderPart
 
         def evaluator(x, params: dict[str, float], *, comp=comp, full_param_names=full_param_names):
             args = [params[name] for name in full_param_names]
-            return comp.model(x, *args)
+            return evaluate_model(comp.model, x, *args)
 
         parts.append(
             RenderPart(

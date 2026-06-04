@@ -7,7 +7,7 @@ from scipy.odr import ODR, Model, RealData
 from batfloman_praktikum_lib.io.termColors import bcolors
 
 from ..graph.plotNScatter import filter_nan_values
-from .helper import extract_vals_and_errors
+from .helper import evaluate_model, extract_vals_and_errors
 from .fitResult import generate_fit_result, FitResult
 from .fixed_params import (
     build_fixed_param_binding,
@@ -81,7 +81,7 @@ def generic_fit(
 
     binding = build_fixed_param_binding(model, fixed_params=fixed_params)
     fit_model = binding.wrap_model() if binding.fixed_params else model
-    fit_param_names = binding.free_param_names if binding.fixed_params else param_names
+    fit_param_names = binding.free_param_names if binding.fixed_params else (param_names or binding.full_param_names)
     initial_guess = order_free_initial_guess(
         model,
         initial_guess,
@@ -133,4 +133,4 @@ def generic_fit(
 
 def _odr_wrapper(B, x, model):
     """Wrapper to adapt curve_fit-style functions for ODR."""
-    return model(x, *B)
+    return evaluate_model(model, x, *B)
