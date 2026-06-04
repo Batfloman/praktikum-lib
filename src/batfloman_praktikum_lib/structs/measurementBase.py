@@ -459,6 +459,18 @@ class MeasurementBase:
                 err = errors[0]
             case np.isnan:
                 return np.isnan(values[0])
+            case np.less:
+                return values[0] < values[1]
+            case np.less_equal:
+                return values[0] <= values[1]
+            case np.equal:
+                return values[0] == values[1]
+            case np.not_equal:
+                return values[0] != values[1]
+            case np.greater_equal:
+                return values[0] >= values[1]
+            case np.greater:
+                return values[0] > values[1]
             case _:
                 raise NotImplementedError(f"not handled function: {ufunc}")
 
