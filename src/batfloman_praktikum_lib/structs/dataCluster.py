@@ -12,6 +12,14 @@ from batfloman_praktikum_lib.structs.dataset import Dataset
 
 from ..tables.validation import ensure_extension
 
+_SCALED_EMBEDDED_MEASUREMENT_PATTERN = re.compile(
+    r"^\s*"
+    r"(?P<measurement>.+?)"
+    r"\s*\*\s*"
+    r"(?P<scale>[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)"
+    r"\s*$"
+)
+
 def _get_column_with_error_indicies(indicies: List[str]) -> dict:
     property_has_error = {}
 
@@ -49,6 +57,15 @@ def _parse_embedded_measurement(value):
 
     try:
         return Measurement(value)
+    except (TypeError, ValueError):
+        pass
+
+    match = _SCALED_EMBEDDED_MEASUREMENT_PATTERN.match(value)
+    if match is None:
+        return None
+
+    try:
+        return Measurement(match.group("measurement")) * float(match.group("scale"))
     except (TypeError, ValueError):
         return None
 
