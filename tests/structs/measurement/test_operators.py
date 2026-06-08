@@ -39,6 +39,15 @@ def test_power_half_on_object_array_matches_real_numpy_semantics():
     assert np.isclose(result[2].error, 0.1)
 
 
+def test_comparison_ufuncs_use_nominal_values():
+    value = Measurement(2.0, 0.5)
+
+    assert np.less(np.float64(1.0), value)
+    assert not np.less(np.float64(3.0), value)
+    assert np.greater(value, np.float64(1.0))
+    assert np.equal(np.float64(2.0), value)
+
+
 def test_log_methods_match_numpy_dispatch():
     value = Measurement(np.e**2, 0.5)
 

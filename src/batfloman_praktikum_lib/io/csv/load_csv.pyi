@@ -1,6 +1,8 @@
 import pandas as pd
 
-def load_csv(filename: str, section: str | None = None) -> pd.DataFrame:
+from ...path_managment import PathInput
+
+def load_csv(filename: PathInput, section: str | None = None) -> pd.DataFrame:
     """
     Load a custom CSV file with optional section blocks and comment markers.
 
@@ -21,7 +23,7 @@ def load_csv(filename: str, section: str | None = None) -> pd.DataFrame:
 
     Parameters
     ----------
-    filename : str
+    filename : str | os.PathLike[str]
         Path to a CSV file. The filename is validated to ensure it ends with '.csv'.
     section : str | None, optional
         Name of the section to load. If provided, only the data inside the matching

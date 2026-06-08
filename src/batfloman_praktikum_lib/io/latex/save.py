@@ -4,7 +4,7 @@ from typing import cast
 
 import pandas as pd
 
-from batfloman_praktikum_lib.path_managment import create_dirs, dir_exist, ensure_extension, rel_path
+from batfloman_praktikum_lib.path_managment import PathInput, create_dirs, dir_exist, ensure_extension, rel_path
 from batfloman_praktikum_lib.io.termColors import bcolors
 from batfloman_praktikum_lib.io.latex.optionTypes import TableOptions, ValueOptions
 
@@ -47,7 +47,7 @@ register_impl()
 
 def save_latex(
     obj,
-    path: str,
+    path: PathInput,
     options: ValueOptions | TableOptions | None = None,
     *,
     print_success_msg: bool = True,

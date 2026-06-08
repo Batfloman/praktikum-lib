@@ -1,5 +1,8 @@
-from batfloman_praktikum_lib import DataCluster, Dataset
 import numpy as np
+import pandas as pd
+import pytest
+
+from batfloman_praktikum_lib import DataCluster, Dataset, Measurement
 
 
 def test_init_accepts_datasets():
@@ -125,3 +128,23 @@ def test_values_and_errors_use_nan_for_missing_entries():
     assert np.isnan(values[2])
     assert np.isnan(errors[1])
     assert np.isnan(errors[2])
+
+
+def test_dataframe_import_parses_scaled_embedded_measurement():
+    data = DataCluster(pd.DataFrame({"time": ["4.0(2) * 200e-9"]}))
+
+    measurement = data[0]["time"]
+    assert isinstance(measurement, Measurement)
+    assert np.isclose(measurement.value, 8.0e-7)
+    assert np.isclose(measurement.error, 4.0e-8)
+
+
+def test_scaled_embedded_measurement_is_not_measurement_constructor_syntax():
+    with pytest.raises(TypeError):
+        Measurement("4.0(2) * 200e-9")
+
+
+def test_dataframe_import_keeps_scaled_measurement_with_unit_suffix_as_text():
+    data = DataCluster(pd.DataFrame({"time": ["4.0(2) * 200ns"]}))
+
+    assert data[0]["time"] == "4.0(2) * 200ns"

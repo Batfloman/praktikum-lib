@@ -1,8 +1,7 @@
 from . import structs
 from . import util
-from . import graph_old, graph_fit
+from . import graph_fit
 from . import function_analysis
-from . import tables
 from . import io
 
 from .structs import DataCluster, Dataset, Measurement
@@ -17,11 +16,9 @@ __all__ = [
     # modules
     "graph",
     "graph_fit",
-    "tables",
     "io",
     "structs",
     # files 
-    "graph_old",
     "util",
     "function_analysis",
 

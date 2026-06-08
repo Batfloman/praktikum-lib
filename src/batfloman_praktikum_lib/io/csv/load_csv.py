@@ -2,13 +2,13 @@ import re
 import csv
 import pandas as pd
 
-from batfloman_praktikum_lib.path_managment import validate_filename
+from batfloman_praktikum_lib.path_managment import PathInput, validate_filename
 
 _SECTION_PATTERN = re.compile(r"^\[(?P<name>[^\]]+)\]$")
 _HEADER_PATTERN = re.compile(r"^#\s*(?P<header>.+)$")
 _COMMENT_PATTERN = re.compile(r"//.*$")
 
-def load_csv(filename: str, section: str | None = None) -> pd.DataFrame:
+def load_csv(filename: PathInput, section: str | None = None) -> pd.DataFrame:
     filename = validate_filename(filename, ".csv")
 
     data = []

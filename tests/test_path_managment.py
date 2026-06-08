@@ -1,7 +1,6 @@
 from pathlib import Path
 
 from batfloman_praktikum_lib import path_managment
-from batfloman_praktikum_lib.tables import validation
 
 
 def test_rel_path_uses_caller_parent_and_returns_path(tmp_path):
@@ -58,5 +57,5 @@ def test_ensure_extension_accepts_paths(tmp_path):
     assert path_managment.ensure_extension(tmp_path / "data.TXT", ".txt") == tmp_path / "data.TXT"
 
 
-def test_tables_validation_accepts_paths(tmp_path):
-    assert validation.ensure_extension(tmp_path / "table", ".xlsx") == tmp_path / "table.xlsx"
+def test_path_validation_accepts_paths(tmp_path):
+    assert path_managment.ensure_extension(tmp_path / "table", ".xlsx") == tmp_path / "table.xlsx"

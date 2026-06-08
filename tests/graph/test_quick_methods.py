@@ -1,8 +1,8 @@
 from matplotlib import pyplot as plt
 from matplotlib._pylab_helpers import Gcf
 
-import batfloman_praktikum_lib.graph.quickMethods as quick_methods_module
-from batfloman_praktikum_lib.graph.quickMethods import create_plot, show
+import batfloman_praktikum_lib.graph.plot_state as plot_state_module
+from batfloman_praktikum_lib.graph.plot_state import create_plot, show
 
 
 def test_show_reregisters_closed_plot(monkeypatch):
@@ -118,7 +118,7 @@ def test_show_ignore_quiet_bypasses_skip_logic(monkeypatch):
     shown = []
 
     monkeypatch.setattr(
-        quick_methods_module,
+        plot_state_module,
         "should_skip_popup_sequence",
         lambda: called.__setitem__("skip", called["skip"] + 1),
     )

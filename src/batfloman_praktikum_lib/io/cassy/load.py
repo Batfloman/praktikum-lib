@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
 
-from ...path_managment import validate_filename
+from ...path_managment import PathInput, validate_filename
 
-def load_cassy(filename: str) -> pd.DataFrame:
+def load_cassy(filename: PathInput) -> pd.DataFrame:
     filename = validate_filename(filename, ".txt")
 
     with open(filename, 'r') as file:

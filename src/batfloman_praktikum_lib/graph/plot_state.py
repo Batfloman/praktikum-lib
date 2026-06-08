@@ -1,21 +1,17 @@
-import matplotlib.pyplot as plt;
-import numpy as np;
-import os
 import weakref
 from collections import OrderedDict
-
-# typing
 from collections.abc import Iterable
 from typing import Any, Literal, TypeAlias, overload
-from matplotlib.figure import Figure
-from matplotlib.axes import Axes
+
+import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib._pylab_helpers import Gcf
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 
-from ..io.termColors import bcolors
-from ..path_managment import create_dirs, dir_exist
 from ..flags import should_skip_popup_sequence
-
-# ==================================================
+from ..io.termColors import bcolors
+from ..path_managment import PathInput, create_dirs, dir_exist
 
 AxesArray = np.ndarray[Any, np.dtype[object]]
 SubplotsAxes = Axes | AxesArray
@@ -23,17 +19,45 @@ Plot: TypeAlias = tuple[Figure, SubplotsAxes]
 ShowArg: TypeAlias = Figure | Plot | Iterable["ShowArg"]
 
 _tracked_figures: weakref.WeakValueDictionary[int, Figure] = weakref.WeakValueDictionary()
+_current_plot: Plot | None = None
+
+
 def _track_figure(fig: Figure) -> Figure:
     _tracked_figures[fig.number] = fig
     return fig
 
+
+def current_plot() -> Plot | None:
+    return _current_plot
+
+
+def set_current_plot(plot: Plot | None) -> Plot | None:
+    global _current_plot
+
+    if plot is not None:
+        fig, _ = plot
+        _track_figure(fig)
+
+    _current_plot = plot
+    return plot
+
+
+def resolve_plot(plot: Plot | None = None) -> Plot:
+    if plot is not None:
+        set_current_plot(plot)
+        return plot
+
+    resolved_plot = current_plot()
+    return create_plot() if resolved_plot is None else resolved_plot
+
+
 def save_plot(
-        plot: tuple[Figure, SubplotsAxes],
-        path: str,
-        *,
-        print_successMsg: bool = True,
-        auto_create_dir: bool = False,
-):
+    plot: tuple[Figure, SubplotsAxes],
+    path: PathInput,
+    *,
+    print_successMsg: bool = True,
+    auto_create_dir: bool = False,
+) -> None:
     fig, _ = plot
 
     if auto_create_dir and not dir_exist(path):
@@ -47,21 +71,21 @@ def save_plot(
               f"{bcolors.OKBLUE}Plot{bcolors.ENDC}")
         print(f"\t{bcolors.DIM}to {path}{bcolors.ENDC}")
 
-# --------------------
 
 @overload
-def create_plot(*, squeeze: Literal[False], **kwargs) -> tuple[Figure, AxesArray]: ...
+def create_plot(*, squeeze: Literal[False], **kwargs: Any) -> tuple[Figure, AxesArray]: ...
+
 
 @overload
-def create_plot(*, squeeze: bool = True, **kwargs) -> tuple[Figure, SubplotsAxes]: ...
+def create_plot(*, squeeze: bool = True, **kwargs: Any) -> tuple[Figure, SubplotsAxes]: ...
 
-def create_plot(*, squeeze: bool = True, **kwargs) -> tuple[Figure, SubplotsAxes]:
+
+def create_plot(*, squeeze: bool = True, **kwargs: Any) -> tuple[Figure, SubplotsAxes]:
     kwargs["squeeze"] = squeeze
     fig, axes = plt.subplots(**kwargs)
     _track_figure(fig)
-    return fig, axes
+    return set_current_plot((fig, axes))
 
-# --------------------
 
 def _is_plot_tuple(plot: object) -> bool:
     return (

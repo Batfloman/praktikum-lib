@@ -5,7 +5,6 @@ import re
 
 from batfloman_praktikum_lib.structs.measurement import Measurement
 from batfloman_praktikum_lib.significant_rounding.formatter import _get_3n_exponent as get_3n_exponent, _extract_precision as extract_precision
-from batfloman_praktikum_lib.tables.latex_table import formatter
 from batfloman_praktikum_lib.io.formatters import custom_format
 from .format_maps import SIUNITX_UNIT_MAP, SI_PREFIX_MAP
 from ..table_metadata import DEFAULT_ALIGNMENT, ALIGNMENT_VALUES, TableColumnMetadata, TableMetadataManager, normalize_metadata

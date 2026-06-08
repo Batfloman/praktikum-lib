@@ -2,11 +2,11 @@ import re;
 from typing import Union, Callable;
 from sympy.parsing.latex import parse_latex
 import sympy as sp;
-import os;
 
+from ..path_managment import PathInput, ensure_extension
 from .handle_sympy import to_sympy, from_sympy;
 
-def import_latex_as_sympy(filename: str) -> sp.Expr:
+def import_latex_as_sympy(filename: PathInput) -> sp.Expr:
     with open(filename, "r") as file:
         latex_content = file.read();
 
@@ -19,10 +19,10 @@ def import_latex_as_sympy(filename: str) -> sp.Expr:
     else:
         raise ValueError("No valid equation found in the input.")
 
-def import_latex_as_func(filename: str) -> Callable:
+def import_latex_as_func(filename: PathInput) -> Callable:
     return from_sympy(import_latex_as_sympy(filename));
 
-def export_as_latex(func, filename: str, **symbol_overrides) -> None:
+def export_as_latex(func, filename: PathInput, **symbol_overrides) -> None:
     """
     Converts a function or SymPy expression into a LaTeX representation and saves it to a file.
 
@@ -41,12 +41,9 @@ def export_as_latex(func, filename: str, **symbol_overrides) -> None:
         except Exception as e:
             raise ValueError("Invalid input: unable to convert to SymPy.") from e
 
-    # Add .tex extension if not provided
-    if not filename.endswith(".tex"):
-        filename += ".tex"
-
-    absolute_path = os.path.abspath(filename)
-    file_name = os.path.basename(absolute_path)
+    filename = ensure_extension(filename, ".tex")
+    absolute_path = filename.resolve()
+    file_name = filename.name
 
     # Write the LaTeX string to a file
     try:

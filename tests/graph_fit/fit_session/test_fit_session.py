@@ -1,4 +1,5 @@
 import importlib
+import json
 from types import SimpleNamespace
 
 import numpy as np
@@ -222,8 +223,50 @@ def test_fit_session_persists_fixed_params_in_state(tmp_path):
     assert reloaded_model.setup.fixed_params == {"a": 2.0}
 
 
+def test_fit_session_clamps_cached_index_interval_to_current_data(tmp_path):
+    cache_path = tmp_path / "cache" / "session.json"
+    cache_path.parent.mkdir()
+    cache_path.write_text(json.dumps({
+        "models": [
+            {
+                "id": 1,
+                "color_index": 0,
+                "name": "stale",
+                "visible": True,
+                "interval": [2, 11],
+                "interval_kind": "index",
+                "excluded_indices": [],
+                "components": [],
+                "initial_guess": None,
+                "fixed_params": None,
+                "show_1sigma_band": True,
+                "interval_display_mode": "selected-only",
+            }
+        ]
+    }))
+
+    session = workspace_module.FitSession(
+        np.arange(9),
+        np.arange(9),
+        cache_path=cache_path,
+    )
+    model = session.get_model(1)
+
+    assert model.interval == (2, 8)
+    assert session._resolve_x_interval(model) == (2.0, 8.0)
+    assert np.asarray(session.get_model_data(1)[0], dtype=float).tolist() == [
+        2.0,
+        3.0,
+        4.0,
+        5.0,
+        6.0,
+        7.0,
+        8.0,
+    ]
+
+
 def test_fit_session_plot_renders_data_intervals_and_results(monkeypatch, tmp_path):
-    calls = {"scatter": 0, "plot_func": [], "axvspan": []}
+    calls = {"scatter": 0, "plot": [], "axvspan": []}
 
     class DummyAxes:
         def axvspan(self, xmin, xmax, **kwargs):
@@ -240,7 +283,7 @@ def test_fit_session_plot_renders_data_intervals_and_results(monkeypatch, tmp_pa
     graph_module = SimpleNamespace(
         create_plot=lambda: plot,
         scatter=lambda x, y, plot=None: calls.__setitem__("scatter", calls["scatter"] + 1),
-        plot_func=lambda fit_func, plot=None, interval=None, **kwargs: calls["plot_func"].append((fit_func, interval, kwargs)),
+        plot=lambda fit_func, plot=None, interval=None, **kwargs: calls["plot"].append((fit_func, interval, kwargs)),
     )
 
     monkeypatch.setattr(workspace_module, "manual_fit_setup", lambda *args, **kwargs: None)
@@ -264,9 +307,9 @@ def test_fit_session_plot_renders_data_intervals_and_results(monkeypatch, tmp_pa
     assert calls["scatter"] == 1
     assert len(calls["axvspan"]) == 1
     assert calls["axvspan"][0][0:2] == (1.0, 3.0)
-    assert len(calls["plot_func"]) == 1
-    assert calls["plot_func"][0][0] == "fit-1"
-    assert calls["plot_func"][0][1] == (1.0, 3.0)
+    assert len(calls["plot"]) == 1
+    assert calls["plot"][0][0] == "fit-1"
+    assert calls["plot"][0][1] == (1.0, 3.0)
 
 
 def test_fit_session_get_model_by_name_and_rename_persist(tmp_path):

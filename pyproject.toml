@@ -1,6 +1,6 @@
 [project]
 name = "batfloman-praktikum-lib"
-version = "0.3.2.12"
+version = "0.3.3.0"
 description = "Library for scientific measurements and data analysis"
 authors = [{ name = "Florian Hirche" }]
 readme = "README.md"
@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest"]
+dev = ["pytest", "pandas-stubs"]
 
 [build-system]
 requires = ["setuptools>=42", "wheel"]
@@ -26,4 +26,5 @@ build-backend = "setuptools.build_meta"
 package-dir = { "" = "src" }
 
 [tool.setuptools.package-data]
-"batfloman_praktikum_lib" = ["*.pyi"]
+"batfloman_praktikum_lib" = ["*.pyi", "py.typed"]
+"batfloman_praktikum_lib.graph" = ["*.pyi"]

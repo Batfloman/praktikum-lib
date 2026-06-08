@@ -1,13 +1,13 @@
 import pandas as pd
 
-from batfloman_praktikum_lib.path_managment import validate_filename
+from batfloman_praktikum_lib.path_managment import PathInput, validate_filename
 from .load_csv import load_csv
 
-def load_csv_datacluster(filename: str, section: str | None = None):
+def load_csv_datacluster(filename: PathInput, section: str | None = None):
     from ...structs.dataCluster import DataCluster
     return DataCluster(load_csv(filename, section))
 
-def load_csv_consts(filename, section: str | None = None) -> dict:
+def load_csv_consts(filename: PathInput, section: str | None = None) -> dict:
     """
         quickly loads sections with a
             '# name, value, error'
@@ -64,4 +64,3 @@ def _expect_consts(df: pd.DataFrame):
                 found_columns[key] = columns[stripped_variant]
                 break  # Stop at the first match
     return found_columns;
-

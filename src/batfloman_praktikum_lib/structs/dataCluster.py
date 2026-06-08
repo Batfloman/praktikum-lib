@@ -1,4 +1,5 @@
 from dataclasses import asdict
+from pathlib import Path
 import numpy as np
 import pandas as pd
 import re
@@ -6,11 +7,10 @@ import copy
 from collections.abc import Mapping, Sequence
 from typing import List, Union, Callable, Optional, Iterable
 
-from batfloman_praktikum_lib.tables.latex_table import formatter as latex_formatter
 from batfloman_praktikum_lib.structs.measurement import Measurement
 from batfloman_praktikum_lib.structs.dataset import Dataset 
 
-from ..tables.validation import ensure_extension
+from ..path_managment import PathInput
 
 _SCALED_EMBEDDED_MEASUREMENT_PATTERN = re.compile(
     r"^\s*"
@@ -118,8 +118,8 @@ def _df_to_Dataset_arr(df: pd.DataFrame):
 
 class DataCluster:
     @staticmethod
-    def load_csv(filename: str, section: str | None = None) -> 'DataCluster':
-        from ..tables.csv_table import load_csv
+    def load_csv(filename: PathInput, section: str | None = None) -> 'DataCluster':
+        from ..io.csv import load_csv
         return DataCluster(load_csv(filename, section))
 
     # ==================================================
@@ -384,17 +384,20 @@ class DataCluster:
 
         for i in indicies:
             metadata = self.metadata_manager.get_metadata(i)
-            header.append(latex_formatter.format_header(metadata, i));
+            from batfloman_praktikum_lib.io.latex.formatter.format_tables import format_table_header
+            header.append(format_table_header(i, metadata));
             columns.append(self._format_column_data(i))
         data = np.column_stack(columns) # stack side by side -> 2d array
 
         return np.vstack([header, data]) # plop header on top
 
     def _format_column_data(self, index):
+        from batfloman_praktikum_lib.io.latex.formatter.format_tables import format_table_value
+
         column_data = self.column(index)
         metadata = self.metadata_manager.get_metadata(index);
 
-        return latex_formatter.format_column_data(column_data, metadata)
+        return [format_table_value(value, metadata) for value in column_data]
 
     # ==================================================
 
@@ -420,8 +423,6 @@ class DataCluster:
     #         use_indices=use_indices,
     #         exclude_indices=exclude_indices,
     #     )
-    #     # df = self.to_dataframe(use_indicies=use_indices, exclude_indicies=exclude_indices)
-    #     # tables.export_as_latex_table(df, filename, metadata_manager=self.metadata_manager)
     
     # ==================================================
     # json
@@ -522,11 +523,11 @@ class DataCluster:
         from batfloman_praktikum_lib.io.json import loads_json
         return loads_json(json_str)
 
-    def save_json(self, path: str, *, indent: int | None = 2) -> str:
+    def save_json(self, path: PathInput, *, indent: int | None = 2) -> Path:
         from batfloman_praktikum_lib.io.json import save_json
         return save_json(self, path, indent=indent)
 
     @classmethod
-    def load_json(cls, path: str) -> "DataCluster":
+    def load_json(cls, path: PathInput) -> "DataCluster":
         from batfloman_praktikum_lib.io.json import load_json
         return load_json(path)

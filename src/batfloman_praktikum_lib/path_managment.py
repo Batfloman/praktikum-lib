@@ -26,6 +26,9 @@ def set_basedir(base_dir: PathInput, caller_file: Optional[PathInput] = None) ->
 
     _base_dir = path.resolve()
 
+def set_base_dir(base_dir: PathInput, caller_file: Optional[PathInput] = None) -> None:
+    set_basedir(base_dir, caller_file)
+
 def rel_path(path: PathInput, caller_file: Optional[PathInput] = None) -> Path:
     global _base_dir
 

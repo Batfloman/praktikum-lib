@@ -1,8 +1,7 @@
 import json
-import os
 from typing import Any
 
-from ...path_managment import ensure_extension
+from ...path_managment import PathInput, ensure_extension
 from ...structs.dataCluster import DataCluster
 from ...structs.dataset import Dataset
 from ...structs.measurement import Measurement
@@ -30,8 +29,7 @@ def loads_json(json_str: str) -> Any:
     return from_json_data(json.loads(json_str))
 
 
-def load_json(path: str | os.PathLike) -> Any:
-    path = os.fspath(path)
+def load_json(path: PathInput) -> Any:
     path = ensure_extension(path, ".json")
 
     with open(path, "r", encoding="utf-8") as file:

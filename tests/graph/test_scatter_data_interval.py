@@ -55,7 +55,7 @@ def test_scatter_interval_rejects_inverted_bounds():
     plt.close(plot[0])
 
 
-def test_scatter_data_interval_forwards_to_scatter():
+def test_scatter_datacluster_interval_forwards_to_scatter():
     data = DataCluster(
         [
             {"x": 0.0, "y": 10.0},
@@ -66,7 +66,7 @@ def test_scatter_data_interval_forwards_to_scatter():
     )
     plot = graph.create_plot()
 
-    result = graph.scatter_data(
+    result = graph.scatter(
         data,
         "x",
         "y",
@@ -82,7 +82,7 @@ def test_scatter_data_interval_forwards_to_scatter():
     plt.close(plot[0])
 
 
-def test_scatter_data_filters_missing_rows_instead_of_crashing():
+def test_scatter_datacluster_filters_missing_rows_instead_of_crashing():
     data = DataCluster(
         [
             {"x": 0.0, "y": 10.0},
@@ -93,7 +93,7 @@ def test_scatter_data_filters_missing_rows_instead_of_crashing():
     )
     plot = graph.create_plot()
 
-    result = graph.scatter_data(
+    result = graph.scatter(
         data,
         "x",
         "y",

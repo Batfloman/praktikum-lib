@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -6,7 +5,8 @@ from PyQt6.QtCore import QEventLoop, Qt
 from PyQt6.QtWidgets import QApplication
 
 from ...flags import should_skip_popup_sequence
-from ...graph.adapter_measurement import extract_value_error
+from ...graph.helpers import extract_value_error
+from ...path_managment import PathInput
 from .session import AvailableModels, FitSession
 from .windows import open_fit_session_windows
 
@@ -26,7 +26,7 @@ def manual_fit_session(
     *,
     xerr=None,
     yerr=None,
-    cache_path: str | Path = "fit_session.json",
+    cache_path: PathInput = "fit_session.json",
     default_model=None,
     available_models: AvailableModels | None = None,
     visualization_title: str = "Fit Session Visualization",

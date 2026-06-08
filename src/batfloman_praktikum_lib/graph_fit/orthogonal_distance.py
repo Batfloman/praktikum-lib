@@ -6,7 +6,7 @@ from scipy.odr import ODR, Model, RealData
 
 from batfloman_praktikum_lib.io.termColors import bcolors
 
-from ..graph.plotNScatter import filter_nan_values
+from ..graph.helpers import filter_nan_values
 from .helper import evaluate_model, extract_vals_and_errors
 from .fitResult import generate_fit_result, FitResult
 from .fixed_params import (

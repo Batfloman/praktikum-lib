@@ -5,7 +5,7 @@ from scipy.optimize import curve_fit
 
 from batfloman_praktikum_lib.graph_fit.models.fitModel import FitModel
 from .helper import evaluate_model, extract_vals_and_errors
-from ..graph.plotNScatter import filter_nan_values
+from ..graph.helpers import filter_nan_values
 from .fitResult import generate_fit_result, FitResult
 from .fixed_params import (
     build_fixed_param_binding,

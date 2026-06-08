@@ -1,4 +1,7 @@
 from collections.abc import Iterable, Iterator, Mapping
+from pathlib import Path
+
+from ..path_managment import PathInput
 
 class Dataset:
     def __init__(self, measurements: Mapping | None = None):
@@ -107,11 +110,11 @@ class Dataset:
         from batfloman_praktikum_lib.io.json import loads_json
         return loads_json(json_str)
 
-    def save_json(self, path: str, *, indent: int | None = 2) -> str:
+    def save_json(self, path: PathInput, *, indent: int | None = 2) -> Path:
         from batfloman_praktikum_lib.io.json import save_json
         return save_json(self, path, indent=indent)
 
     @classmethod
-    def load_json(cls, path: str) -> "Dataset":
+    def load_json(cls, path: PathInput) -> "Dataset":
         from batfloman_praktikum_lib.io.json import load_json
         return load_json(path)

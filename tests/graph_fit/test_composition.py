@@ -55,6 +55,6 @@ def test_a():
 
     plot = graph.create_plot()
     graph.scatter(x_data, y_data, plot=plot)
-    graph.plot_func(test_model, plot=plot, interval=(xmin, xmax))
-    graph.plot_func(fit, plot=plot, interval=(xmin, xmax), color="red", zorder=4)
+    graph.plot(test_model, plot=plot, interval=(xmin, xmax))
+    graph.plot(fit, plot=plot, interval=(xmin, xmax), color="red", zorder=4)
     # graph.show()

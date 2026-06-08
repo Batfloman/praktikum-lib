@@ -1,9 +1,9 @@
 import numpy as np
 import csv
 
-from batfloman_praktikum_lib.path_managment import validate_filename
+from batfloman_praktikum_lib.path_managment import PathInput, validate_filename
 
-def load_csv_oszi(filename):
+def load_csv_oszi(filename: PathInput) -> tuple[list[float], dict[str, str]]:
     """
     Liest eine CSV-Datei vom Oszilloskop ein.
     
@@ -44,7 +44,7 @@ def load_csv_oszi(filename):
 
     return data, metadata
 
-def load_csv_oszi_with_x(filename):
+def load_csv_oszi_with_x(filename: PathInput) -> tuple[np.ndarray, np.ndarray, dict[str, str]]:
     """
     Liest Oszi-CSV und gibt (x, y, metadata) zurück.
     x = Zeitachse in Sekunden

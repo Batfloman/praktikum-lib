@@ -3,12 +3,11 @@ import json
 from pathlib import Path
 from collections.abc import Callable, Iterable, Mapping, Sequence
 import inspect
-import os
 from typing import Any, Literal, Optional, overload
 
 import numpy as np
 
-from ...path_managment import ensure_extension
+from ...path_managment import PathInput, ensure_extension
 from ...structs.dataset import Dataset
 from .analysis import ComponentFitAnalysis, FitAnalysis
 from ..helper import evaluate_model
@@ -66,7 +65,7 @@ class SessionModel:
     interval_kind: IntervalKind | None = None
     name: Optional[str] = None
     visible: bool = True
-    cache_path: Optional[str] = None
+    cache_path: Optional[PathInput] = None
     excluded_indices: tuple[int, ...] = ()
     components: list[CompositionComponent] = field(default_factory=list)
     initial_guess: dict[str, float] | None = None
@@ -117,7 +116,7 @@ class FitSession:
         *,
         xerr=None,
         yerr=None,
-        cache_path: str | Path = "fit_session.json",
+        cache_path: PathInput = "fit_session.json",
         available_models: AvailableModels | None = None,
     ):
         self.original_x = np.asarray(x, dtype=object)
@@ -129,7 +128,7 @@ class FitSession:
         self.xerr = None if xerr is None else np.asarray(xerr, dtype=object)
         self.yerr = None if yerr is None else np.asarray(yerr, dtype=object)
         self._sort_data_by_x()
-        self.cache_path = Path(ensure_extension(os.fspath(cache_path), ".json"))
+        self.cache_path = ensure_extension(cache_path, ".json")
         self.available_models = self._build_available_models(available_models)
         self.models: list[SessionModel] = []
         self._next_model_id = 1
@@ -181,7 +180,7 @@ class FitSession:
         model_id: Optional[int] = None,
         name: Optional[str] = None,
         visible: bool = True,
-        cache_path: Optional[str] = None,
+        cache_path: Optional[PathInput] = None,
         components: Optional[list[FitSessionModelType]] = None,
     ) -> int:
         resolved_id = self._next_model_id if model_id is None else int(model_id)
@@ -686,7 +685,7 @@ class FitSession:
 
             if instance.result is not None:
                 x_interval = self._resolve_x_interval(instance)
-                graph.plot_func(
+                graph.plot(
                     instance.result,
                     plot=plot,
                     interval=x_interval,

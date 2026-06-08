@@ -19,6 +19,7 @@ from .order_init_params import order_initial_params
 from .render_parts import resolve_render_parts
 from ..fitResult import FIT_METHODS, FitResult
 from ...structs.measurementBase import MeasurementBase
+from ...path_managment import PathInput, ensure_extension
 
 FIT_SELECTION_CACHE_KEY = "__fit_selection__"
 
@@ -177,7 +178,7 @@ def _filter_nan_data(x_data, y_data, *, warn_filter_nan: bool):
     y_arr = np.array(y_data, dtype=float)
     mask = ~np.isnan(x_arr) & ~np.isnan(y_arr)
 
-    from batfloman_praktikum_lib.graph.plotNScatter import filter_nan_values
+    from batfloman_praktikum_lib.graph.helpers import filter_nan_values
     x_clean, y_clean = filter_nan_values(
         np.asarray(x_data, dtype=object),
         np.asarray(y_data, dtype=object),
@@ -302,7 +303,7 @@ def manual_fit_setup(
     *,
     xerr=None,
     yerr=None,
-    cache_path="fitcache.json",
+    cache_path: PathInput | None = "fitcache.json",
     default_values: Optional[Union[List[float], dict[str, float]]] = None,
     render_parts = None,
     warn_filter_nan: bool = True,
@@ -318,7 +319,7 @@ def manual_fit_setup(
 
     # --------------------
     # cache
-    filepath = None if cache_path is None else Path(cache_path).with_suffix(".json")
+    filepath = None if cache_path is None else ensure_extension(cache_path, ".json")
     cached = {} if filepath is None else load_slider_settings(filepath)
     cached_interval_indices, cached_excluded_indices = _load_cached_fit_selection(cached)
     if interval_indices is None:
@@ -478,7 +479,7 @@ def manual_init_params(
     x_data,
     y_data,
     *,
-    cache_path="fitcache.json",
+    cache_path: PathInput | None = "fitcache.json",
     default_values: Optional[Union[List[float], dict[str, float]]] = None,
     render_parts = None,
     warn_filter_nan: bool = True,

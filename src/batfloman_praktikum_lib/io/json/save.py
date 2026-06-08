@@ -1,8 +1,8 @@
 import json
-import os
+from pathlib import Path
 from typing import Any
 
-from ...path_managment import create_dirs, ensure_extension
+from ...path_managment import PathInput, create_dirs, ensure_extension
 
 
 def to_json_data(obj: Any) -> Any:
@@ -23,11 +23,10 @@ def dumps_json(obj: Any, *, indent: int | None = 2) -> str:
 
 def save_json(
     obj: Any,
-    path: str | os.PathLike,
+    path: PathInput,
     *,
     indent: int | None = 2,
-) -> str:
-    path = os.fspath(path)
+) -> Path:
     path = ensure_extension(path, ".json")
     create_dirs(path)
 

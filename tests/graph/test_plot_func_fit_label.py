@@ -19,7 +19,7 @@ def _fit_result(*, quality=1.23456, method="least squares", error=0.1):
 def test_plot_func_adds_default_least_squares_quality_label():
     plot = graph.create_plot()
 
-    result = graph.plot_func(
+    result = graph.plot(
         _fit_result(quality=1.23456, method="least squares"),
         plot=plot,
         interval=(0, 1),
@@ -33,7 +33,7 @@ def test_plot_func_adds_default_least_squares_quality_label():
 def test_plot_func_adds_default_odr_quality_label_with_decimal_comma():
     plot = graph.create_plot()
 
-    result = graph.plot_func(
+    result = graph.plot(
         _fit_result(quality=1.23456, method="ODR"),
         plot=plot,
         interval=(0, 1),
@@ -47,7 +47,7 @@ def test_plot_func_adds_default_odr_quality_label_with_decimal_comma():
 def test_plot_func_can_use_decimal_point_for_fit_quality_label():
     plot = graph.create_plot()
 
-    result = graph.plot_func(
+    result = graph.plot(
         _fit_result(quality=1.23456, method="least squares"),
         plot=plot,
         interval=(0, 1),
@@ -62,7 +62,7 @@ def test_plot_func_can_use_decimal_point_for_fit_quality_label():
 def test_plot_func_can_disable_default_fit_quality_label():
     plot = graph.create_plot()
 
-    result = graph.plot_func(
+    result = graph.plot(
         _fit_result(),
         plot=plot,
         interval=(0, 1),
@@ -77,7 +77,7 @@ def test_plot_func_can_disable_default_fit_quality_label():
 def test_plot_func_keeps_explicit_label_for_fit_result():
     plot = graph.create_plot()
 
-    result = graph.plot_func(
+    result = graph.plot(
         _fit_result(),
         plot=plot,
         interval=(0, 1),
@@ -92,7 +92,7 @@ def test_plot_func_keeps_explicit_label_for_fit_result():
 def test_plot_func_auto_hides_tiny_fit_error_band():
     plot = graph.create_plot()
 
-    result = graph.plot_func(
+    result = graph.plot(
         _fit_result(error=0.001),
         plot=plot,
         interval=(0, 1),
@@ -105,7 +105,7 @@ def test_plot_func_auto_hides_tiny_fit_error_band():
 def test_plot_func_auto_shows_visible_fit_error_band():
     plot = graph.create_plot()
 
-    result = graph.plot_func(
+    result = graph.plot(
         _fit_result(error=0.1),
         plot=plot,
         interval=(0, 1),
@@ -118,7 +118,7 @@ def test_plot_func_auto_shows_visible_fit_error_band():
 def test_plot_func_explicit_with_error_overrides_auto_decision():
     plot = graph.create_plot()
 
-    result = graph.plot_func(
+    result = graph.plot(
         _fit_result(error=0.001),
         plot=plot,
         interval=(0, 1),
