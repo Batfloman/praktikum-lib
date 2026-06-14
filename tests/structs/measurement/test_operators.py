@@ -48,6 +48,50 @@ def test_comparison_ufuncs_use_nominal_values():
     assert np.equal(np.float64(2.0), value)
 
 
+def test_minimum_and_maximum_keep_selected_operand_uncertainty():
+    low = Measurement(1.0, 0.1)
+    high = Measurement(2.0, 0.2)
+
+    minimum = np.minimum(low, high)
+    maximum = np.maximum(low, high)
+
+    assert minimum.value == 1.0
+    assert minimum.error == 0.1
+    assert maximum.value == 2.0
+    assert maximum.error == 0.2
+
+
+def test_minimum_vectorizes_against_scalar_measurement():
+    arr = np.array([Measurement(1.0, 0.1), Measurement(3.0, 0.3)], dtype=object)
+    cap = Measurement(2.0, 0.2)
+
+    result = np.minimum(arr, cap)
+
+    assert [item.value for item in result] == [1.0, 2.0]
+    assert [item.error for item in result] == [0.1, 0.2]
+
+
+def test_logaddexp_with_scalar_left_operand():
+    z = Measurement(2.0, 0.5)
+
+    result = np.logaddexp(0, z)
+
+    assert np.isclose(result.value, np.logaddexp(0, 2.0))
+    assert np.isclose(result.error, np.exp(2.0 - result.value) * 0.5)
+
+
+def test_logaddexp_vectorizes_against_scalar_measurement():
+    arr = np.array([Measurement(0.0, 0.1), Measurement(2.0, 0.5)], dtype=object)
+
+    result = np.logaddexp(0, arr)
+
+    expected_values = np.logaddexp(0, np.array([0.0, 2.0]))
+    expected_errors = np.exp(np.array([0.0, 2.0]) - expected_values) * np.array([0.1, 0.5])
+
+    assert np.allclose([item.value for item in result], expected_values)
+    assert np.allclose([item.error for item in result], expected_errors)
+
+
 def test_log_methods_match_numpy_dispatch():
     value = Measurement(np.e**2, 0.5)
 

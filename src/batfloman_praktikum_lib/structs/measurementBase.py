@@ -437,6 +437,11 @@ class MeasurementBase:
             case np.log10:
                 val = np.log10(values[0])
                 err = errors[0] / values[0] / np.log(10)
+            case np.logaddexp:
+                val = np.logaddexp(values[0], values[1])
+                d1 = np.exp(values[0] - val) * errors[0]
+                d2 = np.exp(values[1] - val) * errors[1]
+                err = (d1**2 + d2**2)**.5
 
             # --------------------
             # speical boys 
@@ -457,6 +462,20 @@ class MeasurementBase:
             case np.abs:
                 val = np.abs(values[0])
                 err = errors[0]
+            case np.minimum:
+                val = np.minimum(values[0], values[1])
+                err = np.where(
+                    (values[0] <= values[1]) | np.isnan(values[0]),
+                    errors[0],
+                    errors[1],
+                )
+            case np.maximum:
+                val = np.maximum(values[0], values[1])
+                err = np.where(
+                    (values[0] >= values[1]) | np.isnan(values[0]),
+                    errors[0],
+                    errors[1],
+                )
             case np.isnan:
                 return np.isnan(values[0])
             case np.less:
